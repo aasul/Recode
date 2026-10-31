@@ -1,0 +1,47 @@
+name: Bug report
+description: Report behavior that differs from Recode's documented contract.
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Recode currently supports a restricted Linux x86-64 instruction set.
+        Check the README before reporting unsupported instructions as bugs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the actual result and the expected result.
+      placeholder: Describe the incorrect behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest input bytes or C example and the exact commands.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Linux distribution, CPU, compiler version, CMake version, build mode.
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Test output or diagnostics
+      description: Paste relevant errors, assertions, or disassembly. Remove private information.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Relevant commits, regressions, or suspected limitations.
+    validations:
+      required: false
