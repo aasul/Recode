@@ -74,7 +74,23 @@ docs: explain code-cache lifetime
 
 Do not force-push over someone else's work. Do not include local environments, generated build output, or files unrelated to your change.
 
-There is no standard build or test command established yet. Follow the commands documented by the repository as they are added. Until then, report exactly what you ran rather than claiming a nonexistent test suite passed.
+The normal build and test commands are:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
+```
+
+CI also runs GCC and Clang release and sanitizer configurations. GitHub Actions verifies submitted PRs, but local testing and code review remain the contributor's responsibility. Report exactly which commands you ran; do not present CI checks you did not run locally as local test results.
+
+## Issues and tracking
+
+Use [GitHub Issues](https://github.com/aasul/Recode/issues) to report bugs, propose features, or track scoped engineering work. Pick the appropriate issue form and include reproduction steps or acceptance criteria. Check existing issues and pull requests before opening a duplicate.
+
+For large or cross-cutting changes, discuss the proposed behavior and scope in an issue before implementing it. A proposal is not an accepted feature until a maintainer agrees to the scope.
+
+See [docs/maintaining.md](docs/maintaining.md) for the repository's tracking and branch protection policy.
 
 ## Pull request review
 

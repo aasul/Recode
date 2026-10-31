@@ -107,51 +107,90 @@ int main(void)
     CHECK(unmap_calls == 5 && protection_calls == 3);
     CHECK(live_mappings == 0);
     const uint8_t loop[] = {0x48,0x89,0xf8,0x48,0x83,0xe8,1,0x75,0xfa,0xc3};
+    size_t optimized_allocations = 0;
     for (unsigned mode = 0; mode < 2; ++mode) {
-        size_t failure = 1;
-        for (; failure <= 16; ++failure) {
+        malloc_calls = 0;
+        fail_malloc_at = 0;
+        CHECK(rc_compile(loop, sizeof(loop), mode != 0, &code, &error) == RC_OK);
+        size_t allocations = malloc_calls;
+        CHECK(allocations > 0);
+        if (mode != 0)
+            optimized_allocations = allocations;
+        CHECK(code.function(7) == 0);
+        CHECK(rc_code_free(&code, NULL) == RC_OK);
+        for (size_t failure = 1; failure <= allocations; ++failure) {
             malloc_calls = 0;
             fail_malloc_at = failure;
             enum rc_status status = rc_compile(loop, sizeof(loop), mode != 0, &code, &error);
-            if (status == RC_OK) {
-                CHECK(code.function(7) == 0);
-                CHECK(rc_code_free(&code, NULL) == RC_OK);
-                break;
-            }
             CHECK(status == RC_MEMORY && error.status == RC_MEMORY);
             CHECK(code.mapping == NULL && code.function == NULL && code.size == 0);
             CHECK(live_mappings == 0);
         }
-        CHECK(failure == (mode != 0 ? 11 : 9));
+        malloc_calls = 0;
+        fail_malloc_at = allocations + 1;
+        CHECK(rc_compile(loop, sizeof(loop), mode != 0, &code, &error) == RC_OK);
+        CHECK(malloc_calls == allocations);
+        CHECK(code.function(7) == 0);
+        CHECK(rc_code_free(&code, NULL) == RC_OK);
     }
     fail_malloc_at = 0;
     CHECK(live_mappings == 0);
     struct rc_insn insns[] = {{RC_INPUT,0},{RC_ADD,1},{RC_SUB,1},{RC_RET,0}};
     struct rc_program program = {insns,4};
-    for (size_t failure = 1; failure <= 2; ++failure) {
+    struct rc_insn optimized_insns[] = {{RC_INPUT,0},{RC_ADD,1},{RC_SUB,1},{RC_RET,0}};
+    struct rc_program optimized = {optimized_insns,4};
+    malloc_calls = 0;
+    fail_malloc_at = 0;
+    CHECK(rc_optimize(&optimized, NULL) == RC_OK);
+    size_t optimize_allocations = malloc_calls;
+    CHECK(optimize_allocations > 0);
+    for (size_t failure = 1; failure <= optimize_allocations; ++failure) {
         malloc_calls = 0;
         fail_malloc_at = failure;
         CHECK(rc_optimize(&program, NULL) == RC_MEMORY);
         CHECK(program.count == 4 && insns[1].op == RC_ADD && insns[2].op == RC_SUB);
+    }
+    size_t expected_length = 0;
+    malloc_calls = 0;
+    fail_malloc_at = 0;
+    CHECK(rc_emit(&program, NULL, 0, &expected_length, NULL) == RC_OK);
+    CHECK(expected_length > 0);
+    size_t emit_allocations = malloc_calls;
+    CHECK(emit_allocations > 0);
+    for (size_t failure = 1; failure <= emit_allocations; ++failure) {
         uint8_t output[32];
         for (size_t i = 0; i < sizeof(output); ++i)
             output[i] = 0xaa;
         size_t length = 99;
         malloc_calls = 0;
+        fail_malloc_at = failure;
         CHECK(rc_emit(&program, output, sizeof(output), &length, NULL) == RC_MEMORY);
         CHECK(length == 0);
         for (size_t i = 0; i < sizeof(output); ++i)
             CHECK(output[i] == 0xaa);
     }
-    malloc_calls = 0;
-    fail_malloc_at = 9; /* Emission after mmap in optimized compilation. */
-    fail_munmap = true;
-    CHECK(rc_compile(loop, sizeof(loop), true, &code, &error) == RC_SYSTEM);
-    CHECK(code.mapping != NULL && code.size == 20 && code.function == NULL);
-    CHECK(error.system_errno == EINVAL && live_mappings == 1);
     fail_malloc_at = 0;
-    fail_munmap = false;
-    CHECK(rc_code_free(&code, NULL) == RC_OK && live_mappings == 0);
+    /* Find an allocation in emission after mmap, without assuming a fixed
+     * allocation count across compiler versions or build configurations. */
+    bool found_post_mapping_failure = false;
+    for (size_t failure = 1; failure <= optimized_allocations; ++failure) {
+        malloc_calls = 0;
+        fail_malloc_at = failure;
+        fail_munmap = true;
+        enum rc_status status = rc_compile(loop, sizeof(loop), true, &code, &error);
+        fail_munmap = false;
+        fail_malloc_at = 0;
+        if (code.mapping != NULL) {
+            CHECK(status == RC_SYSTEM && error.system_errno == EINVAL);
+            CHECK(code.size == 20 && code.function == NULL && live_mappings == 1);
+            CHECK(rc_code_free(&code, NULL) == RC_OK && live_mappings == 0);
+            found_post_mapping_failure = true;
+            break;
+        }
+        CHECK(status == RC_MEMORY && error.status == RC_MEMORY);
+        CHECK(code.function == NULL && code.size == 0 && live_mappings == 0);
+    }
+    CHECK(found_post_mapping_failure);
     puts("allocation and system-call failure paths passed; RW allocation and RX transition verified");
     return 0;
 }
