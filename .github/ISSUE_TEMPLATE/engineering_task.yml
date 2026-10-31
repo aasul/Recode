@@ -1,0 +1,31 @@
+name: Engineering task
+description: Track a scoped refactor, test improvement, or technical investigation.
+title: "task: "
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State the concrete engineering outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: List relevant modules, constraints, and work deliberately excluded.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Describe the behavior or evidence needed to close this issue.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and dependencies
+    validations:
+      required: false
