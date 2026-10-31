@@ -244,3 +244,51 @@ rounding, interpreted in-flight teardown, mutex initialization failure and heap
 cleanup accounting checks. No unsupported claim of general architectural
 compatibility, guaranteed profitability or full leak freedom follows from these
 checks.
+
+## Post-commit desloppify review
+
+Reused the isolated Python 3.14 environment installed directly from
+`https://github.com/aasul/desloppify.git@feat/c-native-analysis`. Its installed
+`direct_url.json` records commit 5179f6ba61dca2050813a1aa7e2f71ba7e4ce765.
+Read the installed `desloppify/data/global/SKILL.md` before inspecting findings.
+No upstream main or PyPI substitution was used.
+
+```sh
+PATH="$PWD/.venv-desloppify/jscpd/node_modules/.bin:$PATH" \
+    .venv-desloppify/bin/desloppify --lang cxx \
+    --exclude .venv-desloppify --exclude build-gcc --exclude build-clang \
+    --exclude build-sanitize-gcc --exclude build-sanitize-clang --exclude build-tsan \
+    scan --path . --no-badge
+.venv-desloppify/bin/desloppify --lang cxx next
+.venv-desloppify/bin/desloppify --lang cxx show '*' --status open
+```
+
+The scan and the rescan after the peak-accounting fix both report 32 open items:
+
+| Items | Inspection result |
+| --- | --- |
+| 10 orphaned files | CMake links all library translation units and defines the three executable entry points. C linkage through header declarations is missing from the tool's importer graph. |
+| 9 untested modules | CTest directly exercises the library and demo; benchmark executables were run separately with result assertions. The importer-based report misses these callers. |
+| 2 unreachable-code reports | `failed:` labels in decoder.c and ir.c are reached by goto. Error and allocation-failure tests exercise them. |
+| 6 stale exclusions | Only the isolated environment and generated build trees are excluded. No project source is excluded. |
+| 3 structural advisories | adaptive.c keeps one ownership/mutex model in 574 lines; recode.h contains public declarations; the 572-line control-flow suite shares its independent byte interpreter and native fixture. Inspection found no defect requiring a split. |
+| 1 signature variance | The purported function is the C keyword `if`, a parser false positive. |
+| 1 boilerplate duplication | Both benchmarks deliberately construct the same 64-operation arithmetic input. Keeping that short fixture local avoids coupling the two executable drivers. |
+
+No scanner finding was marked fixed or hidden to change its score. Manual
+ownership review during this phase found and fixed the temporary-mapping peak
+statistic described above. All four compiler/sanitizer configurations, both TSan
+runtime cases, and the affected GCC/Clang analyzer checks passed after that fix.
+Both runtime benchmark modes were rerun after it; all checksum, capacity and
+cleanup assertions passed, including 32 evictions and zero mapped bytes after
+clear for every budget.
+
+The fork still provides incomplete C/C++ analysis. cppcheck is unavailable;
+security coverage falls back to regex heuristics. There was no scored subjective
+review; all 20 subjective dimensions remain unassessed (recorded as zero).
+Reported overall/objective/strict/verified scores were 15.4/61.6/15.5/61.6.
+Mechanical health/strict scores were file health 88.3/88.3, code quality 53.3/53.3,
+duplication 98.9/98.9, test health 31.8/32.9, and security 100/100. These values
+include the C discovery limitations and are not evidence of security, test
+completeness or correctness. The compiler diagnostics, static analyzers,
+sanitizers, failure tests and source review provide separate evidence.
