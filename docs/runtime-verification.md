@@ -5,6 +5,9 @@ Intel N150, four cores, reported frequency range 700 to 3600 MHz. GCC was
 16.2.1 20260810, Clang 23.1.4, CMake 4.4.5, and the page size was 4096 bytes.
 Affinity, frequency and scheduling were not controlled. These are synthetic
 function results, not evidence of improvements in existing applications.
+The benchmark tables record commit cc369da, before the peak-accounting follow-up.
+That follow-up reports temporary mappings from failed compilation attempts;
+it does not change the interpretation or native execution paths.
 
 ## Build and correctness checks
 
@@ -223,6 +226,9 @@ In particular:
   rule. Global cache error statistics retain deferred cleanup errors.
 - Preparation/query failures allocate no code; post-mmap failures retain the full
   rounded length. Emission size and mapping usage are separate quantities.
+  Review found that a successful rollback omitted its temporary mapping from
+  peak usage. A follow-up tracks whether mmap succeeded even after rollback,
+  and tests distinguish failed mmap from failed protection plus successful cleanup.
 - Runtime destruction rejects accepted calls and requires external exclusion of
   new API entry. It cannot detect a thread that has not acquired the mutex, so
   callers must join threads before final free. This is an explicit API limit.

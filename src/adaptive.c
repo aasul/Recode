@@ -293,15 +293,17 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
         }
     }
     if (status == RC_OK) {
-        status = rc_map_program(&prepared, mapped, &t->code, &error);
+        bool allocated;
+        status = rc_map_program(&prepared, mapped, &t->code, &allocated, &error);
+        size_t peak = r->stats.executable_bytes + (allocated ? mapped : 0);
+        if (peak > r->stats.peak_executable_bytes)
+            r->stats.peak_executable_bytes = peak;
         /* Includes mappings retained when both generation and rollback fail. */
         if (status != RC_OK && t->code.mapping != NULL) {
             add(&r->stats.release_failures, 1);
             r->stats.last_cache_error = error;
         }
         r->stats.executable_bytes += t->code.size;
-        if (r->stats.executable_bytes > r->stats.peak_executable_bytes)
-            r->stats.peak_executable_bytes = r->stats.executable_bytes;
     }
     rc_program_free(&prepared);
     uint64_t cost = elapsed(start, now_ns());
