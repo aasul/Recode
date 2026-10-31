@@ -6,8 +6,9 @@ Intel N150, four cores, reported frequency range 700 to 3600 MHz. GCC was
 Affinity, frequency and scheduling were not controlled. These are synthetic
 function results, not evidence of improvements in existing applications.
 The benchmark tables record commit cc369da, before the peak-accounting follow-up.
-That follow-up reports temporary mappings from failed compilation attempts;
-it does not change the interpretation or native execution paths.
+Follow-ups correct temporary-mapping peak reporting and scope cooldowns to a
+translation's own calls, so unrelated traffic cannot bypass failure backoff.
+They do not change instruction semantics or generated code.
 
 ## Build and correctness checks
 
@@ -271,7 +272,7 @@ The scan and the rescan after the peak-accounting fix both report 32 open items:
 | 9 untested modules | CTest directly exercises the library and demo; benchmark executables were run separately with result assertions. The importer-based report misses these callers. |
 | 2 unreachable-code reports | `failed:` labels in decoder.c and ir.c are reached by goto. Error and allocation-failure tests exercise them. |
 | 6 stale exclusions | Only the isolated environment and generated build trees are excluded. No project source is excluded. |
-| 3 structural advisories | adaptive.c keeps one ownership/mutex model in 574 lines; recode.h contains public declarations; the 572-line control-flow suite shares its independent byte interpreter and native fixture. Inspection found no defect requiring a split. |
+| 3 structural advisories | adaptive.c keeps one ownership/mutex model; recode.h contains public declarations; the 572-line control-flow suite shares its independent byte interpreter and native fixture. Inspection found no defect requiring a split. |
 | 1 signature variance | The purported function is the C keyword `if`, a parser false positive. |
 | 1 boilerplate duplication | Both benchmarks deliberately construct the same 64-operation arithmetic input. Keeping that short fixture local avoids coupling the two executable drivers. |
 
@@ -281,7 +282,11 @@ statistic described above. All four compiler/sanitizer configurations, both TSan
 runtime cases, and the affected GCC/Clang analyzer checks passed after that fix.
 Both runtime benchmark modes were rerun after it; all checksum, capacity and
 cleanup assertions passed, including 32 evictions and zero mapped bytes after
-clear for every budget.
+clear for every budget. A final policy regression also checks that 100 calls to
+an unrelated hot translation cannot bypass a failed compilation's cooldown,
+and aliases share that cooldown. The original runtime-wide counter allowed
+unrelated traffic to trigger retries on every call to a failing translation;
+cooldowns now advance only with calls to the affected translation.
 
 The fork still provides incomplete C/C++ analysis. cppcheck is unavailable;
 security coverage falls back to regex heuristics. There was no scored subjective

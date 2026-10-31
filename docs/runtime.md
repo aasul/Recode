@@ -123,9 +123,9 @@ checks and retirement decisions, not threshold warmup or cooldown calls.
 Nonfatal compilation, capacity, or protection errors execute the current call in
 the interpreter and remain visible in statistics. A shared translation cooldown
 prevents aliases from retrying immediately. Failure delays start at `retry_calls`
-(128 accepted runtime calls) and double up to 512 times that interval, using
-saturating arithmetic. The counter is runtime-wide, so other functions can advance
-a cooldown. After counter exhaustion, a saturated cooldown remains disabled.
+(128 accepted calls to that translation) and double up to 512 times that interval,
+using saturating arithmetic. Aliases share the counter; unrelated functions cannot
+advance a cooldown. After counter exhaustion, a saturated cooldown remains disabled.
 Repeated native profitability retirement uses the base cooldown; fresh interpreted
 evidence must still pass the cost check before recompilation.
 
