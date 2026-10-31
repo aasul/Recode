@@ -67,7 +67,7 @@ enum rc_status rc_interpret(const struct rc_program *program, uint64_t argument,
 
 struct rc_runtime;
 typedef uint64_t rc_handle; /* Nonzero, scoped to one runtime, never reused there. */
-enum rc_policy { RC_POLICY_INTERPRET, RC_POLICY_FIXED, RC_POLICY_ADAPTIVE };
+enum rc_policy { RC_POLICY_INTERPRET, RC_POLICY_FIXED, RC_POLICY_ADAPTIVE, RC_POLICY_TRACE };
 struct rc_runtime_config {
     size_t executable_budget; /* All live page-rounded code mappings, including failed cleanup. */
     enum rc_policy policy;
@@ -79,6 +79,10 @@ struct rc_runtime_config {
     uint64_t horizon_ns;
     uint64_t initial_compile_ns;
     uint64_t initial_native_ns;
+    uint64_t trace_hot_threshold; /* Executed backward edges to a header. */
+    size_t trace_max_instructions; /* 1..4096 operations per recording. */
+    size_t trace_max_candidates; /* 1..16 headers per translation. */
+    bool trace_record_only; /* Diagnostic recording without native compilation. */
 };
 struct rc_function_stats {
     uint64_t invocations, interpreted, jitted;
@@ -88,6 +92,9 @@ struct rc_function_stats {
     uint64_t cache_hits, cache_misses, policy_postponed;
     uint64_t timing_failures;
     size_t generated_size; /* Last successful compilation or cache hit. */
+    uint64_t trace_recordings, trace_aborts, trace_recorded_ops, trace_recording_ns;
+    uint64_t trace_entries, trace_side_exits, trace_yields, trace_iterations;
+    uint64_t trace_hits, trace_misses, trace_retirements;
     struct rc_error last_compile_error; /* Nonfatal failures do not replace execution success. */
 };
 struct rc_runtime_stats {

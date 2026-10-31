@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
@@ -362,6 +363,7 @@ static void *pinned_call(void *data)
 
 static void test_pins(void)
 {
+    blocked = false; resume_call = false;
     struct rc_runtime *r = create(RC_POLICY_FIXED);
     rc_handle a = reg(r); call(r,a); call(r,a);
     struct running run = {r,a,false};
@@ -410,9 +412,145 @@ static void test_pins(void)
     CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
 }
 
+static const uint8_t loop[] = {0x48,0x89,0xf8,0x48,0x83,0xe8,1,0x75,0xfa,0xc3};
+static void trace_call(struct rc_runtime *r, rc_handle h)
+{
+    uint64_t value = 19;
+    CHECK(rc_runtime_call(r,h,100,&value,NULL) == RC_OK && value == 0);
+}
+static struct rc_runtime *trace_runtime(rc_handle *h)
+{
+    struct rc_runtime_config c = rc_runtime_default_config();
+    c.policy = RC_POLICY_TRACE; c.trace_hot_threshold = 2; c.retry_calls = 2;
+    c.executable_budget = (size_t)sysconf(_SC_PAGESIZE);
+    struct rc_runtime *r = NULL;
+    CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+    CHECK(rc_runtime_register(r,loop,sizeof(loop),h,NULL) == RC_OK);
+    return r;
+}
+static void test_trace_failures(void)
+{
+    rc_handle h;
+    struct rc_runtime *r = trace_runtime(&h);
+    malloc_calls = 0; trace_call(r,h);
+    size_t allocations = malloc_calls;
+    CHECK(function_stats(r,h).compilations == 1);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_allocations == 0);
+    for (size_t i = 1; i <= allocations; ++i) {
+        r = trace_runtime(&h);
+        malloc_calls = 0; fail_at = i;
+        trace_call(r,h);
+        fail_at = 0;
+        struct rc_function_stats s = function_stats(r,h);
+        /* Optional recording compaction may fail without losing usable IR. */
+        CHECK((s.trace_aborts + s.compilation_failures == 1 && s.trace_entries == 0) ||
+              (s.compilations == 1 && s.trace_entries > 0));
+        accounted(r);
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_allocations == 0 && live_maps == 0);
+    }
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        r = trace_runtime(&h);
+        fail_map = mode == 0; fail_protect = mode != 0; fail_release = mode == 2;
+        trace_call(r,h);
+        CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).trace_entries == 0);
+        CHECK(live_maps == (mode == 2 ? 1U : 0U));
+        accounted(r);
+        if (mode == 2) {
+            CHECK(rc_runtime_remove(r,h,NULL) == RC_SYSTEM);
+            CHECK(rc_runtime_destroy(&r,NULL) == RC_SYSTEM && r != NULL);
+        }
+        fail_map = false; fail_protect = false; fail_release = false;
+        CHECK(rc_runtime_clear(r,NULL) == RC_OK);
+        for (unsigned j = 0; j < 4; ++j) trace_call(r,h);
+        CHECK(function_stats(r,h).compilations == 1);
+        fail_release = true;
+        CHECK(rc_runtime_invalidate(r,h,NULL) == RC_SYSTEM);
+        uint64_t entries = function_stats(r,h).trace_entries;
+        trace_call(r,h);
+        CHECK(function_stats(r,h).trace_entries == entries);
+        accounted(r);
+        fail_release = false;
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_allocations == 0 && live_maps == 0);
+    }
+}
+
+static void test_trace_registration(void)
+{
+    struct rc_runtime *r = create(RC_POLICY_TRACE);
+    rc_handle h;
+    malloc_calls = 0;
+    CHECK(rc_runtime_register(r,loop,sizeof(loop),&h,NULL) == RC_OK);
+    size_t allocations = malloc_calls;
+    CHECK(rc_runtime_remove(r,h,NULL) == RC_OK);
+    size_t baseline = live_allocations;
+    for (size_t i = 1; i <= allocations; ++i) {
+        malloc_calls = 0; fail_at = i; h = 99;
+        CHECK(rc_runtime_register(r,loop,sizeof(loop),&h,NULL) == RC_MEMORY && h == 99);
+        CHECK(live_allocations == baseline);
+    }
+    fail_at = 0;
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_allocations == 0);
+    bool retained = false;
+    for (size_t i = 1; i < 16 && !retained; ++i) {
+        r = trace_runtime(&h);
+        malloc_calls = 0; fail_at = i; fail_release = true;
+        trace_call(r,h);
+        fail_at = 0;
+        if (function_stats(r,h).compilation_failures != 0 && live_maps != 0) {
+            retained = true;
+            CHECK(function_stats(r,h).trace_entries == 0);
+            CHECK(function_stats(r,h).last_compile_error.system_errno == EINVAL);
+            accounted(r);
+        }
+        fail_release = false;
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_maps == 0 && live_allocations == 0);
+    }
+    CHECK(retained);
+}
+
+static void *trace_pinned_worker(void *context)
+{
+    struct running *run = context;
+    block_clock = true; skip_clocks = 1;
+    trace_call(run->runtime,run->handle);
+    return NULL;
+}
+static void test_trace_pins(void)
+{
+    rc_handle h;
+    struct rc_runtime *r = trace_runtime(&h);
+    trace_call(r,h);
+    CHECK(function_stats(r,h).compilations == 1);
+    blocked = false; resume_call = false;
+    struct running run = {r,h,true};
+    pthread_t thread;
+    CHECK(pthread_create(&thread,NULL,trace_pinned_worker,&run) == 0);
+    pthread_mutex_lock(&barrier);
+    while (!blocked) pthread_cond_wait(&condition,&barrier);
+    pthread_mutex_unlock(&barrier);
+    CHECK(rc_runtime_remove(r,h,NULL) == RC_BUSY);
+    CHECK(rc_runtime_invalidate(r,h,NULL) == RC_BUSY);
+    CHECK(rc_runtime_clear(r,NULL) == RC_BUSY);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_BUSY && r != NULL);
+    uint8_t other[sizeof(loop)+1];
+    memcpy(other,loop,sizeof(loop)-1);
+    other[sizeof(loop)-1] = 0x90; other[sizeof(loop)] = 0xc3;
+    rc_handle b;
+    CHECK(rc_runtime_register(r,other,sizeof(other),&b,NULL) == RC_OK);
+    trace_call(r,b);
+    CHECK(function_stats(r,b).last_compile_error.status == RC_CAPACITY);
+    CHECK(live_maps == 1); accounted(r);
+    pthread_mutex_lock(&barrier);
+    resume_call = true; pthread_cond_broadcast(&condition);
+    pthread_mutex_unlock(&barrier);
+    CHECK(pthread_join(thread,NULL) == 0);
+    CHECK(function_stats(r,h).trace_entries == 2);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_allocations == 0 && live_maps == 0);
+}
+
 int main(void)
 {
-    test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
+    test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;

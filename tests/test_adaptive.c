@@ -274,9 +274,30 @@ static void test_contract(void)
     CHECK(rc_runtime_destroy(&r,NULL) == RC_ARGUMENT);
 }
 
+static void test_index_growth(void)
+{
+    struct rc_runtime *r = create((size_t)sysconf(_SC_PAGESIZE));
+    size_t baseline = stats(r).metadata_bytes;
+    rc_handle handles[2048];
+    for (uint32_t i = 0; i < 2048; ++i) {
+        uint8_t bytes[] = {0xb8,0,0,0,0,0xc3};
+        for (unsigned b = 0; b < 4; ++b) bytes[1+b] = (uint8_t)(i >> (8*b));
+        handles[i] = reg(r,bytes,sizeof(bytes));
+    }
+    CHECK(stats(r).translations == 2048 && stats(r).functions == 2048);
+    for (size_t i = 0; i < 2048; ++i) {
+        size_t index = i * 997 % 2048;
+        call(r,handles[index],99,index);
+        CHECK(rc_runtime_remove(r,handles[index],NULL) == RC_OK);
+        CHECK(rc_runtime_call(r,handles[index],0,&(uint64_t){0},NULL) == RC_NOT_FOUND);
+    }
+    CHECK(stats(r).metadata_bytes == baseline);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+}
+
 int main(void)
 {
-    test_interpreter(); test_tiers_and_identity(); test_large_mapping(); test_pressure(); test_threads(); test_contract();
+    test_index_growth(); test_interpreter(); test_tiers_and_identity(); test_large_mapping(); test_pressure(); test_threads(); test_contract();
     puts("interpreter, tiers, identity, budget, LRU, ownership and concurrent calls passed");
     return 0;
 }

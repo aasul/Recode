@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(recode VERSION 0.3.0 LANGUAGES C)
+project(recode VERSION 0.4.0 LANGUAGES C)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
    NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$" OR
@@ -28,7 +28,7 @@ if(RECODE_SANITIZE)
     add_link_options(-fsanitize=address,undefined)
 endif()
 find_package(Threads REQUIRED)
-add_library(recode src/ir.c src/decoder.c src/optimizer.c src/codegen.c src/runtime.c src/interpreter.c src/adaptive.c)
+add_library(recode src/ir.c src/decoder.c src/optimizer.c src/codegen.c src/runtime.c src/interpreter.c src/adaptive.c src/trace.c)
 target_include_directories(recode PUBLIC include PRIVATE src)
 target_link_libraries(recode PUBLIC Threads::Threads)
 add_executable(recode_demo src/demo.c)
@@ -40,6 +40,11 @@ target_compile_definitions(recode_bench PRIVATE _POSIX_C_SOURCE=200809L)
 target_link_libraries(recode_bench PRIVATE recode)
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(recode_trace_tests tests/test_trace.c)
+    target_include_directories(recode_trace_tests PRIVATE src)
+    target_link_libraries(recode_trace_tests PRIVATE recode)
+    add_test(NAME trace COMMAND recode_trace_tests)
+    set_tests_properties(trace PROPERTIES TIMEOUT 90)
     add_executable(recode_adaptive_failure_tests tests/test_adaptive_failures.c)
     target_link_libraries(recode_adaptive_failure_tests PRIVATE recode)
     target_link_options(recode_adaptive_failure_tests PRIVATE
