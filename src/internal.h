@@ -42,6 +42,11 @@ static inline enum rc_status rc_fail(struct rc_error *error, enum rc_status stat
     return status;
 }
 
+static inline uint64_t rc_saturating_add(uint64_t a, uint64_t b)
+{
+    return b > UINT64_MAX - a ? UINT64_MAX : a + b;
+}
+
 static inline uint64_t rc_extend(uint32_t value)
 {
     return (value & UINT32_C(0x80000000)) != 0
@@ -50,5 +55,7 @@ static inline uint64_t rc_extend(uint32_t value)
 
 enum rc_status rc_interpret_validated(const struct rc_program *program, uint64_t argument,
                                        uint64_t budget, uint64_t *result);
+enum rc_status rc_map_program(const struct rc_program *program, size_t needed,
+                               struct rc_code *code, struct rc_error *error);
 
 #endif
