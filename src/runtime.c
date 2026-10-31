@@ -25,16 +25,26 @@ enum rc_status rc_compile(const uint8_t *bytes, size_t length, bool optimize,
         rc_program_free(&program);
         return status;
     }
+    status = rc_map_program(&program, needed, code, NULL, error);
+    rc_program_free(&program);
+    return status;
+}
+
+enum rc_status rc_map_program(const struct rc_program *program, size_t needed,
+                               struct rc_code *code, bool *allocated, struct rc_error *error)
+{
+    if (allocated != NULL)
+        *allocated = false;
     void *mapping = mmap(NULL, needed, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mapping == MAP_FAILED) {
         int saved_errno = errno;
-        rc_program_free(&program);
         return rc_fail(error, RC_SYSTEM, 0, saved_errno);
     }
+    if (allocated != NULL)
+        *allocated = true;
     size_t emitted;
-    status = rc_emit(&program, mapping, needed, &emitted, error);
-    rc_program_free(&program);
+    enum rc_status status = rc_emit(program, mapping, needed, &emitted, error);
     if (status == RC_OK && mprotect(mapping, needed, PROT_READ | PROT_EXEC) != 0)
         status = rc_fail(error, RC_SYSTEM, 0, errno);
     if (status != RC_OK) {

@@ -1,5 +1,8 @@
 # Control-flow milestone verification
 
+This records the earlier translator milestone. The v0.3 runtime checks and current
+measurements are in [runtime-verification.md](runtime-verification.md).
+
 Measured on Linux x86-64 with an Intel N150 (four cores, 700 to 3600 MHz reported
 by lscpu), GCC 16.2.1, Clang 23.1.4, and CMake 4.4.5. Frequency, CPU affinity,
 and scheduling were not controlled. These results describe synthetic functions,
