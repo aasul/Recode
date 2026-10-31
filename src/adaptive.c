@@ -13,7 +13,7 @@ struct translation {
     struct rc_program program;
     struct rc_code code;
     size_t references, pins, generated;
-    uint64_t retry_after;
+    uint64_t invocations, retry_after;
 };
 
 struct function {
@@ -224,7 +224,7 @@ static enum rc_status make_room(struct rc_runtime *r, size_t needed, struct rc_e
         enum rc_status status = release_mapping(r, victim, error);
         if (status != RC_OK)
             return status;
-        victim->retry_after = rc_saturating_add(r->stats.invocations, r->config.retry_calls);
+        victim->retry_after = rc_saturating_add(victim->invocations, r->config.retry_calls);
         add(&r->stats.evictions, 1);
     }
     return RC_OK;
@@ -235,7 +235,7 @@ static bool should_compile(struct rc_runtime *r, struct function *f, uint64_t no
     struct rc_function_stats *s = &f->stats;
     if (r->config.policy == RC_POLICY_INTERPRET || s->interpreted == 0 ||
         s->invocations < r->config.hot_threshold ||
-        r->stats.invocations <= f->translation->retry_after)
+        f->translation->invocations <= f->translation->retry_after)
         return false;
     if (r->config.policy == RC_POLICY_FIXED)
         return true;
@@ -330,7 +330,7 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
         uint64_t delay = r->config.retry_calls;
         for (uint64_t i = 1; i < failures && i < 10; ++i)
             delay = rc_saturating_add(delay, delay);
-        t->retry_after = rc_saturating_add(r->stats.invocations, delay);
+        t->retry_after = rc_saturating_add(t->invocations, delay);
     }
 }
 
@@ -354,6 +354,7 @@ enum rc_status rc_runtime_call(struct rc_runtime *r, rc_handle handle,
     ++r->stats.active_calls;
     add(&f->stats.invocations, 1);
     add(&r->stats.invocations, 1);
+    add(&t->invocations, 1);
     uint64_t tick = 0;
     /* Every handle starts in the interpreter, even if an alias has cached code. */
     if (f->stats.interpreted != 0 && t->code.function != NULL) {
@@ -425,7 +426,7 @@ enum rc_status rc_runtime_call(struct rc_runtime *r, rc_handle handle,
         f->slow_native_samples >= 8 && f->native_cost >
         rc_saturating_add(f->interpreted_cost, f->interpreted_cost / 4) && t->pins == 0) {
         (void)release_mapping(r, t, NULL);
-        t->retry_after = rc_saturating_add(r->stats.invocations, r->config.retry_calls);
+        t->retry_after = rc_saturating_add(t->invocations, r->config.retry_calls);
         add(&f->stats.policy_postponed, 1);
         f->slow_native_samples = 0;
     }
@@ -471,7 +472,7 @@ enum rc_status rc_runtime_invalidate(struct rc_runtime *r, rc_handle handle,
     enum rc_status status = f == NULL ? rc_fail(error, RC_NOT_FOUND, 0, 0)
         : release_mapping(r, f->translation, error);
     if (f != NULL && status == RC_OK)
-        f->translation->retry_after = rc_saturating_add(r->stats.invocations, r->config.retry_calls);
+        f->translation->retry_after = rc_saturating_add(f->translation->invocations, r->config.retry_calls);
     pthread_mutex_unlock(&r->mutex);
     return status == RC_OK ? rc_fail(error, RC_OK, 0, 0) : status;
 }

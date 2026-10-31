@@ -266,6 +266,38 @@ static void test_system_failures(void)
     CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_maps == 0);
 }
 
+static void test_retry_isolation(void)
+{
+    struct rc_runtime_config c = rc_runtime_default_config();
+    c.policy = RC_POLICY_FIXED; c.hot_threshold = 2; c.retry_calls = 8;
+    c.executable_budget = 2 * (size_t)sysconf(_SC_PAGESIZE);
+    struct rc_runtime *r = NULL;
+    CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+    const uint8_t identity[] = {0x48,0x89,0xf8,0xc3};
+    rc_handle cold = reg(r), hot;
+    CHECK(rc_runtime_register(r,identity,sizeof(identity),&hot,NULL) == RC_OK);
+    uint64_t value;
+    CHECK(rc_runtime_call(r,hot,7,&value,NULL) == RC_OK && value == 7);
+    CHECK(rc_runtime_call(r,hot,7,&value,NULL) == RC_OK && value == 7);
+    call(r,cold);
+    fail_map = true;
+    call(r,cold);
+    CHECK(function_stats(r,cold).compilation_attempts == 1);
+    for (unsigned i = 0; i < 100; ++i)
+        CHECK(rc_runtime_call(r,hot,7,&value,NULL) == RC_OK && value == 7);
+    call(r,cold);
+    CHECK(function_stats(r,cold).compilation_attempts == 1);
+    CHECK(function_stats(r,hot).jitted == 101);
+    rc_handle alias = reg(r);
+    call(r,alias); call(r,alias);
+    CHECK(function_stats(r,alias).compilation_attempts == 0);
+    fail_map = false;
+    for (unsigned i = 0; i < 20; ++i)
+        call(r,cold);
+    CHECK(function_stats(r,cold).compilations == 1);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+}
+
 static void test_policy(void)
 {
     fake_clock = true; clock_step = 1000;
@@ -380,7 +412,7 @@ static void test_pins(void)
 
 int main(void)
 {
-    test_allocations(); test_system_failures(); test_policy(); test_pins();
+    test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;
