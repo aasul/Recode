@@ -32,7 +32,8 @@ enum rc_status rc_compile(const uint8_t *bytes, size_t length, bool optimize,
         rc_program_free(&program);
         return rc_fail(error, RC_SYSTEM, 0, saved_errno);
     }
-    status = rc_emit(&program, mapping, needed, &needed, error);
+    size_t emitted;
+    status = rc_emit(&program, mapping, needed, &emitted, error);
     rc_program_free(&program);
     if (status == RC_OK && mprotect(mapping, needed, PROT_READ | PROT_EXEC) != 0)
         status = rc_fail(error, RC_SYSTEM, 0, errno);
