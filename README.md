@@ -4,8 +4,8 @@ Recode is an experimental dynamic binary optimizer for Linux x86-64, written in
 C11. It translates a restricted machine-code function with the System V AMD64
 signature `uint64_t f(uint64_t)`: decode bytes, build an accumulator IR and
 control-flow graph, simplify arithmetic, emit native instructions, and execute
-from a protected code buffer. Version 0.3 adds interpretation, function profiles,
-fixed or adaptive tier selection, and a bounded executable-code cache.
+from a protected code buffer. Version 0.4 adds hot-loop recording and guarded native trace execution to the
+interpreter, function profiles, tier selection and bounded executable-code cache.
 The contract preserves branch decisions and the returned value.
 
 ## Build and run
@@ -19,6 +19,8 @@ cmake --build build -j
 ./build/recode_demo
 ./build/recode_runtime_bench
 ./build/recode_runtime_bench --pressure
+./build/recode_trace_bench
+./build/recode_trace_bench --pressure
 ctest --test-dir build --output-on-failure
 timeout 60 ./build/recode_bench
 ```
@@ -96,6 +98,12 @@ execution costs, measured compilation costs, recent frequency, bounded predicted
 reuse, and available capacity. These estimates can decline compilation and do not
 guarantee a speedup. See [docs/runtime.md](docs/runtime.md) for the API contract,
 ownership, synchronization, errors and policy details.
+
+Use RC_POLICY_TRACE to record executed hot loop paths and compile them to native
+code with guards and precise RAX/ZF/argument/IR-position side exits. Whole-function
+compilation remains available through the existing policies. Traces share cache
+ownership, execution pins and the executable budget. See [docs/tracing.md](docs/tracing.md)
+for configuration, native state reconstruction, limits and measured regressions.
 
 ## Verification
 
