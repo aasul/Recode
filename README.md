@@ -16,6 +16,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ./build/recode_demo
 ctest --test-dir build --output-on-failure
+./build/recode_bench
 ```
 
 The demo translates `mov rax,rdi; add rax,7; sub rax,2; nop; ret` into an entry
@@ -73,6 +74,12 @@ Sanitizers instrument the C implementation, not the emitted instructions.
 Clang's function-type sanitizer is disabled because emitted functions lack its
 compiler metadata. If LeakSanitizer fails under process tracing, run CTest with
 `ASAN_OPTIONS=detect_leaks=0`; that run does not check leaks.
+
+The benchmark reports compilation time separately from execution. It compares
+unoptimized translation with optimized translation of 64 arithmetic operations,
+checks the results, and alternates execution order over five rounds. It does not
+measure existing applications. Recorded results and limitations are in
+[docs/verification.md](docs/verification.md).
 
 ## Limitations
 
