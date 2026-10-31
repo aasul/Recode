@@ -83,3 +83,16 @@ exposed by the new public API. Sanitizers cover C, not generated machine code;
 LeakSanitizer is disabled as in CI. No human review or proof of race freedom is
 claimed. There is no global program/metadata quota, sandbox, stable ABI or native
 execution budget.
+
+Post-commit quality scan/next/show used the same isolated C fork at 5179f6b,
+verified from its install metadata. It displayed 45 open reports with seven more
+hidden by the detector noise budget. New reports concern the explicitly linked
+integer modules and executed external application, local `require` signatures,
+test/runtime size, and short mapping/protection/rollback sequences shared with
+the trace emitter. Each pipeline publishes a different typed ABI; combining those
+small sequences would add callback/ownership machinery without fixing a defect.
+The existing importer/goto/exclusion reports retain the v0.5 explanations.
+Source inspection found no confirmed defect from these reports. No project code
+was excluded and no finding was hidden or marked fixed to affect a score. Rescan
+reproduced the same reports. C discovery is incomplete and cppcheck unavailable;
+compiler analyzers, executed tests and manual ABI/ownership review remain necessary.
