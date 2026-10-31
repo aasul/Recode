@@ -45,3 +45,27 @@ relocation, disabled tools/tests, output ownership and cleanup errors. No runtim
 execution behavior changed. The public binary ABI remains experimental.
 Sanitizers instrument C, not emitted machine code; leak detection is disabled as
 in CI. CI results are reported on the PR, separately from local checks.
+
+Post-commit desloppify scan/next/show used the isolated C-support fork at
+5179f6ba61dca2050813a1aa7e2f71ba7e4ce765 (verified in direct_url.json). Only the
+local tool environment and generated build trees were excluded. The 42 displayed
+open items, plus three reports hidden by its per-detector noise budget, were
+inspected: C linker/import/test discovery gaps (including the consumer that CTest
+executes), goto cleanup labels incorrectly called unreachable, local static helper
+names, structural size advisories, deliberately local benchmark fixtures and
+notices about generated-directory exclusions. No confirmed source defect arose
+from these reports. No finding was hidden or marked fixed to improve scores.
+The rescan reproduced the same reports. C analysis is incomplete, cppcheck is
+unavailable, and subjective scores were not solicited or used as acceptance
+criteria. Independent compiler analyzers and executed tests provide separate
+verification; no human review is claimed.
+
+Reproduce the scan with:
+
+```sh
+PATH="$PWD/.venv-desloppify/jscpd/node_modules/.bin:$PATH" \
+  .venv-desloppify/bin/desloppify --lang cxx --exclude .venv-desloppify \
+  --exclude 'build*' scan --path . --no-badge
+.venv-desloppify/bin/desloppify --lang cxx next
+.venv-desloppify/bin/desloppify --lang cxx show '*' --status open --top 60
+```
