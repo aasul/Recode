@@ -70,14 +70,18 @@ C parsing improvements under review: https://github.com/peteromallet/desloppify/
 
 PR #910 is not full native C support. It improves C/C++ Tree-sitter grammar selection in the shared `cxx` plugin. Findings may be incomplete or incorrect for C code. Do not claim otherwise, and do not treat a numeric score as proof of code quality.
 
-Until upstream has suitable C support, prefer the author's fork at `aasul/desloppify`, branch `feat/c-native-analysis`. For reproducibility, the revision known to contain that patch when this file was written is `5179f6ba61dca2050813a1aa7e2f71ba7e4ce765`. Check that the branch and interface still match before changing the pinned revision.
+Until upstream has suitable C support, use the C-support branch in the author's fork:
+
+https://github.com/aasul/desloppify/tree/feat/c-native-analysis
+
+This is the branch behind PR #910, not the upstream `main` branch or the published PyPI release. Install directly from `feat/c-native-analysis` so local checks use the C parsing changes. For repeatable CI or when debugging a regression, pin a tested commit instead. The revision previously verified to contain the patch is `5179f6ba61dca2050813a1aa7e2f71ba7e4ce765`.
 
 Keep the tool in a separate Python 3.11+ virtual environment and do not add it as a runtime dependency of Recode. Example setup and scan:
 
 ```sh
 python3 -m venv .venv-desloppify
 .venv-desloppify/bin/python -m pip install --upgrade pip
-.venv-desloppify/bin/python -m pip install "desloppify[full] @ git+https://github.com/aasul/desloppify.git@5179f6ba61dca2050813a1aa7e2f71ba7e4ce765"
+.venv-desloppify/bin/python -m pip install "desloppify[full] @ git+https://github.com/aasul/desloppify.git@feat/c-native-analysis"
 .venv-desloppify/bin/desloppify --lang cxx scan --path .
 .venv-desloppify/bin/desloppify --lang cxx next
 ```
