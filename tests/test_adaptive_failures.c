@@ -219,6 +219,9 @@ static void test_system_failures(void)
         CHECK(s.last_compile_error.system_errno == (mode == 0 ? ENOMEM : (mode == 1 ? EACCES : EINVAL)));
         accounted(r);
         CHECK(live_maps == (mode == 2 ? 1U : 0U));
+        struct rc_runtime_stats peak;
+        CHECK(rc_runtime_get_stats(r,&peak,NULL) == RC_OK);
+        CHECK(peak.peak_executable_bytes == (mode == 0 ? 0 : (size_t)sysconf(_SC_PAGESIZE)));
         size_t attempts = map_calls;
         for (unsigned j = 0; j < 4; ++j)
             call(r,h);

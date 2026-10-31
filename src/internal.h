@@ -56,6 +56,6 @@ static inline uint64_t rc_extend(uint32_t value)
 enum rc_status rc_interpret_validated(const struct rc_program *program, uint64_t argument,
                                        uint64_t budget, uint64_t *result);
 enum rc_status rc_map_program(const struct rc_program *program, size_t needed,
-                               struct rc_code *code, struct rc_error *error);
+                               struct rc_code *code, bool *allocated, struct rc_error *error);
 
 #endif
