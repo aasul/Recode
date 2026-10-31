@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build-${{ matrix.compiler }}-${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { compiler: gcc, mode: release, build_type: Release, sanitize: "OFF" }
+          - { compiler: clang, mode: release, build_type: Release, sanitize: "OFF" }
+          - { compiler: gcc, mode: sanitize, build_type: Debug, sanitize: "ON" }
+          - { compiler: clang, mode: sanitize, build_type: Debug, sanitize: "ON" }
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          cmake -S . -B build-ci \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DRECODE_SANITIZE=${{ matrix.sanitize }}
+      - name: Build
+        run: cmake --build build-ci --parallel 2
+      - name: Run tests
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: halt_on_error=1
+        run: ctest --test-dir build-ci --output-on-failure --timeout 120
