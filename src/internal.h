@@ -3,6 +3,37 @@
 
 #include "recode.h"
 
+struct rc_block {
+    size_t first, end; /* Half-open instruction range. */
+    size_t successors[2];
+    size_t successor_count;
+    size_t next; /* Reachability queue link. */
+    unsigned defined, produces;
+    bool reachable, zf_live;
+};
+
+struct rc_cfg {
+    struct rc_block *blocks;
+    size_t *block_for;
+    size_t count;
+};
+
+enum { RC_RAX_DEFINED = 1, RC_ZF_DEFINED = 2 };
+
+static inline bool rc_is_branch(enum rc_op op)
+{
+    return op == RC_JMP || op == RC_JZ || op == RC_JNZ;
+}
+
+static inline bool rc_writes_zf(enum rc_op op)
+{
+    return op == RC_ADD || op == RC_SUB || op == RC_CMP || op == RC_TEST;
+}
+
+enum rc_status rc_analyze(const struct rc_program *program, struct rc_cfg *cfg,
+                           struct rc_error *error);
+void rc_cfg_free(struct rc_cfg *cfg);
+
 static inline enum rc_status rc_fail(struct rc_error *error, enum rc_status status,
                                      size_t offset, int system_errno)
 {
