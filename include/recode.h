@@ -8,7 +8,7 @@
 enum rc_status {
     RC_OK, RC_ARGUMENT, RC_MEMORY, RC_TRUNCATED, RC_UNSUPPORTED,
     RC_UNINITIALIZED, RC_MISSING_RET, RC_TRAILING, RC_INVALID_IR,
-    RC_CAPACITY, RC_SYSTEM, RC_BRANCH, RC_UNDEFINED_ZF
+    RC_CAPACITY, RC_SYSTEM, RC_BRANCH, RC_UNDEFINED_ZF, RC_BUSY, RC_NOT_FOUND, RC_BUDGET
 };
 
 struct rc_error {
@@ -59,5 +59,10 @@ enum rc_status rc_compile(const uint8_t *bytes, size_t length, bool optimize,
                           struct rc_code *code, struct rc_error *error);
 /* No calls may be in flight when releasing code. On failure the mapping stays owned. */
 enum rc_status rc_code_free(struct rc_code *code, struct rc_error *error);
+
+/* budget == 0 means unlimited. A positive budget counts executed IR instructions.
+ * Invalid programs and exhausted budgets leave result unchanged. */
+enum rc_status rc_interpret(const struct rc_program *program, uint64_t argument,
+                             uint64_t budget, uint64_t *result, struct rc_error *error);
 
 #endif

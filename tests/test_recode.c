@@ -238,6 +238,14 @@ static void test_permissions(const struct rc_code *code)
 static void compare_execution(const uint8_t *bytes, size_t length,
                                const uint64_t *inputs, const uint64_t *expected, size_t count)
 {
+    struct rc_program program = {0};
+    CHECK(rc_decode(bytes, length, &program, NULL) == RC_OK);
+    for (size_t i = 0; i < count; ++i) {
+        uint64_t result;
+        CHECK(rc_interpret(&program, inputs[i], 0, &result, NULL) == RC_OK);
+        CHECK(result == expected[i]);
+    }
+    rc_program_free(&program);
     for (unsigned optimize = 0; optimize < 2; ++optimize) {
         struct rc_code code = {0};
         struct rc_error error;

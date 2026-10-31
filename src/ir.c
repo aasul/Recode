@@ -17,6 +17,9 @@ const char *rc_status_string(enum rc_status status)
     case RC_CAPACITY: return "output buffer or relative branch capacity exceeded";
     case RC_SYSTEM: return "operating system error";
     case RC_BRANCH: return "branch outside input or into an instruction";
+    case RC_BUSY: return "resource has active calls";
+    case RC_NOT_FOUND: return "unknown function handle";
+    case RC_BUDGET: return "diagnostic instruction budget exhausted";
     case RC_UNDEFINED_ZF: return "ZF used before initialization";
     }
     return "unknown error";
