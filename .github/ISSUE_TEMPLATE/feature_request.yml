@@ -1,0 +1,38 @@
+name: Feature proposal
+description: Propose a feature or instruction-set extension.
+title: "feat: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What use case is currently unsupported?
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Proposed behavior
+      description: Define the requested behavior and a reasonable initial scope.
+    validations:
+      required: true
+  - type: textarea
+    id: correctness
+    attributes:
+      label: Correctness and compatibility
+      description: Describe any implications for CPU flags, ABI, memory, control flow, or existing APIs.
+    validations:
+      required: false
+  - type: textarea
+    id: verification
+    attributes:
+      label: How could it be tested?
+      description: Suggest regression tests or independent references.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
