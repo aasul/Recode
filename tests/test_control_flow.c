@@ -146,6 +146,14 @@ static void compare(const uint8_t *bytes, size_t length, const uint64_t *inputs,
         CHECK(status == RC_OK);
         struct rc_program program = {0};
         CHECK(rc_decode(bytes, length, &program, NULL) == RC_OK);
+        struct rc_runtime_config config = rc_runtime_default_config();
+        config.policy = RC_POLICY_FIXED;
+        config.hot_threshold = 2;
+        config.optimize = mode != 0;
+        struct rc_runtime *runtime = NULL;
+        rc_handle handle;
+        CHECK(rc_runtime_create(&config, &runtime, NULL) == RC_OK);
+        CHECK(rc_runtime_register(runtime, bytes, length, &handle, NULL) == RC_OK);
         for (size_t i = 0; i < count; ++i) {
             uint64_t expected = interpret(bytes, length, inputs[i]);
             CHECK(source(inputs[i]) == expected);
@@ -153,7 +161,10 @@ static void compare(const uint8_t *bytes, size_t length, const uint64_t *inputs,
             uint64_t result;
             CHECK(rc_interpret(&program, inputs[i], 10000, &result, NULL) == RC_OK);
             CHECK(result == expected);
+            CHECK(rc_runtime_call(runtime, handle, inputs[i], &result, NULL) == RC_OK);
+            CHECK(result == expected);
         }
+        CHECK(rc_runtime_destroy(&runtime, NULL) == RC_OK);
         rc_program_free(&program);
         CHECK(rc_code_free(&code, NULL) == RC_OK);
     }
