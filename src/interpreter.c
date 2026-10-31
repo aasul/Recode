@@ -1,33 +1,65 @@
-#include "internal.h"
+#include "trace.h"
 
-/* The caller has validated immutable storage for the duration of execution. */
+/* Validated immutable IR is kept alive by the runtime's active-call ownership. */
+static bool step(const struct rc_program *program, struct rc_state *s)
+{
+    struct rc_insn insn = program->insns[s->pc++];
+    switch (insn.op) {
+    case RC_INPUT: s->rax = s->argument; break;
+    case RC_CONST: s->rax = insn.immediate; break;
+    case RC_ADD: s->rax += rc_extend(insn.immediate); s->zf = s->rax == 0; break;
+    case RC_SUB: s->rax -= rc_extend(insn.immediate); s->zf = s->rax == 0; break;
+    case RC_CMP: s->zf = s->rax == rc_extend(insn.immediate); break;
+    case RC_TEST: s->zf = s->rax == 0; break;
+    case RC_JMP: s->pc = insn.immediate; break;
+    case RC_JZ: if (s->zf != 0) s->pc = insn.immediate; break;
+    case RC_JNZ: if (s->zf == 0) s->pc = insn.immediate; break;
+    case RC_NOP: break;
+    case RC_RET: return true;
+    }
+    return false;
+}
+
+static void finish(const struct rc_program *program, struct rc_state *state)
+{
+    while (!step(program,state)) { }
+}
+
 enum rc_status rc_interpret_validated(const struct rc_program *program, uint64_t argument,
                                        uint64_t budget, uint64_t *result)
 {
-    uint64_t rax = 0;
-    bool zero = false;
-    size_t pc = 0;
-    bool limited = budget != 0;
+    struct rc_state state = {.argument = argument};
+    if (budget == 0) {
+        finish(program,&state);
+        *result = state.rax;
+        return RC_OK;
+    }
     for (;;) {
-        if (limited) {
-            if (budget == 0)
-                return RC_BUDGET;
-            --budget;
+        if (budget == 0) return RC_BUDGET;
+        --budget;
+        if (step(program,&state)) {
+            *result = state.rax;
+            return RC_OK;
         }
-        struct rc_insn insn = program->insns[pc++];
-        switch (insn.op) {
-        case RC_INPUT: rax = argument; break;
-        case RC_CONST: rax = insn.immediate; break;
-        case RC_ADD: rax += rc_extend(insn.immediate); zero = rax == 0; break;
-        case RC_SUB: rax -= rc_extend(insn.immediate); zero = rax == 0; break;
-        case RC_CMP: zero = rax == rc_extend(insn.immediate); break;
-        case RC_TEST: zero = rax == 0; break;
-        case RC_JMP: pc = insn.immediate; break;
-        case RC_JZ: if (zero) pc = insn.immediate; break;
-        case RC_JNZ: if (!zero) pc = insn.immediate; break;
-        case RC_NOP: break;
-        case RC_RET: *result = rax; return RC_OK;
+    }
+}
+
+void rc_interpret_observed(const struct rc_program *program, struct rc_state *s,
+                            struct rc_observer *o)
+{
+    for (;;) {
+        if (o->before == NULL) {
+            finish(program,s);
+            return;
         }
+        if (o->recording == NULL && o->before(o,s))
+            return;
+        size_t pc = s->pc;
+        bool returned = step(program,s);
+        if (o->recording != NULL)
+            rc_trace_record(o->recording,program,pc,s,returned);
+        o->after(o,pc,s,returned);
+        if (returned) return;
     }
 }
 

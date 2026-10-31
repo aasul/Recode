@@ -154,6 +154,12 @@ static void compare(const uint8_t *bytes, size_t length, const uint64_t *inputs,
         rc_handle handle;
         CHECK(rc_runtime_create(&config, &runtime, NULL) == RC_OK);
         CHECK(rc_runtime_register(runtime, bytes, length, &handle, NULL) == RC_OK);
+        struct rc_runtime *tracing = NULL;
+        rc_handle trace_handle;
+        config.policy = RC_POLICY_TRACE;
+        config.trace_hot_threshold = 2;
+        CHECK(rc_runtime_create(&config,&tracing,NULL) == RC_OK);
+        CHECK(rc_runtime_register(tracing,bytes,length,&trace_handle,NULL) == RC_OK);
         for (size_t i = 0; i < count; ++i) {
             uint64_t expected = interpret(bytes, length, inputs[i]);
             CHECK(source(inputs[i]) == expected);
@@ -163,7 +169,10 @@ static void compare(const uint8_t *bytes, size_t length, const uint64_t *inputs,
             CHECK(result == expected);
             CHECK(rc_runtime_call(runtime, handle, inputs[i], &result, NULL) == RC_OK);
             CHECK(result == expected);
+            CHECK(rc_runtime_call(tracing,trace_handle,inputs[i],&result,NULL) == RC_OK);
+            CHECK(result == expected);
         }
+        CHECK(rc_runtime_destroy(&tracing,NULL) == RC_OK);
         CHECK(rc_runtime_destroy(&runtime, NULL) == RC_OK);
         rc_program_free(&program);
         CHECK(rc_code_free(&code, NULL) == RC_OK);
@@ -556,6 +565,22 @@ static void test_nontermination(void)
     CHECK(waitpid(child, &status, 0) == child);
     CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM);
     rc_program_free(&program);
+    struct rc_runtime_config config = rc_runtime_default_config();
+    config.policy = RC_POLICY_TRACE; config.trace_hot_threshold = 1;
+    struct rc_runtime *runtime = NULL;
+    rc_handle handle;
+    CHECK(rc_runtime_create(&config,&runtime,NULL) == RC_OK);
+    CHECK(rc_runtime_register(runtime,infinite,sizeof(infinite),&handle,NULL) == RC_OK);
+    child = fork();
+    CHECK(child >= 0);
+    if (child == 0) {
+        alarm(1);
+        (void)rc_runtime_call(runtime,handle,0,&result,NULL);
+        _exit(1);
+    }
+    CHECK(waitpid(child,&status,0) == child);
+    CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM);
+    CHECK(rc_runtime_destroy(&runtime,NULL) == RC_OK);
 }
 
 int main(void)
