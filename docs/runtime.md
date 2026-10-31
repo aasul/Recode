@@ -85,7 +85,7 @@ the denominator. Compilation time measures the whole compilation attempt inside
 the mutex. Timer failures or zero durations increment `timing_failures`; timing
 failure does not change the result. Benchmarks independently measure total costs.
 
-Three policies are available:
+Four policies are available:
 
 - RC_POLICY_INTERPRET always interprets, including aliases of cached functions.
   This policy applies to the whole runtime, so it cannot contain native entries.
@@ -94,6 +94,8 @@ Three policies are available:
   a sequential caller interprets 31 calls and compiles on call 32. Threshold 1
   still requires the first completed interpreted call.
 - RC_POLICY_ADAPTIVE adds measured cost and reuse checks to that threshold.
+- RC_POLICY_TRACE runs the interpreter with hot-loop recording and native trace
+  entry, with no whole-function compilation. See [tracing.md](tracing.md).
 
 The adaptive policy requires eight interpreted timing samples. It maintains an
 integer moving average with weight approximately 1/8 and caps individual policy
@@ -193,10 +195,10 @@ the caller to exclude release while executing.
 
 ## Current trade-offs
 
-Lookup and exact translation matching use linear lists. LRU touch and eviction
-also scan lists. This keeps ownership simple but produces quadratic bulk
-registration cost and poor lookup scaling with many handles. Benchmarks record
-that limitation. Mutexes, clocks, statistics, validation and compilation add real
+Handle and translation identity lookup use growing hash buckets with full IR
+comparison on hash matches. MRU updates use a doubly linked list. Eviction still
+scans ineligible entries, and collisions can degrade lookup. Buckets and trace
+metadata count toward reported metadata usage. Mutexes, clocks, statistics, validation and compilation add real
 overhead; direct native calls remain much cheaper for tiny functions. Adaptive
 estimates are sensitive to CPU frequency, scheduling, timer cost, changing inputs,
 and callers' future behavior. See [runtime-verification.md](runtime-verification.md)
