@@ -137,21 +137,39 @@ int main(void)
     CHECK(live_mappings == 0);
     struct rc_insn insns[] = {{RC_INPUT,0},{RC_ADD,1},{RC_SUB,1},{RC_RET,0}};
     struct rc_program program = {insns,4};
-    for (size_t failure = 1; failure <= 2; ++failure) {
+    struct rc_insn optimized_insns[] = {{RC_INPUT,0},{RC_ADD,1},{RC_SUB,1},{RC_RET,0}};
+    struct rc_program optimized = {optimized_insns,4};
+    malloc_calls = 0;
+    fail_malloc_at = 0;
+    CHECK(rc_optimize(&optimized, NULL) == RC_OK);
+    size_t optimize_allocations = malloc_calls;
+    CHECK(optimize_allocations > 0);
+    for (size_t failure = 1; failure <= optimize_allocations; ++failure) {
         malloc_calls = 0;
         fail_malloc_at = failure;
         CHECK(rc_optimize(&program, NULL) == RC_MEMORY);
         CHECK(program.count == 4 && insns[1].op == RC_ADD && insns[2].op == RC_SUB);
+    }
+    size_t expected_length = 0;
+    malloc_calls = 0;
+    fail_malloc_at = 0;
+    CHECK(rc_emit(&program, NULL, 0, &expected_length, NULL) == RC_OK);
+    CHECK(expected_length > 0);
+    size_t emit_allocations = malloc_calls;
+    CHECK(emit_allocations > 0);
+    for (size_t failure = 1; failure <= emit_allocations; ++failure) {
         uint8_t output[32];
         for (size_t i = 0; i < sizeof(output); ++i)
             output[i] = 0xaa;
         size_t length = 99;
         malloc_calls = 0;
+        fail_malloc_at = failure;
         CHECK(rc_emit(&program, output, sizeof(output), &length, NULL) == RC_MEMORY);
         CHECK(length == 0);
         for (size_t i = 0; i < sizeof(output); ++i)
             CHECK(output[i] == 0xaa);
     }
+    fail_malloc_at = 0;
     /* Find an allocation in emission after mmap, without assuming a fixed
      * allocation count across compiler versions or build configurations. */
     bool found_post_mapping_failure = false;
