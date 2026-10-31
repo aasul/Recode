@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include "internal.h"
+#include "trace.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -8,16 +8,28 @@
 #include <time.h>
 #include <unistd.h>
 
+struct trace_slot {
+    struct rc_trace trace;
+    struct rc_code code;
+    rc_trace_function function;
+    uint64_t edges, retry_after;
+    unsigned failures, short_exits;
+    bool recording, disabled;
+};
+
 struct translation {
-    struct translation *next;
+    struct translation *next, *previous, *hash_next;
+    uint64_t hash;
     struct rc_program program;
     struct rc_code code;
     size_t references, pins, generated;
     uint64_t invocations, retry_after;
+    struct trace_slot *traces;
+    size_t trace_count;
 };
 
 struct function {
-    struct function *next;
+    struct function *next, *previous, *hash_next;
     struct translation *translation;
     rc_handle handle;
     size_t active;
@@ -27,12 +39,16 @@ struct function {
     uint64_t window_start, window_calls;
 };
 
+struct lookup_bucket { struct function *function; struct translation *translation; };
+
 struct rc_runtime {
     pthread_mutex_t mutex;
     struct rc_runtime_config config;
     struct rc_runtime_stats stats;
     struct function *functions;
-    struct translation *translations; /* MRU first, including entries without code. */
+    struct translation *translations, *oldest; /* MRU first, including entries without code. */
+    struct lookup_bucket *buckets;
+    size_t bucket_count;
     rc_handle next_handle;
     size_t page_size;
     uint64_t compile_cost;
@@ -72,7 +88,8 @@ struct rc_runtime_config rc_runtime_default_config(void)
         .optimize = true, .hot_threshold = 32, .retry_calls = 128,
         .sample_period = 16, .expected_reuse = 4096,
         .horizon_ns = UINT64_C(100000000), .initial_compile_ns = 50000,
-        .initial_native_ns = 50
+        .initial_native_ns = 50, .trace_hot_threshold = 32,
+        .trace_max_instructions = 256, .trace_max_candidates = 4
     };
 }
 
@@ -80,10 +97,14 @@ enum rc_status rc_runtime_create(const struct rc_runtime_config *config,
                                   struct rc_runtime **out, struct rc_error *error)
 {
     if (config == NULL || out == NULL || *out != NULL ||
-        config->policy < RC_POLICY_INTERPRET || config->policy > RC_POLICY_ADAPTIVE ||
+        config->policy < RC_POLICY_INTERPRET || config->policy > RC_POLICY_TRACE ||
         config->hot_threshold == 0 || config->retry_calls == 0 ||
         config->sample_period == 0 || config->expected_reuse == 0 ||
-        config->horizon_ns == 0 || config->initial_compile_ns == 0)
+        config->horizon_ns == 0 || config->initial_compile_ns == 0 ||
+        (config->policy == RC_POLICY_TRACE &&
+         (config->trace_hot_threshold == 0 || config->trace_max_instructions == 0 ||
+          config->trace_max_instructions > RC_TRACE_MAX_OPS || config->trace_max_candidates == 0 ||
+          config->trace_max_candidates > RC_TRACE_MAX_CANDIDATES)))
         return rc_fail(error, RC_ARGUMENT, 0, 0);
     long page = sysconf(_SC_PAGESIZE);
     if (page <= 0)
@@ -105,9 +126,10 @@ enum rc_status rc_runtime_create(const struct rc_runtime_config *config,
 
 static struct function *find_function(struct rc_runtime *r, rc_handle handle)
 {
-    for (struct function *f = r->functions; f != NULL; f = f->next)
-        if (f->handle == handle)
-            return f;
+    if (r->bucket_count == 0) return NULL;
+    for (struct function *f = r->buckets[handle % r->bucket_count].function;
+         f != NULL; f = f->hash_next)
+        if (f->handle == handle) return f;
     return NULL;
 }
 
@@ -122,6 +144,63 @@ static bool same_program(const struct rc_program *a, const struct rc_program *b)
     return true;
 }
 
+static uint64_t program_hash(const struct rc_program *p)
+{
+    uint64_t hash = UINT64_C(14695981039346656037);
+    for (size_t i = 0; i < p->count; ++i) {
+        hash = (hash ^ (uint64_t)p->insns[i].op) * UINT64_C(1099511628211);
+        hash = (hash ^ p->insns[i].immediate) * UINT64_C(1099511628211);
+    }
+    return hash;
+}
+
+static enum rc_status grow_index(struct rc_runtime *r)
+{
+    if (r->stats.functions < r->bucket_count) return RC_OK;
+    size_t count = r->bucket_count == 0 ? 16 : r->bucket_count * 2;
+    if (count < r->bucket_count || count > SIZE_MAX / sizeof(*r->buckets) ||
+        count * sizeof(*r->buckets) > SIZE_MAX - r->stats.metadata_bytes)
+        return RC_CAPACITY;
+    struct lookup_bucket *buckets = calloc(count,sizeof(*buckets));
+    if (buckets == NULL) return RC_MEMORY;
+    for (struct function *f = r->functions; f != NULL; f = f->next) {
+        size_t i = f->handle % count;
+        f->hash_next = buckets[i].function;
+        buckets[i].function = f;
+    }
+    for (struct translation *t = r->translations; t != NULL; t = t->next) {
+        size_t i = t->hash % count;
+        t->hash_next = buckets[i].translation;
+        buckets[i].translation = t;
+    }
+    r->stats.metadata_bytes += (count - r->bucket_count) * sizeof(*buckets);
+    free(r->buckets);
+    r->buckets = buckets;
+    r->bucket_count = count;
+    return RC_OK;
+}
+
+static void unlink_translation(struct rc_runtime *r, struct translation *t)
+{
+    if (t->previous != NULL) t->previous->next = t->next;
+    else r->translations = t->next;
+    if (t->next != NULL) t->next->previous = t->previous;
+    else r->oldest = t->previous;
+}
+
+static size_t trace_headers(const struct rc_program *program, size_t limit, uint32_t *headers)
+{
+    size_t count = 0;
+    for (size_t i = 0; i < program->count && count < limit; ++i) {
+        struct rc_insn insn = program->insns[i];
+        if (!rc_is_branch(insn.op) || insn.immediate > i) continue;
+        bool found = false;
+        for (size_t j = 0; j < count; ++j) found |= headers[j] == insn.immediate;
+        if (!found) headers[count++] = insn.immediate;
+    }
+    return count;
+}
+
 enum rc_status rc_runtime_register(struct rc_runtime *r, const uint8_t *bytes,
                                     size_t length, rc_handle *out, struct rc_error *error)
 {
@@ -132,11 +211,18 @@ enum rc_status rc_runtime_register(struct rc_runtime *r, const uint8_t *bytes,
     if (status != RC_OK)
         return status;
     pthread_mutex_lock(&r->mutex);
-    struct translation *t = r->translations;
-    while (t != NULL && !same_program(&t->program, &decoded))
-        t = t->next;
+    status = grow_index(r);
+    if (status != RC_OK) goto done;
+    uint64_t hash = program_hash(&decoded);
+    struct translation *t = r->buckets[hash % r->bucket_count].translation;
+    while (t != NULL && (t->hash != hash || !same_program(&t->program,&decoded)))
+        t = t->hash_next;
     size_t program_bytes = decoded.count * sizeof(*decoded.insns);
-    size_t extra = sizeof(struct function) + (t == NULL ? sizeof(*t) : 0);
+    uint32_t headers[RC_TRACE_MAX_CANDIDATES];
+    size_t candidates = t == NULL && r->config.policy == RC_POLICY_TRACE
+        ? trace_headers(&decoded,r->config.trace_max_candidates,headers) : 0;
+    size_t trace_bytes = candidates * sizeof(struct trace_slot);
+    size_t extra = sizeof(struct function) + (t == NULL ? sizeof(*t) + trace_bytes : 0);
     if (r->next_handle == 0 || r->stats.metadata_bytes > SIZE_MAX - extra ||
         (t == NULL && r->stats.program_bytes > SIZE_MAX - program_bytes) ||
         (t != NULL && t->references == SIZE_MAX)) {
@@ -160,6 +246,23 @@ enum rc_status rc_runtime_register(struct rc_runtime *r, const uint8_t *bytes,
         }
         memcpy(insns, decoded.insns, program_bytes);
         *t = (struct translation){.program = {insns, decoded.count}, .next = r->translations};
+        if (trace_bytes != 0) {
+            t->traces = malloc(trace_bytes);
+            if (t->traces == NULL) {
+                free(insns); free(t); free(f);
+                status = RC_MEMORY;
+                goto done;
+            }
+            memset(t->traces,0,trace_bytes);
+            t->trace_count = candidates;
+            for (size_t i = 0; i < candidates; ++i) t->traces[i].trace.header = headers[i];
+        }
+        size_t bucket = hash % r->bucket_count;
+        t->hash = hash;
+        t->hash_next = r->buckets[bucket].translation;
+        r->buckets[bucket].translation = t;
+        if (t->next != NULL) t->next->previous = t;
+        else r->oldest = t;
         r->translations = t;
         ++r->stats.translations;
         r->stats.program_bytes += program_bytes;
@@ -169,11 +272,21 @@ enum rc_status rc_runtime_register(struct rc_runtime *r, const uint8_t *bytes,
     /* Unsigned wrap to zero exhausts the handle space permanently. */
     ++r->next_handle;
     ++t->references;
+    size_t bucket = f->handle % r->bucket_count;
+    f->hash_next = r->buckets[bucket].function;
+    r->buckets[bucket].function = f;
+    if (f->next != NULL) f->next->previous = f;
     r->functions = f;
     ++r->stats.functions;
     r->stats.metadata_bytes += extra;
     *out = f->handle;
 done:
+    if (r->stats.functions == 0 && r->buckets != NULL) {
+        r->stats.metadata_bytes -= r->bucket_count * sizeof(*r->buckets);
+        free(r->buckets);
+        r->buckets = NULL;
+        r->bucket_count = 0;
+    }
     pthread_mutex_unlock(&r->mutex);
     rc_program_free(&decoded);
     return rc_fail(error, status, 0, 0);
@@ -181,11 +294,11 @@ done:
 
 static void touch(struct rc_runtime *r, struct translation *t)
 {
-    struct translation **link = &r->translations;
-    while (*link != t)
-        link = &(*link)->next;
-    *link = t->next;
+    unlink_translation(r,t);
+    t->previous = NULL;
     t->next = r->translations;
+    if (t->next != NULL) t->next->previous = t;
+    else r->oldest = t;
     r->translations = t;
 }
 
@@ -207,7 +320,31 @@ static enum rc_status release_mapping(struct rc_runtime *r, struct translation *
         return status;
     }
     r->stats.executable_bytes -= size;
-    return RC_OK;
+    enum rc_status result = RC_OK;
+    for (size_t i = 0; i < t->trace_count; ++i) {
+        struct trace_slot *slot = &t->traces[i];
+        size = slot->code.size;
+        slot->function = NULL;
+        slot->retry_after = rc_saturating_add(t->invocations,r->config.retry_calls);
+        status = rc_code_free(&slot->code,&release_error);
+        if (status != RC_OK) {
+            result = status;
+            r->stats.last_cache_error = release_error;
+            if (error != NULL) *error = release_error;
+            add(&r->stats.release_failures,1);
+        } else {
+            r->stats.executable_bytes -= size;
+        }
+    }
+    return result;
+}
+
+static bool has_mapping(const struct translation *t)
+{
+    if (t->code.mapping != NULL) return true;
+    for (size_t i = 0; i < t->trace_count; ++i)
+        if (t->traces[i].code.mapping != NULL) return true;
+    return false;
 }
 
 static enum rc_status make_room(struct rc_runtime *r, size_t needed, struct rc_error *error)
@@ -216,9 +353,8 @@ static enum rc_status make_room(struct rc_runtime *r, size_t needed, struct rc_e
         return rc_fail(error, RC_CAPACITY, 0, 0);
     while (needed > r->config.executable_budget - r->stats.executable_bytes) {
         struct translation *victim = NULL;
-        for (struct translation *t = r->translations; t != NULL; t = t->next)
-            if (t->code.mapping != NULL && t->pins == 0)
-                victim = t;
+        for (struct translation *t = r->oldest; t != NULL; t = t->previous)
+            if (has_mapping(t) && t->pins == 0) { victim = t; break; }
         if (victim == NULL)
             return rc_fail(error, RC_CAPACITY, 0, 0);
         enum rc_status status = release_mapping(r, victim, error);
@@ -233,7 +369,7 @@ static enum rc_status make_room(struct rc_runtime *r, size_t needed, struct rc_e
 static bool should_compile(struct rc_runtime *r, struct function *f, uint64_t now)
 {
     struct rc_function_stats *s = &f->stats;
-    if (r->config.policy == RC_POLICY_INTERPRET || s->interpreted == 0 ||
+    if ((r->config.policy == RC_POLICY_INTERPRET || r->config.policy == RC_POLICY_TRACE) || s->interpreted == 0 ||
         s->invocations < r->config.hot_threshold ||
         f->translation->invocations <= f->translation->retry_after)
         return false;
@@ -334,6 +470,210 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
     }
 }
 
+struct trace_call {
+    struct rc_runtime *runtime;
+    struct function *function;
+    struct rc_trace_view views[RC_TRACE_MAX_CANDIDATES];
+    bool blocked[RC_TRACE_MAX_CANDIDATES];
+    size_t recording;
+    uint64_t recording_start;
+    struct rc_function_stats stats;
+};
+
+/* Compilation and publication share the function compiler's mutex and budget.
+ * Existing mappings cannot be replaced while any trace call pins this translation. */
+static void compile_trace(struct trace_call *call, struct trace_slot *slot)
+{
+    struct rc_runtime *r = call->runtime;
+    struct translation *t = call->function->translation;
+    struct rc_error error = {0};
+    size_t emitted = 0, mapped = 0;
+    uint64_t start = now_ns();
+    add(&call->stats.compilation_attempts,1);
+    enum rc_status status = rc_trace_emit(&t->program,&slot->trace,r->config.optimize,
+                                          NULL,0,&emitted,&error);
+    if (status == RC_OK) {
+        mapped = (emitted + r->page_size - 1) / r->page_size * r->page_size;
+        status = make_room(r,mapped,&error);
+    }
+    if (status == RC_OK) {
+        bool allocated;
+        status = rc_trace_map(&t->program,&slot->trace,r->config.optimize,mapped,
+                              &slot->code,&slot->function,&allocated,&error);
+        size_t peak = r->stats.executable_bytes + (allocated ? mapped : 0);
+        if (peak > r->stats.peak_executable_bytes) r->stats.peak_executable_bytes = peak;
+        r->stats.executable_bytes += slot->code.size;
+        if (status != RC_OK && slot->code.mapping != NULL) {
+            add(&r->stats.release_failures,1);
+            r->stats.last_cache_error = error;
+        }
+    }
+    add(&call->stats.compilation_ns,elapsed(start,now_ns()));
+    if (status == RC_OK) {
+        add(&call->stats.compilations,1);
+        add(&r->stats.compilations,1);
+        call->stats.generated_size = emitted;
+        call->stats.last_compile_error = (struct rc_error){0};
+        touch(r,t);
+    } else {
+        add(&call->stats.compilation_failures,1);
+        add(&r->stats.compilation_failures,1);
+        if (status == RC_CAPACITY) add(&r->stats.capacity_failures,1);
+        call->stats.last_compile_error = error;
+        ++slot->failures;
+        slot->disabled = slot->failures >= 3;
+        slot->retry_after = rc_saturating_add(t->invocations,r->config.retry_calls);
+    }
+}
+
+static void stop_observing(struct rc_observer *observer)
+{
+    struct trace_call *call = observer->context;
+    for (size_t i = 0; i < call->function->translation->trace_count; ++i)
+        if (!call->blocked[i]) return;
+    observer->before = NULL;
+}
+
+static bool trace_before(struct rc_observer *observer, struct rc_state *state)
+{
+    struct trace_call *call = observer->context;
+    struct translation *t = call->function->translation;
+    for (size_t i = 0; i < t->trace_count; ++i) {
+        if (call->views[i].function == NULL || call->blocked[i] ||
+            call->views[i].header != state->pc) continue;
+        state->remaining = RC_TRACE_QUANTUM;
+        enum rc_trace_exit reason = call->views[i].function(state);
+        uint64_t iterations = RC_TRACE_QUANTUM - state->remaining;
+        add(&call->stats.trace_entries,1);
+        add(&call->stats.trace_iterations,iterations);
+        if (reason == RC_TRACE_SIDE_EXIT) {
+            add(&call->stats.trace_side_exits,1);
+            call->blocked[i] = true;
+            stop_observing(observer);
+            pthread_mutex_lock(&call->runtime->mutex);
+            struct trace_slot *slot = &t->traces[i];
+            if (iterations == 0) ++slot->short_exits;
+            else slot->short_exits = 0;
+            if (slot->short_exits >= 8) {
+                slot->retry_after = rc_saturating_add(t->invocations,call->runtime->config.retry_calls);
+                slot->short_exits = 0;
+                add(&call->stats.trace_retirements,1);
+            }
+            touch(call->runtime,t);
+            pthread_mutex_unlock(&call->runtime->mutex);
+        } else if (reason == RC_TRACE_YIELD) {
+            add(&call->stats.trace_yields,1);
+        }
+        return reason == RC_TRACE_RETURNED;
+    }
+    return false;
+}
+
+static void trace_after(struct rc_observer *observer, size_t pc,
+                         struct rc_state *state, bool returned)
+{
+    struct trace_call *call = observer->context;
+    struct rc_runtime *r = call->runtime;
+    struct translation *t = call->function->translation;
+    if (observer->recording != NULL) {
+        if (observer->recording->stop == RC_TRACE_RECORDING) return;
+        pthread_mutex_lock(&r->mutex);
+        struct trace_slot *slot = &t->traces[call->recording];
+        add(&call->stats.trace_recording_ns,elapsed(call->recording_start,now_ns()));
+        add(&call->stats.trace_recorded_ops,slot->trace.count);
+        slot->recording = false;
+        observer->recording = NULL;
+        if (slot->trace.stop == RC_TRACE_LOOP || slot->trace.stop == RC_TRACE_RETURN) {
+            size_t used = slot->trace.count * sizeof(*slot->trace.ops);
+            struct rc_trace_op *compact = malloc(used);
+            if (compact != NULL) {
+                memcpy(compact,slot->trace.ops,used);
+                free(slot->trace.ops);
+                r->stats.metadata_bytes -= (slot->trace.capacity - slot->trace.count) * sizeof(*compact);
+                slot->trace.ops = compact;
+                slot->trace.capacity = slot->trace.count;
+            }
+            if (!r->config.trace_record_only) compile_trace(call,slot);
+            else slot->disabled = true;
+            call->views[call->recording].function = slot->function;
+        } else {
+            slot->disabled = true;
+            add(&call->stats.trace_aborts,1);
+            r->stats.metadata_bytes -= slot->trace.capacity * sizeof(*slot->trace.ops);
+            free(slot->trace.ops);
+            slot->trace.ops = NULL;
+        }
+        if (slot->disabled) call->blocked[call->recording] = true;
+        stop_observing(observer);
+        pthread_mutex_unlock(&r->mutex);
+        return;
+    }
+    if (returned || state->pc > pc || !rc_is_branch(t->program.insns[pc].op)) return;
+    for (size_t i = 0; i < t->trace_count; ++i) {
+        if (call->views[i].header != state->pc || call->blocked[i]) continue;
+        if (call->views[i].function != NULL) return;
+        pthread_mutex_lock(&r->mutex);
+        struct trace_slot *slot = &t->traces[i];
+        add(&slot->edges,1);
+        if (slot->disabled || slot->recording || t->invocations <= slot->retry_after)
+            call->blocked[i] = true;
+        bool eligible = !slot->disabled && !slot->recording &&
+            t->invocations > slot->retry_after && slot->edges >= r->config.trace_hot_threshold;
+        if (eligible && slot->function != NULL) {
+            call->views[i].function = slot->function;
+            add(&call->stats.trace_hits,1);
+        } else if (eligible && slot->code.mapping == NULL) {
+            add(&call->stats.trace_misses,1);
+            if (slot->trace.ops == NULL) {
+                size_t bytes = r->config.trace_max_instructions * sizeof(*slot->trace.ops);
+                if (bytes <= SIZE_MAX - r->stats.metadata_bytes)
+                    slot->trace.ops = malloc(bytes);
+                if (slot->trace.ops == NULL) {
+                    slot->disabled = true;
+                    add(&call->stats.trace_aborts,1);
+                } else {
+                    r->stats.metadata_bytes += bytes;
+                    slot->trace.capacity = r->config.trace_max_instructions;
+                    slot->trace.entry = *state;
+                    slot->recording = true;
+                    observer->recording = &slot->trace;
+                    call->recording = i;
+                    call->recording_start = now_ns();
+                    add(&call->stats.trace_recordings,1);
+                }
+            } else if (!r->config.trace_record_only) {
+                compile_trace(call,slot);
+                call->views[i].function = slot->function;
+            }
+        }
+        if (slot->disabled || t->invocations <= slot->retry_after) call->blocked[i] = true;
+        stop_observing(observer);
+        pthread_mutex_unlock(&r->mutex);
+        return;
+    }
+}
+
+static void merge_trace_stats(struct rc_function_stats *to, const struct rc_function_stats *from)
+{
+    add(&to->trace_recordings,from->trace_recordings);
+    add(&to->trace_aborts,from->trace_aborts);
+    add(&to->trace_recorded_ops,from->trace_recorded_ops);
+    add(&to->trace_recording_ns,from->trace_recording_ns);
+    add(&to->trace_entries,from->trace_entries);
+    add(&to->trace_side_exits,from->trace_side_exits);
+    add(&to->trace_yields,from->trace_yields);
+    add(&to->trace_iterations,from->trace_iterations);
+    add(&to->trace_hits,from->trace_hits);
+    add(&to->trace_misses,from->trace_misses);
+    add(&to->trace_retirements,from->trace_retirements);
+    add(&to->compilation_attempts,from->compilation_attempts);
+    add(&to->compilations,from->compilations);
+    add(&to->compilation_failures,from->compilation_failures);
+    add(&to->compilation_ns,from->compilation_ns);
+    if (from->generated_size != 0) to->generated_size = from->generated_size;
+    if (from->compilation_attempts != 0) to->last_compile_error = from->last_compile_error;
+}
+
 enum rc_status rc_runtime_call(struct rc_runtime *r, rc_handle handle,
                                 uint64_t argument, uint64_t *result, struct rc_error *error)
 {
@@ -355,6 +695,20 @@ enum rc_status rc_runtime_call(struct rc_runtime *r, rc_handle handle,
     add(&f->stats.invocations, 1);
     add(&r->stats.invocations, 1);
     add(&t->invocations, 1);
+    bool tracing = r->config.policy == RC_POLICY_TRACE;
+    struct trace_call trace_call;
+    if (tracing) {
+        trace_call = (struct trace_call){.runtime = r, .function = f};
+        ++t->pins;
+        for (size_t i = 0; i < t->trace_count; ++i) {
+            trace_call.views[i].header = t->traces[i].trace.header;
+            trace_call.blocked[i] = t->traces[i].disabled;
+            if (t->invocations > t->traces[i].retry_after)
+                trace_call.views[i].function = t->traces[i].function;
+            if (trace_call.views[i].function != NULL) add(&trace_call.stats.trace_hits,1);
+        }
+        if (has_mapping(t)) touch(r,t);
+    }
     uint64_t tick = 0;
     /* Every handle starts in the interpreter, even if an alias has cached code. */
     if (f->stats.interpreted != 0 && t->code.function != NULL) {
@@ -390,11 +744,21 @@ enum rc_status rc_runtime_call(struct rc_runtime *r, rc_handle handle,
     uint64_t value;
     if (native != NULL)
         value = native(argument);
-    else
+    else if (tracing) {
+        struct rc_state state = {.argument = argument};
+        struct rc_observer observer = {&trace_call,NULL,trace_before,trace_after};
+        stop_observing(&observer);
+        rc_interpret_observed(&t->program,&state,&observer);
+        value = state.rax;
+    } else
         (void)rc_interpret_validated(&t->program, argument, 0, &value);
     uint64_t duration = sample ? elapsed(start, now_ns()) : 0;
 
     pthread_mutex_lock(&r->mutex);
+    if (tracing) {
+        --t->pins;
+        merge_trace_stats(&f->stats,&trace_call.stats);
+    }
     if (native != NULL) {
         --t->pins;
         add(&f->stats.jitted, 1);
@@ -502,16 +866,26 @@ enum rc_status rc_runtime_clear(struct rc_runtime *r, struct rc_error *error)
     return status == RC_OK ? rc_fail(error, RC_OK, 0, 0) : status;
 }
 
+static void free_traces(struct rc_runtime *r, struct translation *t)
+{
+    if (t->traces == NULL) return;
+    for (size_t i = 0; i < t->trace_count; ++i) {
+        if (t->traces[i].trace.ops != NULL) {
+            r->stats.metadata_bytes -= t->traces[i].trace.capacity * sizeof(struct rc_trace_op);
+            free(t->traces[i].trace.ops);
+        }
+    }
+    r->stats.metadata_bytes -= t->trace_count * sizeof(*t->traces);
+    free(t->traces);
+}
+
 enum rc_status rc_runtime_remove(struct rc_runtime *r, rc_handle handle,
                                   struct rc_error *error)
 {
     if (r == NULL)
         return rc_fail(error, RC_ARGUMENT, 0, 0);
     pthread_mutex_lock(&r->mutex);
-    struct function **link = &r->functions;
-    while (*link != NULL && (*link)->handle != handle)
-        link = &(*link)->next;
-    struct function *f = *link;
+    struct function *f = find_function(r,handle);
     enum rc_status status = RC_OK;
     if (f == NULL)
         status = rc_fail(error, RC_NOT_FOUND, 0, 0);
@@ -522,20 +896,32 @@ enum rc_status rc_runtime_remove(struct rc_runtime *r, rc_handle handle,
     if (status == RC_OK) {
         struct translation *t = f->translation;
         if (--t->references == 0) {
-            struct translation **entry = &r->translations;
-            while (*entry != t)
-                entry = &(*entry)->next;
-            *entry = t->next;
+            struct translation **entry = &r->buckets[t->hash % r->bucket_count].translation;
+            while (*entry != t) entry = &(*entry)->hash_next;
+            *entry = t->hash_next;
+            unlink_translation(r,t);
             r->stats.program_bytes -= t->program.count * sizeof(*t->program.insns);
             r->stats.metadata_bytes -= sizeof(*t);
             --r->stats.translations;
+            free_traces(r,t);
             rc_program_free(&t->program);
             free(t);
         }
-        *link = f->next;
+        struct function **entry = &r->buckets[f->handle % r->bucket_count].function;
+        while (*entry != f) entry = &(*entry)->hash_next;
+        *entry = f->hash_next;
+        if (f->previous != NULL) f->previous->next = f->next;
+        else r->functions = f->next;
+        if (f->next != NULL) f->next->previous = f->previous;
         free(f);
         --r->stats.functions;
         r->stats.metadata_bytes -= sizeof(*f);
+        if (r->stats.functions == 0) {
+            r->stats.metadata_bytes -= r->bucket_count * sizeof(*r->buckets);
+            free(r->buckets);
+            r->buckets = NULL;
+            r->bucket_count = 0;
+        }
     }
     pthread_mutex_unlock(&r->mutex);
     return status == RC_OK ? rc_fail(error, RC_OK, 0, 0) : status;
@@ -564,11 +950,13 @@ enum rc_status rc_runtime_destroy(struct rc_runtime **runtime, struct rc_error *
     while (r->translations != NULL) {
         struct translation *t = r->translations;
         r->translations = t->next;
+        free_traces(r,t);
         rc_program_free(&t->program);
         free(t);
     }
     pthread_mutex_unlock(&r->mutex);
     pthread_mutex_destroy(&r->mutex);
+    free(r->buckets);
     free(r);
     *runtime = NULL;
     return rc_fail(error, RC_OK, 0, 0);
