@@ -190,3 +190,61 @@ registration-failure and rollback-retention regressions. No human review is
 claimed. The restricted subset, one path per header, conservative call-long pins,
 serialized compilation, missing global metadata quota and measured whole-JIT
 regressions remain intentional limitations.
+
+## Post-commit desloppify inspection
+
+The post-implementation scan used the existing isolated Python environment
+installed directly from `aasul/desloppify@feat/c-native-analysis`. Its installed
+`direct_url.json` identifies commit
+`5179f6ba61dca2050813a1aa7e2f71ba7e4ce765`, the C grammar revision specified in
+AGENTS.md. The installed `desloppify/data/global/SKILL.md` was read before using
+findings. No upstream main or PyPI substitution was used.
+
+```sh
+PATH="$PWD/.venv-desloppify/jscpd/node_modules/.bin:$PATH" \
+  .venv-desloppify/bin/desloppify --lang cxx \
+  --exclude .venv-desloppify --exclude build-gcc --exclude build-clang \
+  --exclude build-sanitize-gcc --exclude build-sanitize-clang --exclude build-tsan \
+  scan --path . --no-badge
+.venv-desloppify/bin/desloppify --lang cxx next
+.venv-desloppify/bin/desloppify --lang cxx show '*' --status open
+```
+
+The scan completed and reported 44 open items, including two orphan reports
+hidden by its display noise limit. Source inspection found no confirmed defect
+requiring a source change from these reports:
+
+| Items | Inspection |
+| --- | --- |
+| 12 orphaned files | All eight library translation units and four executable entry points are explicitly linked by CMake. C cross-file linkage is missing from the importer graph. |
+| 10 untested modules | Seven CTest suites exercise the library and demo, including direct interpreter and trace snapshots. All three benchmark drivers were executed separately with checksums. Importer-based discovery misses these callers. |
+| 2 unreachable-code reports | The decoder and CFG cleanup labels are reached by goto and exercised by failure tests. |
+| 6 stale exclusions | Only the Python tool environment and generated CMake build trees are excluded. No project source is excluded. |
+| 5 structural advisories | The runtime keeps one mutex/ownership model with separate functions for registration, compilation, cache and observation. The public header and three focused test drivers share their respective contracts/fixtures. File size alone did not establish a defect requiring a split. |
+| 5 signature reports | One identifies the C keyword if. The others identify file-local test/benchmark helpers named require, call, create and reg; these are not shared interfaces. |
+| 4 boilerplate clusters | Benchmark headers, checked statistics/cleanup and arithmetic fixtures are deliberately local. Trace/function emitters share small validation preambles but different ABIs and layouts. Combining these into a framework would obscure those contracts. |
+
+The fork's C analysis remains incomplete. cppcheck was unavailable and security
+coverage fell back to regex heuristics. Its next item incorrectly called the
+interpreter untested. No finding was hidden, marked fixed or excluded to change
+a score. A second scan after documentation cleanup reproduced the same findings.
+Compiler analyzers, broad clang-tidy inspection, sanitizers, failure wrappers and
+manual state/ownership review provide independent evidence, with the limits above.
+
+Reported numeric results are recorded for transparency, not evidence of runtime
+correctness or security. Subjective dimensions were not scored.
+
+| Score | Value |
+| --- | ---: |
+| Overall | 16.9 |
+| Objective | 67.4 |
+| Strict | 16.9 |
+| Verified | 67.4 |
+
+| Mechanical dimension | Health | Strict |
+| --- | ---: | ---: |
+| Code quality | 53.3 | 53.3 |
+| Duplication | 97.5 | 97.5 |
+| File health | 90.7 | 90.7 |
+| Security (reduced coverage) | 100.0 | 100.0 |
+| Test health (incomplete C discovery) | 40.3 | 41.1 |

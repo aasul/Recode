@@ -198,8 +198,8 @@ the caller to exclude release while executing.
 Handle and translation identity lookup use growing hash buckets with full IR
 comparison on hash matches. MRU updates use a doubly linked list. Eviction still
 scans ineligible entries, and collisions can degrade lookup. Buckets and trace
-metadata count toward reported metadata usage. Mutexes, clocks, statistics, validation and compilation add real
-overhead; direct native calls remain much cheaper for tiny functions. Adaptive
+metadata count toward reported metadata usage. Mutexes, clocks, statistics,
+validation and compilation add real overhead; direct native calls remain much cheaper for tiny functions. Adaptive
 estimates are sensitive to CPU frequency, scheduling, timer cost, changing inputs,
 and callers' future behavior. See [runtime-verification.md](runtime-verification.md)
 for measured regressions, failure tests and sanitizer coverage.

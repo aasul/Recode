@@ -4,8 +4,9 @@ Recode is an experimental dynamic binary optimizer for Linux x86-64, written in
 C11. It translates a restricted machine-code function with the System V AMD64
 signature `uint64_t f(uint64_t)`: decode bytes, build an accumulator IR and
 control-flow graph, simplify arithmetic, emit native instructions, and execute
-from a protected code buffer. Version 0.4 adds hot-loop recording and guarded native trace execution to the
-interpreter, function profiles, tier selection and bounded executable-code cache.
+from a protected code buffer. Version 0.4 adds hot-loop recording and guarded
+native trace execution to the interpreter, function profiles, tier selection and
+bounded executable-code cache.
 The contract preserves branch decisions and the returned value.
 
 ## Build and run
