@@ -65,14 +65,23 @@ about 2.8% slower in this initial run. A second run after the rollback fix recor
 (unoptimized/optimized). Execution ranges were 10.788 to 11.275 and 2.051 to 2.538
 nanoseconds per call. The compilation variation between runs is substantial;
 these measurements do not establish a stable compilation-time advantage. This
-repeated arithmetic workload benefits from folding; it establishes no speedup for existing applications. The benchmark does
-not measure cache pressure across many functions, amortization in a real workload,
-or scheduling and frequency effects.
+repeated arithmetic workload benefits from folding; it establishes no speedup for
+existing applications. The benchmark does not measure cache pressure across many
+functions, amortization in a real workload, or scheduling and frequency effects.
 
 ## Additional static checks
 
-GCC `-fanalyzer -fsyntax-only` and `clang --analyze` reported no diagnostics for the
-library sources. A broad clang-tidy run with `clang-analyzer-*`, `bugprone-*`, and
+GCC `-fanalyzer -c` compiled all five library sources and the demo without
+diagnostics. Use compilation rather than syntax-only mode to exercise GCC's
+analysis passes. `clang --analyze` also reported no diagnostics for the library.
+The runtime compilation and full Clang analysis commands were:
+
+```sh
+gcc -std=c11 -Iinclude -Isrc -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wstrict-prototypes -Werror -fanalyzer -c src/runtime.c -o /tmp/recode-analyzer/runtime.o
+clang --analyze -std=c11 -Iinclude -Isrc -Xanalyzer -analyzer-output=text src/ir.c src/decoder.c src/optimizer.c src/codegen.c src/runtime.c
+```
+
+A broad clang-tidy run with `clang-analyzer-*`, `bugprone-*`, and
 `cert-*` produced advisory diagnostics: signed shift counts, the required
 `_GNU_SOURCE` feature macro, bounded `memcpy` calls, and implicit conversions of
 addresses to `void *` in the function-pointer representation copy. Inspection
@@ -104,9 +113,9 @@ notices about excluded tooling/build directories. The orphaned reports miss C
 linkage through header declarations and CMake targets, including both main
 functions. The test reports miss the calls from the CTest executables and the
 separately executed benchmark. The internal header is exercised by those library
-calls. These reports were rejected after inspecting CMake targets and test calls. The excluded directories contain generated output and tool
-dependencies. No project source was excluded, and no finding was marked fixed to
-inflate a score. No actionable source defect was confirmed from these findings.
+calls. These reports were rejected after inspecting CMake targets and test calls.
+The excluded directories contain generated output and tool dependencies. No
+project source was excluded, and no finding was marked fixed to inflate a score. No actionable source defect was confirmed from these findings.
 cppcheck was unavailable, and the security phase used reduced regex coverage.
 
 For reproducibility, the tool reported overall/strict 13.0, objective/verified
