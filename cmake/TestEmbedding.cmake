@@ -27,3 +27,7 @@ run("${CMAKE_COMMAND}" -S "${SOURCE_DIR}/examples/embed" -B "${TEST_DIR}/consume
     "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_PREFIX_PATH=${TEST_DIR}/relocated")
 run("${CMAKE_COMMAND}" --build "${TEST_DIR}/consumer" --parallel 2)
 run("${TEST_DIR}/consumer/embed")
+run("${CMAKE_COMMAND}" -S "${SOURCE_DIR}/examples/rules" -B "${TEST_DIR}/rules"
+    "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_PREFIX_PATH=${TEST_DIR}/relocated")
+run("${CMAKE_COMMAND}" --build "${TEST_DIR}/rules" --parallel 2)
+run("${TEST_DIR}/rules/rules")

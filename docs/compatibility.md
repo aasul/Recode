@@ -7,6 +7,9 @@
   `mprotect`, and `munmap`. No RWX mappings are requested. Policies that compile
   fall back to interpretation when executable mappings are denied. Direct
   `rc_compile` reports failure instead. Generated entries include ENDBR64.
+- The [integer API](integer-programs.md) also supports 0..2 uint64_t arguments
+  with explicit virtual registers. All its operations interpret and compile;
+  TRACE registration is rejected for this representation.
 - Byte functions have signature `uint64_t f(uint64_t)`. The exact accepted input
   encodings are listed in [README](../README.md#supported-input); alternative
   prefixes/registers/encodings are not implicitly supported. There are no memory
