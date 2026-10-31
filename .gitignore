@@ -57,3 +57,6 @@ dkms.conf
 # Local code-quality tooling
 .desloppify/
 .venv-desloppify/
+
+# CMake build trees
+/build*/
