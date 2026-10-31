@@ -297,3 +297,27 @@ duplication 98.9/98.9, test health 31.8/32.9, and security 100/100. These values
 include the C discovery limitations and are not evidence of security, test
 completeness or correctness. The compiler diagnostics, static analyzers,
 sanitizers, failure tests and source review provide separate evidence.
+
+## Final policy follow-up measurements
+
+After d7aef19's translation-local cooldown change, both runtime benchmark modes
+were rerun on the same hardware/build. Five-round median ns/call at 100,000 calls:
+
+| Workload | Direct C | Native off | Native on | Interpret | Fixed | Adaptive |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| arithmetic64 | 1.512 | 11.992 | 2.766 | 148.074 | 33.904 | 35.028 |
+| identity | 1.446 | 2.509 | 2.476 | 50.095 | 36.043 | 36.860 |
+| loop32 | 1.619 | 14.437 | 14.966 | 154.940 | 44.386 | 47.061 |
+
+The added translation counter costs eight persistent bytes per translation.
+Final 4/16/64 MiB pressure runs report metadata of 329,768 / 1,288,232 /
+5,122,088 bytes respectively; IR and peak executable usage match the earlier table.
+Total pressure times were 8.051 / 51.440 / 1156.735 ms, with 32 evictions per budget
+and zero mapped bytes after clear. At 64 MiB, registration/execution/cleanup took
+1033.219 / 122.599 / 45.168 ms. These remain uncontrolled wall-clock measurements.
+
+All six tests passed again in the four compiler/sanitizer configurations after
+the policy fix, with both runtime cases passing TSan and the affected source
+passing GCC/Clang analyzers. The final cached-hot-traffic regression also passed
+focused GCC Release and TSan reruns. The post-commit desloppify rescan and `next`
+retained the same 32 inspected items and incomplete-analysis limitations.
