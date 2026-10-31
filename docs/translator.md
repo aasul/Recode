@@ -138,7 +138,8 @@ preceding RET. Validation and size queries now allocate CFG storage and can
 report RC_MEMORY.
 
 The implementation has no ELF loader, memory operands, external/indirect edges,
-call handling, cache, signal instrumentation, or termination enforcement. Analysis
-uses finite fixed-point sweeps, which can take quadratic time on adversarial block
-orders. The runtime is not a sandbox. Tests use child-process timeouts, but those
+call handling, signal instrumentation, or termination enforcement. An optional
+owned adaptive runtime and code cache are documented in [runtime.md](runtime.md).
+Analysis uses finite fixed-point sweeps, which can take quadratic time on
+adversarial block orders. The runtime is not a sandbox. Tests use child-process timeouts, but those
 limits are not injected into emitted functions.
