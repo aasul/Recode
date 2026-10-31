@@ -4,7 +4,8 @@ Recode is an experimental dynamic binary optimizer for Linux x86-64, written in
 C11. It translates a restricted machine-code function with the System V AMD64
 signature `uint64_t f(uint64_t)`: decode bytes, build an accumulator IR and
 control-flow graph, simplify arithmetic, emit native instructions, and execute
-from a protected code buffer.
+from a protected code buffer. Version 0.3 adds interpretation, function profiles,
+fixed or adaptive tier selection, and a bounded executable-code cache.
 The contract preserves branch decisions and the returned value.
 
 ## Build and run
@@ -16,6 +17,8 @@ anonymous mappings are required. There are no external library dependencies.
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ./build/recode_demo
+./build/recode_runtime_bench
+./build/recode_runtime_bench --pressure
 ctest --test-dir build --output-on-failure
 timeout 60 ./build/recode_bench
 ```
@@ -72,6 +75,28 @@ and imm8 arithmetic can grow during emission. Compilation uses RW then RX memory
 never RWX. See [docs/translator.md](docs/translator.md) for the IR, error handling,
 ownership, and compatibility details.
 
+## Adaptive runtime
+
+Create an opaque `rc_runtime` with `rc_runtime_default_config`, register supported
+bytes with `rc_runtime_register`, and call the returned numeric handle with
+`rc_runtime_call`. Registration owns validated IR, so the source buffer can then
+be released. Calls initially interpret and accumulate function statistics.
+Repeated calls can trigger compilation, then reuse protected native code.
+Compilation and capacity failures fall back to interpretation.
+
+The default executable budget is 4 MiB. It bounds actual page-rounded mappings,
+including failed cleanup mappings. IR and metadata usage are reported separately;
+the budget is not a total process-memory limit. Native calls pin mappings against
+LRU eviction and run outside the cache mutex. Removal rejects active handles;
+final destruction requires callers to stop new API entry and join their threads.
+
+Use RC_POLICY_FIXED for a threshold baseline or RC_POLICY_INTERPRET to disable
+compilation. The default RC_POLICY_ADAPTIVE estimates break-even from sampled
+execution costs, measured compilation costs, recent frequency, bounded predicted
+reuse, and available capacity. These estimates can decline compilation and do not
+guarantee a speedup. See [docs/runtime.md](docs/runtime.md) for the API contract,
+ownership, synchronization, errors and policy details.
+
 ## Verification
 
 CTest covers instruction encodings, guard-page truncations, malformed branches,
@@ -95,16 +120,25 @@ Clang's function-type sanitizer is disabled because emitted functions lack its
 compiler metadata. If LeakSanitizer fails under process tracing, run CTest with
 `ASAN_OPTIONS=detect_leaks=0`; that run does not check leaks.
 
-The benchmark reports compilation time, generated size, and execution separately
-for arithmetic, a short conditional, a 32-iteration loop, multiple paths, and
-flag-sensitive arithmetic. Both modes check per-input results and timed checksums.
+The original translator benchmark reports compilation time, generated size, and
+execution separately for arithmetic, a short conditional, a 32-iteration loop,
+multiple paths, and flag-sensitive arithmetic. Both modes check per-input results and timed checksums.
 It alternates execution order over five rounds. Hardware, actual measurements,
 static analysis, and tool limitations are in [docs/verification.md](docs/verification.md).
+
+The runtime benchmark compares direct C, both low-level compilation modes,
+interpretation, fixed tiering, and adaptive tiering over 1, 32 and 100,000 calls.
+A separate pressure mode fills 4, 16 and 64 MiB executable budgets. Results include
+registration, compilation, transition costs, cache statistics and memory usage.
+See [docs/runtime-verification.md](docs/runtime-verification.md) for measured
+results, concurrency/failure tests and ThreadSanitizer commands. Tiered execution
+on these synthetic workloads remains slower than direct C or low-level native
+calls, even when it improves on interpretation.
 
 ## Limitations
 
 No ELF loading, external or indirect branches, calls, memory operands, syscalls,
-arbitrary binaries, process instrumentation, code-cache management, or
+arbitrary binaries, process instrumentation, or
 cross-architecture execution are implemented. Only ZF is modeled, and only its
 in-function uses are preserved. Final flags, exception equivalence, timing, and
 other CPU state are outside the translation contract. Accepted loops need not
