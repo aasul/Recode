@@ -2,7 +2,7 @@ name: ci
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/v0.5-developer-integration, feat/v0.6-execution-model]
   push:
     branches: [main]
   workflow_dispatch:
