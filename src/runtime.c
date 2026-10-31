@@ -37,7 +37,10 @@ enum rc_status rc_compile(const uint8_t *bytes, size_t length, bool optimize,
     if (status == RC_OK && mprotect(mapping, needed, PROT_READ | PROT_EXEC) != 0)
         status = rc_fail(error, RC_SYSTEM, 0, errno);
     if (status != RC_OK) {
-        (void)munmap(mapping, needed);
+        if (munmap(mapping, needed) != 0) {
+            *code = (struct rc_code){mapping, needed, NULL};
+            return rc_fail(error, RC_SYSTEM, 0, errno);
+        }
         return status;
     }
     /* Linux x86-64 has coherent instruction/data caches. Its ABI permits this
