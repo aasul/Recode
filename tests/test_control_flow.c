@@ -144,11 +144,17 @@ static void compare(const uint8_t *bytes, size_t length, const uint64_t *inputs,
         if (status != RC_OK)
             fprintf(stderr, "compile: %s at %zu\n", rc_status_string(status), error.offset);
         CHECK(status == RC_OK);
+        struct rc_program program = {0};
+        CHECK(rc_decode(bytes, length, &program, NULL) == RC_OK);
         for (size_t i = 0; i < count; ++i) {
             uint64_t expected = interpret(bytes, length, inputs[i]);
             CHECK(source(inputs[i]) == expected);
             CHECK(code.function(inputs[i]) == expected);
+            uint64_t result;
+            CHECK(rc_interpret(&program, inputs[i], 10000, &result, NULL) == RC_OK);
+            CHECK(result == expected);
         }
+        rc_program_free(&program);
         CHECK(rc_code_free(&code, NULL) == RC_OK);
     }
     CHECK(munmap(original, length + 4) == 0);
@@ -525,6 +531,20 @@ static void test_nontermination(void)
     CHECK(waitpid(child, &status, 0) == child);
     CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM);
     CHECK(rc_code_free(&code, NULL) == RC_OK);
+    struct rc_program program = {0};
+    CHECK(rc_decode(infinite, sizeof(infinite), &program, NULL) == RC_OK);
+    uint64_t result = 19;
+    CHECK(rc_interpret(&program, 0, 100, &result, NULL) == RC_BUDGET && result == 19);
+    child = fork();
+    CHECK(child >= 0);
+    if (child == 0) {
+        alarm(1);
+        (void)rc_interpret(&program, 0, 0, &result, NULL);
+        _exit(1);
+    }
+    CHECK(waitpid(child, &status, 0) == child);
+    CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM);
+    rc_program_free(&program);
 }
 
 int main(void)
