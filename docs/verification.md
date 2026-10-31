@@ -60,8 +60,12 @@ these times include indirect-call and loop overhead.
 | Execution range, nanoseconds/call | 10.043 to 11.539 | 2.041 to 2.510 |
 
 All execution rounds returned checksum 50000315000000. Optimized compilation was
-about 2.8% slower in this run. This repeated arithmetic workload benefits from
-folding; it establishes no speedup for existing applications. The benchmark does
+about 2.8% slower in this initial run. A second run after the rollback fix recorded
+6.824/5.058 microseconds to compile and median 11.027/2.387 nanoseconds per call
+(unoptimized/optimized). Execution ranges were 10.788 to 11.275 and 2.051 to 2.538
+nanoseconds per call. The compilation variation between runs is substantial;
+these measurements do not establish a stable compilation-time advantage. This
+repeated arithmetic workload benefits from folding; it establishes no speedup for existing applications. The benchmark does
 not measure cache pressure across many functions, amortization in a real workload,
 or scheduling and frequency effects.
 
@@ -76,3 +80,44 @@ found no correctness defect in those cases. Shift counts are fixed and in range;
 all shifted values are unsigned. Copy sizes are checked before emission or fixed
 by a static assertion. Annex K `memcpy_s` is not a glibc interface. No advisory was
 suppressed in source merely to clear tool output.
+
+## Post-commit quality review
+
+Installed `desloppify[full]` into `.venv-desloppify` directly from
+`aasul/desloppify@feat/c-native-analysis`, resolving to
+`5179f6ba61dca2050813a1aa7e2f71ba7e4ce765`. Read the installed tool's bundled
+instructions, then ran scan and next after implementation commits. Only the
+virtual environment and generated build directories were excluded.
+
+The initial scan's optional jscpd invocation failed. Downloaded the C/C++ grammars
+with `tree_sitter_language_pack.download(['c', 'cpp'])` and installed jscpd locally
+under `.venv-desloppify/jscpd` before the successful post-fix rescan:
+
+```sh
+PATH="$PWD/.venv-desloppify/jscpd/node_modules/.bin:$PATH" .venv-desloppify/bin/desloppify --lang cxx --exclude .venv-desloppify --exclude build-gcc --exclude build-clang --exclude build-sanitize-gcc --exclude build-sanitize-clang scan --path . --no-badge
+.venv-desloppify/bin/desloppify --lang cxx next
+.venv-desloppify/bin/desloppify --lang cxx show '*' --status open
+```
+
+The rescan reported seven orphaned C files, eight untested modules, and five
+notices about excluded tooling/build directories. The orphaned reports miss C
+linkage through header declarations and CMake targets, including both main
+functions. The test reports miss the calls from the CTest executables and the
+separately executed benchmark. The internal header is exercised by those library
+calls. These reports were rejected after inspecting CMake targets and test calls. The excluded directories contain generated output and tool
+dependencies. No project source was excluded, and no finding was marked fixed to
+inflate a score. No actionable source defect was confirmed from these findings.
+cppcheck was unavailable, and the security phase used reduced regex coverage.
+
+For reproducibility, the tool reported overall/strict 13.0, objective/verified
+52.2, file health/duplication/security 100, code quality 59.2, and test health 11.5.
+Its 20 subjective dimensions were unassessed, automatically counted as zero.
+These scores include the discovery limitations above and are not evidence of
+correctness or security.
+
+Manual resource-lifetime review reproduced a lost mapping when both mprotect
+and rollback munmap fail. Commit `e3be22c` retains that non-executable mapping for
+release retry and adds the combined-failure regression test. All three tests
+passed again in GCC/Clang Release and ASan/UBSan builds. GCC's analyzer and Clang's
+static analyzer also completed without diagnostics after the fix. The rescan
+above followed that commit. No broader subjective scoring review was performed.
