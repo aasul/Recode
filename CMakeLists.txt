@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(recode VERSION 0.5.0 LANGUAGES C)
+project(recode VERSION 0.6.0 LANGUAGES C)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
    NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$" OR
@@ -31,7 +31,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 find_package(Threads REQUIRED)
 configure_file(include/recode_version.h.in generated/recode_version.h @ONLY)
-add_library(recode src/ir.c src/decoder.c src/optimizer.c src/codegen.c src/runtime.c src/interpreter.c src/adaptive.c src/trace.c)
+add_library(recode src/ir.c src/decoder.c src/optimizer.c src/codegen.c src/runtime.c src/interpreter.c src/adaptive.c src/trace.c src/integer.c src/integer_codegen.c)
 add_library(Recode::recode ALIAS recode)
 target_include_directories(recode PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -56,6 +56,12 @@ if(RECODE_BUILD_TOOLS)
 endif()
 include(CTest)
 if(BUILD_TESTING)
+    enable_language(ASM)
+    add_executable(recode_integer_tests tests/test_integer.c tests/integer_abi.S)
+    target_include_directories(recode_integer_tests PRIVATE src)
+    target_link_libraries(recode_integer_tests PRIVATE recode)
+    add_test(NAME integer COMMAND recode_integer_tests)
+    set_tests_properties(integer PROPERTIES TIMEOUT 90)
     # Linker wrapping must reach library calls even when testing a shared build.
     set(failure_library recode)
     if(BUILD_SHARED_LIBS)
@@ -118,7 +124,7 @@ install(TARGETS recode EXPORT RecodeTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES include/recode.h ${CMAKE_CURRENT_BINARY_DIR}/generated/recode_version.h
+install(FILES include/recode.h include/recode_integer.h ${CMAKE_CURRENT_BINARY_DIR}/generated/recode_version.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(EXPORT RecodeTargets NAMESPACE Recode:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Recode)
 configure_package_config_file(cmake/RecodeConfig.cmake.in

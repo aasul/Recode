@@ -15,7 +15,7 @@ const char *rc_status_string(enum rc_status status)
     case RC_MEMORY: return "allocation failed or size overflow";
     case RC_TRUNCATED: return "truncated instruction";
     case RC_UNSUPPORTED: return "unsupported encoding";
-    case RC_UNINITIALIZED: return "RAX used before initialization";
+    case RC_UNINITIALIZED: return "value used before initialization";
     case RC_MISSING_RET: return "fallthrough beyond function bounds";
     case RC_TRAILING: return "unreachable instructions";
     case RC_INVALID_IR: return "invalid IR operation or branch target";

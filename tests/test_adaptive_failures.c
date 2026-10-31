@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "recode.h"
+#include "recode_integer.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -548,9 +549,90 @@ static void test_trace_pins(void)
     CHECK(rc_runtime_destroy(&r,NULL) == RC_OK && live_allocations == 0 && live_maps == 0);
 }
 
+static enum rc_status integer_build(struct rc_integer_program **p)
+{
+    struct rc_builder *b = NULL;
+    enum rc_status status = rc_builder_create(2,2,&b,NULL);
+    const struct rc_integer_insn insns[] = {{.op=RC_INT_ARGUMENT},
+        {.op=RC_INT_ARGUMENT,.dst=1,.immediate=1},
+        {.op=RC_INT_ADD,.right=1},{.op=RC_INT_RETURN}};
+    for (size_t n = 0; status == RC_OK && n < 4; ++n)
+        status = rc_builder_append(b,insns[n],NULL);
+    if (status == RC_OK) status = rc_builder_finalize(b,p,NULL);
+    rc_builder_destroy(b);
+    return status;
+}
+static void integer_call(struct rc_runtime *r, rc_handle h)
+{
+    uint64_t args[] = {UINT64_MAX,1}, value = 19;
+    CHECK(rc_runtime_call_integer(r,h,args,2,&value,NULL) == RC_OK && value == 0);
+}
+static void test_integer_failures(void)
+{
+    struct rc_integer_program *p = NULL;
+    malloc_calls = 0;
+    CHECK(integer_build(&p) == RC_OK);
+    size_t allocations = malloc_calls;
+    rc_integer_program_destroy(p); p = NULL;
+    for (size_t n = 1; n <= allocations; ++n) {
+        malloc_calls = 0; fail_at = n;
+        CHECK(integer_build(&p) == RC_MEMORY && p == NULL);
+        fail_at = 0;
+        CHECK(live_allocations == 0);
+    }
+    struct rc_builder *builder = NULL;
+    CHECK(rc_builder_create(1,0,&builder,NULL) == RC_OK);
+    for (unsigned n = 0; n < 16; ++n)
+        CHECK(rc_builder_append(builder,(struct rc_integer_insn){.op=RC_INT_CONSTANT,.immediate=n},NULL) == RC_OK);
+    malloc_calls = 0; fail_at = 1;
+    CHECK(rc_builder_append(builder,(struct rc_integer_insn){.op=RC_INT_RETURN},NULL) == RC_MEMORY);
+    fail_at = 0;
+    CHECK(rc_builder_append(builder,(struct rc_integer_insn){.op=RC_INT_RETURN},NULL) == RC_OK);
+    CHECK(rc_builder_finalize(builder,&p,NULL) == RC_OK);
+    uint64_t value;
+    CHECK(rc_integer_interpret(p,NULL,0,0,&value,NULL) == RC_OK && value == 15);
+    rc_integer_program_destroy(p); p = NULL; rc_builder_destroy(builder);
+    CHECK(integer_build(&p) == RC_OK);
+    struct rc_runtime *r = create(RC_POLICY_FIXED);
+    rc_handle h;
+    malloc_calls = 0;
+    CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+    allocations = malloc_calls;
+    CHECK(rc_runtime_remove(r,h,NULL) == RC_OK);
+    for (size_t n = 1; n <= allocations; ++n) {
+        malloc_calls = 0; fail_at = n; h = 91;
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_MEMORY && h == 91);
+        fail_at = 0;
+    }
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        r = create(RC_POLICY_FIXED);
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+        integer_call(r,h);
+        fail_map = mode == 0; fail_protect = mode != 0; fail_release = mode == 2;
+        integer_call(r,h);
+        CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).jitted == 0);
+        accounted(r);
+        if (mode == 2) CHECK(rc_runtime_destroy(&r,NULL) == RC_SYSTEM && r != NULL);
+        fail_map = false; fail_protect = false; fail_release = false;
+        for (unsigned n = 0; n < 32; ++n) integer_call(r,h);
+        CHECK(function_stats(r,h).jitted > 0);
+        fail_release = true;
+        CHECK(rc_runtime_invalidate(r,h,NULL) == RC_SYSTEM);
+        uint64_t jitted = function_stats(r,h).jitted;
+        integer_call(r,h);
+        CHECK(function_stats(r,h).jitted == jitted);
+        accounted(r);
+        fail_release = false;
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+    rc_integer_program_destroy(p);
+    CHECK(live_allocations == 0 && live_maps == 0);
+}
+
 int main(void)
 {
-    test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
+    test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;
