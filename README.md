@@ -115,3 +115,9 @@ Executable-memory policy failures are reported to the caller.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Coding
 agents should also follow [AGENTS.md](AGENTS.md).
+
+Report bugs, propose features, and track engineering tasks through
+[GitHub Issues](https://github.com/aasul/Recode/issues). See
+[docs/maintaining.md](docs/maintaining.md) for the maintainer workflow and
+[SECURITY.md](SECURITY.md) for responsible vulnerability reporting. GitHub
+Actions checks GCC and Clang builds and runs CTest for pull requests.
