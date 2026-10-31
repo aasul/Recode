@@ -161,3 +161,47 @@ evidence of improvement. Folding can select ADD -1 instead of SUB 1; emitted
 sizes alone do not establish identical instruction streams. Frequency, placement,
 and scheduling effects were not isolated. No speedup in real applications or
 stable translation-cost advantage is claimed.
+
+## Post-commit quality review
+
+After committing the implementation, benchmarks, and documentation, reused the
+isolated Python 3.14 `.venv-desloppify` installation. Its direct_url metadata
+identifies `https://github.com/aasul/desloppify.git`, requested revision
+`feat/c-native-analysis`, commit `5179f6ba61dca2050813a1aa7e2f71ba7e4ce765`.
+Read the installed bundled SKILL.md before using its findings. This is the fork
+with the C grammar changes, not the PyPI release or upstream main.
+
+```sh
+PATH="$PWD/.venv-desloppify/jscpd/node_modules/.bin:$PATH" \
+    .venv-desloppify/bin/desloppify --lang cxx \
+    --exclude .venv-desloppify --exclude build-gcc --exclude build-clang \
+    --exclude build-sanitize-gcc --exclude build-sanitize-clang \
+    scan --path . --no-badge
+.venv-desloppify/bin/desloppify --lang cxx next
+.venv-desloppify/bin/desloppify --lang cxx show '*' --status open
+```
+
+The scan listed 22 open items. Seven orphaned-file reports miss linkage through
+header declarations and CMake executable/library targets. Seven untested-module
+reports miss CTest callers and the separately verified benchmark. Two
+unreachable-code reports point to the `failed:` labels in decoder.c and ir.c;
+those labels are reached by goto and are covered by malformed-input and injected
+failure tests. Five stale-exclude notices concern only the virtual environment
+and generated build trees. No project source was excluded.
+
+The remaining size advisory concerns the 541-line control-flow test file. Its
+shared interpreter, native-comparison fixture, directed cases, and randomized
+cases belong to one regression suite; splitting it solely to lower a file-size
+metric would add test plumbing without changing coverage or behavior. Inspection
+confirmed no defect from that advisory. No finding was marked fixed, no source
+was changed to improve a score, and no cleanup commit was needed.
+
+The fork still uses incomplete C/C++ analysis. cppcheck was unavailable, so its
+cppcheck phase did not run and security coverage fell back to regex heuristics.
+GCC/Clang analyzers and clang-tidy provided the C-specific checks described above.
+All 20 subjective dimensions remained unassessed, recorded by the tool as zero;
+no subjective scoring review was performed. The reported overall/objective/
+strict/verified values were 13.5/54.0/13.7/54.0. These numbers include the discovery
+limitations and unassessed dimensions and do not establish code quality or
+correctness. A repeat scan after documenting this review retained the same
+findings.
