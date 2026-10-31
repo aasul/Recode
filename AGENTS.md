@@ -2,6 +2,20 @@
 
 These instructions apply to every coding agent working in this repository.
 
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before editing. Those rules apply to both human contributors and coding agents. If the instructions conflict, favor correctness, verifiable behavior, and the stricter review requirement.
+
+## AI-assisted work and contributor accountability
+
+AI assistance is allowed. Do not reject a contribution because it used AI. The author is responsible for understanding, testing, and maintaining the resulting code.
+
+- Treat generated output as a proposed patch, not verified implementation. Inspect every line you add or modify before submitting it.
+- Be able to explain each line's purpose, assumptions, behavior, dependencies, and relevant failure cases. If you cannot justify a line, investigate it, rewrite it, or remove it.
+- Trace nontrivial control flow, resource ownership, pointer arithmetic, and machine-state changes. Verify instruction semantics instead of trusting plausible generated code.
+- Do not produce bloated scaffolding, one-use wrapper layers, redundant abstractions, placeholder tests, or comments that narrate obvious operations.
+- Never fabricate executed commands, passing tests, benchmark results, compatibility, source citations, or human review.
+- Do not try to make code appear human by introducing mistakes. The goal is clear, maintainable code and truthful documentation, not concealing tooling.
+- The person opening a pull request must be able to answer technical review questions about the full patch, including AI-assisted parts. Do not invent a claim that a human has reviewed code if that has not happened.
+
 ## Project
 
 Recode is an experimental dynamic binary optimizer for Linux x86-64, written in C. The long-term goal is to improve selected workloads on resource-constrained computers without spending more memory or CPU time on optimization than the work saves.
