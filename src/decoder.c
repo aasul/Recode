@@ -23,6 +23,33 @@ static enum rc_status decode_one(const uint8_t *bytes, size_t remaining,
         insn->immediate = read_u32(bytes + 1);
         *length = 5;
         return RC_OK;
+    case 0xeb:
+    case 0x74:
+    case 0x75:
+        if (remaining < 2)
+            return RC_TRUNCATED;
+        insn->op = bytes[0] == 0xeb ? RC_JMP : (bytes[0] == 0x74 ? RC_JZ : RC_JNZ);
+        insn->immediate = bytes[1] < 128 ? bytes[1] : UINT32_C(0xffffff00) | bytes[1];
+        *length = 2;
+        return RC_OK;
+    case 0xe9:
+        if (remaining < 5)
+            return RC_TRUNCATED;
+        insn->op = RC_JMP;
+        insn->immediate = read_u32(bytes + 1);
+        *length = 5;
+        return RC_OK;
+    case 0x0f:
+        if (remaining < 2)
+            return RC_TRUNCATED;
+        if (bytes[1] != 0x84 && bytes[1] != 0x85)
+            return RC_UNSUPPORTED;
+        if (remaining < 6)
+            return RC_TRUNCATED;
+        insn->op = bytes[1] == 0x84 ? RC_JZ : RC_JNZ;
+        insn->immediate = read_u32(bytes + 2);
+        *length = 6;
+        return RC_OK;
     case 0x48:
         break;
     default: return RC_UNSUPPORTED;
@@ -38,10 +65,10 @@ static enum rc_status decode_one(const uint8_t *bytes, size_t remaining,
         *length = 3;
         return RC_OK;
     }
-    if (bytes[1] == 0x05 || bytes[1] == 0x2d) {
+    if (bytes[1] == 0x05 || bytes[1] == 0x2d || bytes[1] == 0x3d) {
         if (remaining < 6)
             return RC_TRUNCATED;
-        insn->op = bytes[1] == 0x05 ? RC_ADD : RC_SUB;
+        insn->op = bytes[1] == 0x05 ? RC_ADD : (bytes[1] == 0x2d ? RC_SUB : RC_CMP);
         insn->immediate = read_u32(bytes + 2);
         *length = 6;
         return RC_OK;
@@ -49,18 +76,28 @@ static enum rc_status decode_one(const uint8_t *bytes, size_t remaining,
     if (bytes[1] == 0x81 || bytes[1] == 0x83) {
         if (remaining < 3)
             return RC_TRUNCATED;
-        if (bytes[2] != 0xc0 && bytes[2] != 0xe8)
+        if (bytes[2] != 0xc0 && bytes[2] != 0xe8 &&
+            !(bytes[1] == 0x81 && bytes[2] == 0xf8))
             return RC_UNSUPPORTED;
         *length = bytes[1] == 0x81 ? 7 : 4;
         if (remaining < *length)
             return RC_TRUNCATED;
-        insn->op = bytes[2] == 0xc0 ? RC_ADD : RC_SUB;
+        insn->op = bytes[2] == 0xc0 ? RC_ADD : (bytes[2] == 0xe8 ? RC_SUB : RC_CMP);
         if (bytes[1] == 0x81)
             insn->immediate = read_u32(bytes + 3);
         else {
             uint32_t value = bytes[3];
             insn->immediate = value < 128 ? value : value | UINT32_C(0xffffff00);
         }
+        return RC_OK;
+    }
+    if (bytes[1] == 0x85) {
+        if (remaining < 3)
+            return RC_TRUNCATED;
+        if (bytes[2] != 0xc0)
+            return RC_UNSUPPORTED;
+        insn->op = RC_TEST;
+        *length = 3;
         return RC_OK;
     }
     return RC_UNSUPPORTED;
@@ -74,36 +111,76 @@ enum rc_status rc_decode(const uint8_t *bytes, size_t length,
         return rc_fail(error, RC_ARGUMENT, 0, 0);
     if (length == 0)
         return rc_fail(error, RC_MISSING_RET, 0, 0);
-    if (length > SIZE_MAX / sizeof(struct rc_insn))
+    if (length > UINT32_MAX || length > SIZE_MAX / sizeof(struct rc_insn) ||
+        length >= SIZE_MAX / sizeof(size_t))
         return rc_fail(error, RC_MEMORY, 0, 0);
     struct rc_program decoded = {malloc(length * sizeof(struct rc_insn)), 0};
     if (decoded.insns == NULL)
         return rc_fail(error, RC_MEMORY, 0, 0);
-    bool initialized = false;
+    size_t *offsets = malloc((length + 1) * sizeof(*offsets));
+    if (offsets == NULL) {
+        rc_program_free(&decoded);
+        return rc_fail(error, RC_MEMORY, 0, 0);
+    }
     size_t offset = 0;
+    enum rc_status status = RC_OK;
     while (offset < length) {
         struct rc_insn insn;
         size_t used;
-        enum rc_status status = decode_one(bytes + offset, length - offset, &insn, &used);
-        if (status == RC_OK) {
-            if (insn.op == RC_INPUT || insn.op == RC_CONST)
-                initialized = true;
-            else if (insn.op != RC_NOP && !initialized)
-                status = RC_UNINITIALIZED;
-        }
-        if (status == RC_OK && insn.op == RC_RET && used != length - offset)
-            status = RC_TRAILING;
-        if (status != RC_OK) {
-            rc_program_free(&decoded);
-            return rc_fail(error, status, offset, 0);
-        }
+        status = decode_one(bytes + offset, length - offset, &insn, &used);
+        if (status != RC_OK)
+            goto failed;
+        offsets[decoded.count] = offset;
         decoded.insns[decoded.count++] = insn;
         offset += used;
-        if (insn.op == RC_RET) {
-            *program = decoded;
-            return rc_fail(error, RC_OK, 0, 0);
-        }
     }
+    offsets[decoded.count] = length;
+    for (size_t i = 0; i < decoded.count; ++i) {
+        struct rc_insn *insn = &decoded.insns[i];
+        if (!rc_is_branch(insn->op))
+            continue;
+        uint32_t bits = insn->immediate;
+        int64_t displacement = bits;
+        if (bits > INT32_MAX)
+            displacement -= INT64_C(4294967296);
+        size_t next = offsets[i + 1];
+        offset = offsets[i];
+        status = RC_BRANCH;
+        size_t target;
+        if (displacement < 0) {
+            size_t distance = (size_t)(-displacement);
+            if (distance > next)
+                goto failed;
+            target = next - distance;
+        } else {
+            size_t distance = (size_t)displacement;
+            if (distance >= length - next)
+                goto failed;
+            target = next + distance;
+        }
+        size_t low = 0, high = decoded.count;
+        while (low < high) {
+            size_t mid = low + (high - low) / 2;
+            if (offsets[mid] < target)
+                low = mid + 1;
+            else
+                high = mid;
+        }
+        if (low == decoded.count || offsets[low] != target)
+            goto failed;
+        insn->immediate = (uint32_t)low;
+    }
+    struct rc_error validation;
+    status = rc_validate(&decoded, &validation);
+    if (status != RC_OK) {
+        offset = offsets[validation.offset];
+        goto failed;
+    }
+    free(offsets);
+    *program = decoded;
+    return rc_fail(error, RC_OK, 0, 0);
+failed:
+    free(offsets);
     rc_program_free(&decoded);
-    return rc_fail(error, RC_MISSING_RET, offset, 0);
+    return rc_fail(error, status, offset, 0);
 }

@@ -8,7 +8,7 @@
 enum rc_status {
     RC_OK, RC_ARGUMENT, RC_MEMORY, RC_TRUNCATED, RC_UNSUPPORTED,
     RC_UNINITIALIZED, RC_MISSING_RET, RC_TRAILING, RC_INVALID_IR,
-    RC_CAPACITY, RC_SYSTEM
+    RC_CAPACITY, RC_SYSTEM, RC_BRANCH, RC_UNDEFINED_ZF
 };
 
 struct rc_error {
@@ -17,11 +17,16 @@ struct rc_error {
     int system_errno;
 };
 
-enum rc_op { RC_INPUT, RC_CONST, RC_ADD, RC_SUB, RC_NOP, RC_RET };
+enum rc_op {
+    RC_INPUT, RC_CONST, RC_ADD, RC_SUB, RC_NOP, RC_RET,
+    RC_CMP, RC_TEST, RC_JMP, RC_JZ, RC_JNZ
+};
 
 struct rc_insn {
     enum rc_op op;
-    uint32_t immediate; /* Raw imm32 bits; arithmetic sign-extends, CONST zero-extends. */
+    /* CONST zero-extends; ADD/SUB/CMP sign-extend raw imm32 bits.
+     * JMP/JZ/JNZ instead store an absolute instruction index. */
+    uint32_t immediate;
 };
 
 struct rc_program {

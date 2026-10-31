@@ -87,11 +87,11 @@ static void test_decode(void)
     const uint8_t missing[] = {0x48,0x89,0xf8};
     expect_decode_error(missing, sizeof(missing), RC_MISSING_RET, 3);
     const uint8_t trailing[] = {0x48,0x89,0xf8,0xc3,0x90};
-    expect_decode_error(trailing, sizeof(trailing), RC_TRAILING, 3);
+    expect_decode_error(trailing, sizeof(trailing), RC_TRAILING, 4);
     const uint8_t unsupported[][4] = {
         {0x0f,0x0b,0,0}, {0x48,0x89,0xf9,0}, {0x48,0x81,0x00,0},
         {0x48,0x83,0xf8,0}, {0x48,0x8b,0x07,0}, {0x48,0xff,0xc0,0},
-        {0x66,0x90,0,0}, {0xeb,0,0,0}, {0x48,0xb8,0,0}, {0xc2,0,0,0}
+        {0x66,0x90,0,0}, {0xe3,0,0,0}, {0x48,0xb8,0,0}, {0xc2,0,0,0}
     };
     for (size_t i = 0; i < sizeof(unsupported) / sizeof(unsupported[0]); ++i)
         expect_decode_error(unsupported[i], sizeof(unsupported[i]), RC_UNSUPPORTED, 0);
