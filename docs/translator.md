@@ -52,6 +52,10 @@ mapping lengths to page boundaries. Linux x86-64 provides coherent instruction
 and data caches for this use. The function-pointer representation is an explicit
 Linux x86-64 ABI dependency; it is copied with `memcpy` rather than an ISO C cast.
 
+If protection fails and rollback munmap also fails, compilation reports the
+cleanup errno and returns ownership of the non-executable mapping with a null
+function pointer. The caller must release this mapping with `rc_code_free`.
+
 A compiled object owns its mapping until `rc_code_free` succeeds. A failed release
 retains ownership so it can be retried. Do not copy owning objects, call a function
 after release, or release while calls are in flight. Concurrent calls to an

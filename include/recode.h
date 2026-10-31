@@ -48,6 +48,8 @@ enum rc_status rc_optimize(struct rc_program *program, struct rc_error *error);
 /* Query size with bytes == NULL and capacity == 0. Insufficient capacity writes nothing. */
 enum rc_status rc_emit(const struct rc_program *program, uint8_t *bytes,
                        size_t capacity, size_t *length, struct rc_error *error);
+/* Failed rollback retains a mapping with function == NULL; release it with
+ * rc_code_free. No executable function is returned on compilation failure. */
 enum rc_status rc_compile(const uint8_t *bytes, size_t length, bool optimize,
                           struct rc_code *code, struct rc_error *error);
 /* No calls may be in flight when releasing code. On failure the mapping stays owned. */

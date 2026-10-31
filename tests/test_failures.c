@@ -78,6 +78,13 @@ int main(void)
     CHECK(rc_compile(bytes, sizeof(bytes), true, &code, &error) == RC_SYSTEM);
     CHECK(error.system_errno == EACCES && code.mapping == NULL);
     CHECK(unmap_calls == 1 && protection_calls == 1);
+    fail_munmap = true;
+    CHECK(rc_compile(bytes, sizeof(bytes), true, &code, &error) == RC_SYSTEM);
+    CHECK(error.system_errno == EINVAL && code.mapping != NULL);
+    CHECK(code.size != 0 && code.function == NULL);
+    CHECK(rc_compile(bytes, sizeof(bytes), true, &code, NULL) == RC_ARGUMENT);
+    fail_munmap = false;
+    CHECK(rc_code_free(&code, &error) == RC_OK);
     fail_mprotect = false;
     CHECK(rc_compile(bytes, sizeof(bytes), true, &code, &error) == RC_OK);
     CHECK(code.function(UINT64_MAX) == UINT64_MAX);
@@ -88,7 +95,7 @@ int main(void)
     fail_munmap = false;
     CHECK(rc_code_free(&code, &error) == RC_OK);
     CHECK(code.mapping == NULL && code.function == NULL && code.size == 0);
-    CHECK(unmap_calls == 3 && protection_calls == 2);
+    CHECK(unmap_calls == 5 && protection_calls == 3);
     puts("allocation and system-call failure paths passed; RW allocation and RX transition verified");
     return 0;
 }
