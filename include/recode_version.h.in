@@ -1,0 +1,11 @@
+#ifndef RECODE_VERSION_H
+#define RECODE_VERSION_H
+
+#define RECODE_VERSION "@PROJECT_VERSION@"
+#define RECODE_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define RECODE_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define RECODE_VERSION_PATCH @PROJECT_VERSION_PATCH@
+/* Incremented for incompatible public source contracts. No stable binary ABI. */
+#define RECODE_API_VERSION 1
+
+#endif

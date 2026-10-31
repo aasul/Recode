@@ -2,6 +2,11 @@
 
 #include <stdlib.h>
 
+const char *rc_version_string(void)
+{
+    return RECODE_VERSION;
+}
+
 const char *rc_status_string(enum rc_status status)
 {
     switch (status) {

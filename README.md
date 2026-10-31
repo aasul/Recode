@@ -30,6 +30,13 @@ The demo translates `mov rax,rdi; add rax,7; sub rax,2; nop; ret` into an entry
 marker followed by `mov rax,rdi; add rax,5; ret`. It prints `f(37) = 42`.
 The public interface is in [include/recode.h](include/recode.h).
 
+## Install and embed
+
+Version 0.5 provides static/shared installation and the `Recode::recode` CMake
+target. See [embedding.md](docs/embedding.md) for installation, an independent
+consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
+for platform, instruction and security limits. There is no stable binary ABI.
+
 ## Supported input
 
 Only these exact encodings are accepted. `id` is a little-endian four-byte

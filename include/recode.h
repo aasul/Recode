@@ -1,6 +1,8 @@
 #ifndef RECODE_H
 #define RECODE_H
 
+#include "recode_version.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -40,6 +42,9 @@ struct rc_code {
     size_t size;
     rc_function function;
 };
+
+/* Compile-time macros describe headers; this describes the linked library. */
+const char *rc_version_string(void);
 
 const char *rc_status_string(enum rc_status status);
 /* Decode and compile outputs must be zero-initialized and empty. Nonempty
