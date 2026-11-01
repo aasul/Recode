@@ -5,10 +5,23 @@
 #include <string.h>
 #include <sys/mman.h>
 
-/* Fixed slots make every rel32 target independent of instruction encoding.
+/* Layout uses bounded offsets to avoid padding between operations.
  * RAX/RCX are scratch, RDI/RSI retain the two arguments. No calls or callee-saved
  * clobbers; at most 512 stack bytes, restored on every RETURN. */
-enum { ENTRY_SIZE = 11, SLOT_SIZE = 40 };
+enum { ENTRY_SIZE = 11 };
+static size_t encoded_size(enum rc_integer_op op)
+{
+    static const uint8_t sizes[RC_INT_RETURN + 1] = {
+        [RC_INT_ARGUMENT] = 8, [RC_INT_CONSTANT] = 18,
+        [RC_INT_ADD] = 27, [RC_INT_SUB] = 27, [RC_INT_MUL] = 28,
+        [RC_INT_AND] = 27, [RC_INT_OR] = 27, [RC_INT_XOR] = 27,
+        [RC_INT_SHL] = 27, [RC_INT_SHR] = 27,
+        [RC_INT_EQ] = 33, [RC_INT_NE] = 33, [RC_INT_ULT] = 33,
+        [RC_INT_ULE] = 33, [RC_INT_SLT] = 33, [RC_INT_SLE] = 33,
+        [RC_INT_JUMP] = 5, [RC_INT_BRANCH] = 17, [RC_INT_RETURN] = 16
+    };
+    return sizes[op];
+}
 struct output { uint8_t *bytes; size_t count; };
 static void byte(struct output *o, uint8_t value) { o->bytes[o->count++] = value; }
 static void word(struct output *o, uint32_t value)
@@ -29,18 +42,20 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
 {
     if (p == NULL || length == NULL || (bytes == NULL && capacity != 0))
         return rc_fail(error, RC_ARGUMENT, 0, 0);
-    size_t needed = ENTRY_SIZE + p->count * SLOT_SIZE;
+    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS + 1];
+    offsets[0] = ENTRY_SIZE;
+    for (size_t n = 0; n < p->count; ++n)
+        offsets[n+1] = offsets[n] + encoded_size(p->insns[n].op);
+    size_t needed = offsets[p->count];
     *length = needed;
     if (bytes == NULL) return rc_fail(error, RC_OK, 0, 0);
     if (capacity < needed) return rc_fail(error, RC_CAPACITY, 0, 0);
-    memset(bytes, 0x90, needed);
     struct output o = {bytes, 0};
     byte(&o, 0xf3); byte(&o, 0x0f); byte(&o, 0x1e); byte(&o, 0xfa);
     uint32_t size = (uint32_t)((p->registers * 8 + 15) / 16 * 16);
     frame(&o, 0xec, size); /* SUB RSP, imm32 */
     for (size_t n = 0; n < p->count; ++n) {
         struct rc_integer_insn i = p->insns[n];
-        o.count = ENTRY_SIZE + n * SLOT_SIZE;
         if (i.op >= RC_INT_ADD && i.op <= RC_INT_SLE) {
             stack(&o, 0x8b, 0x84, i.left); /* MOV RAX,[RSP+disp32] */
             stack(&o, 0x8b, 0x8c, i.right); /* MOV RCX,[RSP+disp32] */
@@ -79,11 +94,11 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
             stack(&o, 0x8b, 0x84, i.left);
             byte(&o, 0x48); byte(&o, 0x85); byte(&o, 0xc0);
             byte(&o, 0x0f); byte(&o, 0x85);
-            word(&o, (uint32_t)(ENTRY_SIZE + i.target * SLOT_SIZE) - (uint32_t)(o.count + 4));
+            word(&o, (uint32_t)offsets[i.target] - (uint32_t)(o.count + 4));
             continue;
         case RC_INT_JUMP:
             byte(&o, 0xe9);
-            word(&o, (uint32_t)(ENTRY_SIZE + i.target * SLOT_SIZE) - (uint32_t)(o.count + 4));
+            word(&o, (uint32_t)offsets[i.target] - (uint32_t)(o.count + 4));
             continue;
         case RC_INT_RETURN:
             stack(&o, 0x8b, 0x84, i.left);

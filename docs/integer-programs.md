@@ -94,14 +94,14 @@ program storage contributes to program_bytes, including its private descriptor.
 No executable pointer is exposed. Removal, invalidation, clear and destruction
 retain the documented BUSY and failed-release retry contracts.
 
-Initial lowering uses RAX/RCX scratch registers and stack slots, preserving RDI/RSI
+Native lowering uses RAX/RCX scratch registers and stack slots, preserving RDI/RSI
 inputs and all callee-saved registers. Every function starts with ENDBR64, allocates
 at most 512 stack bytes, makes no calls and restores RSP on every return. Slots are
 8-byte aligned. The entry stack is 8 mod 16 and a 16-byte-multiple frame preserves
-that; there are no calls needing a new alignment adjustment. A fixed 40-byte slot
-per IR instruction bounds relocation and allocation arithmetic, at the cost of
-NOP padding and executable memory. All branches are rel32 within the bounded
-function. Compilation reserves page-rounded budget, emits RW, then protects RX
+that; there are no calls needing a new alignment adjustment. v0.7 lays out exact instruction sizes using a bounded offset table,
+removing v0.6's fixed-slot NOP padding. Emission uses 32,776 bytes of bounded temporary
+offset storage on the C compiler's stack; generated functions still need at most
+512 bytes. All branches are rel32 within the bounded function. Compilation reserves page-rounded budget, emits RW, then protects RX
 before publishing a typed two-argument System V AMD64 entry. Failed cleanup
 retains the mapping with no callable entry. No sophisticated register allocator
 or performance claim is part of v0.6.

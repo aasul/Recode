@@ -118,7 +118,10 @@ A side exit blocks re-entry to that candidate for the rest of the invocation,
 preventing immediate guard-failure cycles. Once all candidates are blocked, the
 interpreter drops observer callbacks for the remainder of that invocation. Yield permits subsequent entry after
 one interpreted instruction. Eight short exits without a complete native loop
-iteration impose a translation-call cooldown. Existing in-flight snapshots may
+iteration impose a translation-call cooldown. Since v0.7, per-candidate exit
+feedback is merged in completion order under the existing completion mutex,
+removing a separate lock acquisition on each side exit. Cooldowns begin at that
+completion; active calls retain their already acquired snapshots. Existing in-flight snapshots may
 still use the code; no mapping is released by this profitability cooldown.
 
 ## Ownership, concurrency and limits
