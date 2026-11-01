@@ -1,4 +1,4 @@
-# Proposed public API freeze (v0.9)
+# Public API and compatibility policy (v1.0 candidate)
 
 The supported installed interfaces are recode.h, recode_integer.h and generated
 recode_version.h. Functions in src headers, native entry conventions, optimizer
@@ -13,7 +13,7 @@ cross-architecture support is implied. Compile with GCC or Clang in C11 mode.
 Public structs are caller-allocated values; their binary layout matters. Opaque
 builder, finalized-program and runtime allocations belong to the library.
 
-The proposed 1.x policy is source compatibility for documented uses within major
+The 1.x policy is source compatibility for documented uses within major
 version 1. Minor releases may add operations/functions and extend value structs,
 requiring consumers to rebuild. Rebuild with matching headers and library for
 each major/minor. Binary compatibility is limited to patch releases within the
@@ -24,11 +24,11 @@ be handled by a default/error path. Fixes of undocumented or erroneous behavior
 are permitted, with migration notes when observable.
 
 SONAME is librecode.so.<major>.<minor>, preventing silent substitution by a
-layout-changing minor release. The current proposed ABI has SONAME 0.9; the first
-stable ABI will be 1.0. RECODE_ABI_MAJOR/MINOR identify matching header ABI;
+layout-changing minor release. The first stable ABI has SONAME 1.0. RECODE_ABI_MAJOR/MINOR identify matching
+header ABI;
 RECODE_API_VERSION remains 1 because existing source contracts are preserved.
 rc_version_string() identifies the linked implementation. Experimental 0.x CMake
-requests require the same minor. v1.0 will accept compatible-major CMake source
+requests require the same minor. v1.0 accepts compatible-major CMake source
 requests; this is package discovery for rebuilding, not loader ABI compatibility.
 No existing pre-1.0 binary ABI is retained by this freeze.
 
@@ -92,5 +92,4 @@ except low-level compile's documented retained mapping on failed rollback.
 Emitters set queried length on capacity failure and leave byte storage unchanged;
 rc_emit resets length to zero before validation. Integer emitter internals are
 private. rc_optimize mutates a caller-owned program only after successful analysis.
-NULL error is supported. Destroy/free with NULL is allowed only where the header
-explicitly says so; rc_code_free(NULL) and rc_runtime_destroy(NULL) are errors.
+NULL error is supported. Destroy/free with NULL is allowed only where documented; rc_code_free(NULL) and rc_runtime_destroy(NULL) are errors.

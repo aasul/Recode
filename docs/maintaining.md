@@ -29,7 +29,10 @@ Prefer focused commits with clear messages. Do not split tightly coupled changes
 
 ## Continuous integration
 
-The `ci` workflow runs on PRs to `main` and pushes to `main`. It compiles using GCC and Clang in release and sanitizer configurations, then runs CTest.
+The `ci` workflow runs on PRs to `main` or its explicitly listed stacked milestone
+bases, pushes to `main`, and manual dispatch. It compiles clean source archives
+using GCC and Clang in release and sanitizer configurations, then runs CTest.
+A separate shared-library and bounded-fuzz job checks exports and installed consumers.
 
 The expected check names are:
 

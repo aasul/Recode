@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(recode VERSION 0.9.0 LANGUAGES C)
+project(recode VERSION 1.0.0 LANGUAGES C)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
    NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$" OR
@@ -180,13 +180,14 @@ install(TARGETS recode EXPORT RecodeTargets
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES include/recode.h include/recode_integer.h ${CMAKE_CURRENT_BINARY_DIR}/generated/recode_version.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/Recode)
 install(EXPORT RecodeTargets NAMESPACE Recode:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Recode)
 configure_package_config_file(cmake/RecodeConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/RecodeConfig.cmake
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Recode)
-# Experimental releases require the same minor version. This is no ABI promise.
+# Versioned CMake discovery is source compatibility; SONAME isolates minor ABIs.
 write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/RecodeConfigVersion.cmake
-    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMinorVersion)
+    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/RecodeConfig.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/RecodeConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Recode)

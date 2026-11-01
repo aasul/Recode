@@ -21,8 +21,14 @@ for argument in sys.argv[1:]:
             value = float(fields['ns_per_call'])
         else:
             continue
-        samples[key].append(value)
+        samples[key].append((value, float(fields['total_us']), float(fields['compile_ns'])))
 writer = csv.writer(sys.stdout, lineterminator="\n")
-writer.writerow(['workload', 'distribution', 'mode', 'calls', 'samples', 'median_ns', 'min_ns', 'max_ns'])
+metrics = ['ns', 'total_us', 'compile_ns']
+writer.writerow(['workload', 'distribution', 'mode', 'calls', 'samples',
+                 *[f'{stat}_{metric}' for metric in metrics for stat in ('median', 'min', 'max')]])
 for key, values in sorted(samples.items()):
-    writer.writerow([*key, len(values), f'{median(values):.3f}', f'{min(values):.3f}', f'{max(values):.3f}'])
+    row = [*key, len(values)]
+    for metric in range(len(metrics)):
+        observations = [value[metric] for value in values]
+        row.extend(f'{stat(observations):.3f}' for stat in (median, min, max))
+    writer.writerow(row)

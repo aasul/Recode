@@ -11,3 +11,10 @@ cold count and input distribution. Pressure records retain each outer round and
 the drivers' keyed metrics. `environment.txt` records OS, CPU and compiler. The
 comparison script recreates the raw checksummed measurements; no build/tool state
 is included here. These are observations, not portable performance guarantees.
+
+The v1.0 preparation comparison uses main a6926c6 and the clean-archive 1.0.0
+build (unchanged v0.9 runtime source). Files v07-release-baseline-*.csv and
+v10-*.csv contain 15 samples/cell across three alternating invocations, including
+cold total and compilation timing ranges. v10-pressure.csv retains all pressure
+counters and cleanup results. See docs/release-verification.md for conditions,
+regressions and limits. Earlier files retain their original summary schemas.

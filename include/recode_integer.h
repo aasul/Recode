@@ -34,6 +34,7 @@ enum rc_status rc_builder_append(struct rc_builder *builder, struct rc_integer_i
  * unreachable or read a register undefined on any incoming path. */
 enum rc_status rc_builder_finalize(const struct rc_builder *builder,
                                     struct rc_integer_program **out, struct rc_error *error);
+/* Both destroy functions accept NULL; exclude concurrent readers/destruction. */
 void rc_builder_destroy(struct rc_builder *builder);
 void rc_integer_program_destroy(struct rc_integer_program *program);
 /* Program is immutable and safe for simultaneous readers. Caller excludes
