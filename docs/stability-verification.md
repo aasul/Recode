@@ -82,3 +82,15 @@ Native validation adds bounded compile-time work. Timing varies, and the observe
 v0.8 interpreter regression remains disclosed; no performance fix is claimed in
 this hardening milestone. Full steady-state distributions/min/max are retained
 in benchmarks/results/v09-integer.csv.
+
+Post-commit review used the same pinned C-support fork as v0.8. Fast scan, next,
+inspection of every displayed/hidden report and rescan completed with only old
+build directories and the quality environment excluded. Reports include the new
+fuzzer as orphaned/untested despite its compiled and executed libFuzzer entry;
+CMake linkage/test-discovery gaps, reachable cleanup labels, file-local signature
+collisions and file-size advisories remain. No confirmed source defect followed
+from these candidates, so no score-driven cleanup or suppressions were made.
+The earlier full v0.8 scan eventually completed with jscpd errors and no duplicate
+results. v0.9 deliberately used --skip-slow; duplicate analysis is not claimed.
+cppcheck remains unavailable. Compiler analyzers and runtime tests supply separate
+evidence, including their explicitly inspected initialization warnings above.
