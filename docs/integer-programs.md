@@ -1,4 +1,4 @@
-# Integer programs (v0.6)
+# Integer programs
 
 Include `<recode_integer.h>` to construct programs without machine-code bytes.
 The existing accumulator decoder, IR, low-level APIs and TRACE policy are unchanged.
@@ -108,7 +108,8 @@ private status/result channel. Failed cleanup
 retains the mapping with no callable entry. No sophisticated register allocator
 or performance claim is part of v0.6.
 
-Platform, lifetime, security and ABI limits from [compatibility.md](compatibility.md)
+The v1.0 [public API policy](public-api.md) defines compatibility for these
+interfaces. Platform, lifetime, security and ABI limits from [compatibility.md](compatibility.md)
 and [embedding.md](embedding.md) still apply. Programs are not a sandbox and the
 managed runtime has no execution deadline. Sanitizers do not instrument emitted
 instructions. Program/metadata memory has no runtime-wide quota.

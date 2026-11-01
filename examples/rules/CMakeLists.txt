@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 project(recode_rules LANGUAGES C)
-find_package(Recode CONFIG REQUIRED)
+find_package(Recode 1.0 CONFIG REQUIRED)
 add_executable(rules main.c)
 target_link_libraries(rules PRIVATE Recode::recode)
