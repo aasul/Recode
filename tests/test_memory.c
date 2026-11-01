@@ -134,6 +134,28 @@ static void test_validation_and_control(void)
     CHECK(rc_integer_interpret_view(p,&arg,1,&view,1,&value,NULL) == RC_BUDGET && value == 0);
     CHECK(rc_runtime_destroy(&r,NULL) == RC_OK); rc_integer_program_destroy(p);
 }
+static void test_wrapped_offset(void)
+{
+    struct rc_builder *b = NULL; struct rc_integer_program *p = NULL;
+    const struct rc_integer_insn insns[] = {{.op=RC_INT_ARGUMENT},
+        {.op=RC_INT_ARGUMENT,.dst=1,.immediate=1},{.op=RC_INT_ADD,.right=1},
+        {.op=RC_INT_LOAD_U16},{.op=RC_INT_RETURN}};
+    CHECK(rc_builder_create(2,2,&b,NULL) == RC_OK);
+    for (size_t n = 0; n < 5; ++n) CHECK(rc_builder_append(b,insns[n],NULL) == RC_OK);
+    CHECK(rc_builder_finalize(b,&p,NULL) == RC_OK); rc_builder_destroy(b);
+    struct rc_runtime *r = runtime(RC_POLICY_FIXED); rc_handle h;
+    CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+    const uint8_t data[] = {0x12,0x34}; struct rc_memory_view view = {data,2};
+    for (unsigned n = 0; n < 6; ++n) {
+        uint64_t args[] = {UINT64_MAX,n%2}, a = 91, c = 91;
+        enum rc_status status = n%2 ? RC_OK : RC_BOUNDS;
+        CHECK(rc_integer_interpret_view(p,args,2,&view,10,&a,NULL) == status);
+        CHECK(rc_runtime_call_integer_view(r,h,args,2,&view,&c,NULL) == status);
+        CHECK(a == c && a == (n%2 ? UINT64_C(0x3412) : 91));
+    }
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK); rc_integer_program_destroy(p);
+}
+
 struct worker { struct rc_runtime *r; rc_handle h; unsigned id; atomic_bool *start; };
 static void *work(void *context)
 {
@@ -178,7 +200,7 @@ static void test_concurrency_and_eviction(void)
 }
 int main(void)
 {
-    test_reads(); test_validation_and_control(); test_concurrency_and_eviction();
+    test_reads(); test_validation_and_control(); test_wrapped_offset(); test_concurrency_and_eviction();
     puts("bounded reads, guard pages, differential errors, ABI, ownership and concurrent views passed");
     return 0;
 }

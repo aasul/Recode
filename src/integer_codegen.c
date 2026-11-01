@@ -46,6 +46,8 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
 {
     if (p == NULL || length == NULL || (bytes == NULL && capacity != 0))
         return rc_fail(error, RC_ARGUMENT, 0, 0);
+    enum rc_status status = rc_integer_validate(p,error);
+    if (status != RC_OK) return status;
     size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS + 1];
     offsets[0] = ENTRY_SIZE + (p->memory ? 3u : 0u);
     for (size_t n = 0; n < p->count; ++n)

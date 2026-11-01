@@ -626,6 +626,32 @@ static void test_integer_failures(void)
         fail_release = false;
         CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
     }
+    r = create(RC_POLICY_FIXED);
+    CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK); integer_call(r,h);
+    malloc_calls = 0; integer_call(r,h); allocations = malloc_calls;
+    CHECK(allocations > 0); CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    for (size_t n = 1; n <= allocations; ++n) {
+        r = create(RC_POLICY_FIXED);
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK); integer_call(r,h);
+        malloc_calls = 0; fail_at = n; integer_call(r,h); fail_at = 0;
+        CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).jitted == 0);
+        accounted(r); CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+    bool retained = false;
+    for (size_t n = 1; n <= allocations; ++n) {
+        r = create(RC_POLICY_FIXED);
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK); integer_call(r,h);
+        malloc_calls = 0; fail_at = n; fail_release = true; integer_call(r,h); fail_at = 0;
+        if (live_maps != 0) {
+            retained = true;
+            CHECK(function_stats(r,h).last_compile_error.system_errno == EINVAL);
+            CHECK(function_stats(r,h).jitted == 0);
+            CHECK(rc_runtime_destroy(&r,NULL) == RC_SYSTEM && r != NULL);
+        }
+        accounted(r); fail_release = false;
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+    CHECK(retained);
     rc_integer_program_destroy(p);
     CHECK(live_allocations == 0 && live_maps == 0);
 }
