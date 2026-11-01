@@ -22,7 +22,7 @@ for argument in sys.argv[1:]:
         else:
             continue
         samples[key].append(value)
-writer = csv.writer(sys.stdout)
+writer = csv.writer(sys.stdout, lineterminator="\n")
 writer.writerow(['workload', 'distribution', 'mode', 'calls', 'samples', 'median_ns', 'min_ns', 'max_ns'])
 for key, values in sorted(samples.items()):
     writer.writerow([*key, len(values), f'{median(values):.3f}', f'{min(values):.3f}', f'{max(values):.3f}'])

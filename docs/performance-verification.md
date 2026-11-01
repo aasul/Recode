@@ -125,6 +125,9 @@ Sanitizers instrument C, not native instructions; leak detection is disabled as
 in CI. No human review or proof of race freedom is claimed. Adversarial review
 checked size-table/encoding agreement, forward/backward relocation, scratch bounds,
 pin lifetime, deferred feedback ordering, lock ownership and cooldown saturation.
+GNU objdump also decoded an actual emitted compact conditional: JNE targets the
+second arm at 0x46, both paths restore the 16-byte frame and the image is exactly
+104 bytes.
 
 See [benchmarks/README.md](../benchmarks/README.md) for measured quantities and the
 immutable comparison script. Cold totals include registration and compilation,
@@ -132,3 +135,126 @@ with construction and cleanup reported separately. Pressure suites check exact
 budgets, peak mappings, evictions, hits/misses, metadata/program bytes and zero
 mapped bytes after clear. Their total times can regress; no pressure speedup is
 assumed. No telemetry, new runtime dependency, license or paid service was added.
+
+## Pinned immutable-revision confirmation
+
+Actual command after committing the tested implementation:
+
+```sh
+taskset -c 0 sh benchmarks/compare.sh feat/v0.6-execution-model \
+  feat/v0.7-runtime-performance /tmp/recode-pinned-comparison 3
+```
+
+The script compared 10357084af70b3bd58753149cd7b3c61482c5c12 with
+a0e85a6121d83c5d5966dc3e8e3b1252d2b355f2. There were no overlapping local
+build/test/analysis jobs during measurement. Each of three alternating outer runs
+contains five rotating-mode samples, giving 15 observations per cell. CPU 0
+avoids migrations but does not isolate that CPU or control frequency/background
+processes. [Committed CSV summaries](../benchmarks/results/README.md) preserve all
+input distributions and cold counts, sample counts and observed min/max.
+
+Mixed input, 50,000 calls, median ns/call:
+
+| Workload | C before / after | Kernel before / after | Public INTERPRET before / after | FIXED before / after | ADAPTIVE before / after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Arithmetic | 2.064 / 1.949 | 9.452 / 4.466 | 61.152 / 49.881 | 38.773 / 35.747 | 64.510 / 63.557 |
+| Bitwise | 1.950 / 1.671 | 10.558 / 4.457 | 67.953 / 54.794 | 39.340 / 34.667 | 70.896 / 71.293 |
+| Conditional rule | 2.181 / 2.135 | 10.324 / 4.778 | 70.227 / 54.654 | 40.744 / 35.082 | 47.604 / 70.324 |
+| Shift rule | 2.359 / 2.359 | 9.312 / 3.900 | 73.614 / 57.475 | 37.995 / 36.087 | 67.193 / 74.032 |
+| Branch-heavy | 2.228 / 1.981 | 20.995 / 14.985 | 150.216 / 131.919 | 48.953 / 45.299 | 49.971 / 46.242 |
+
+Arithmetic kernel ranges were 8.913..11.541 ns before and 3.900..5.105 after;
+bitwise 10.304..11.989 and 4.456..5.179. Rule FIXED ranges were 38.354..46.864
+and 34.184..42.908. ADAPTIVE rule ranges were 38.622..82.590 and 34.847..77.971;
+its median regressed because more samples remained interpreted. Native cost
+estimation and clock overhead still affect tiny functions. A hardware-specific
+initial cost or forced promotion would not establish a portable improvement.
+Unchanged direct interpretation also varies (arithmetic medians 19.883 / 18.746 ns).
+
+Code size and median raw compilation time (query, emission, mapping and RX):
+
+| Workload | Bytes before / after | Compile us before / after |
+| --- | ---: | ---: |
+| Arithmetic | 251 / 116 | 7.315 / 4.383 |
+| Bitwise | 331 / 178 | 8.966 / 4.344 |
+| Conditional rule | 411 / 209 | 7.003 / 6.506 |
+| Shift rule | 331 / 163 | 6.286 / 4.346 |
+| Branch-heavy | 2051 / 1275 | 10.254 / 8.893 |
+
+For the conditional rule, FIXED cold total medians were 0.456 / 0.433 us at one
+call and 6.867 / 6.242 us at 32 calls. ADAPTIVE totals were 0.393 / 0.422 us at
+one call and 3.030 / 2.893 us at 32 calls. The after FIXED 32-call range widened
+to 5.744..12.440 us. These tiny cold timings are noisy and include different tier
+choices; registration-only measurements also varied without a registration-code
+change (arithmetic median 203 / 546 ns). Construction and cleanup are measured
+separately in raw output. No registration speedup is claimed.
+
+Pinned original workloads, 20,000 calls, median ns/call:
+
+| Workload | Whole JIT before / after | TRACE warm before / after | Trace kernel before / after |
+| --- | ---: | ---: | ---: |
+| Countdown | 45.262 / 46.800 | 170.251 / 149.418 | 89.383 / 87.010 |
+| Predictable | 55.718 / 56.000 | 185.252 / 160.147 | 95.858 / 94.185 |
+| Changing | 59.423 / 59.288 | 490.952 / 473.813 | 404.858 / 402.664 |
+| Multiple paths | 82.233 / 79.099 | 206.362 / 184.615 | 118.361 / 120.229 |
+| Short | 2.234 / 2.311 | 57.995 / 46.097 | n/a |
+
+Countdown TRACE ranges were 166.392..198.234 / 148.612..158.673 ns. Changing TRACE
+ranges overlapped widely: 469.349..518.491 / 448.088..600.887 ns. Trace/native
+kernel code is unchanged; these results isolate most benefit to dispatch, while
+not eliminating wall-clock variation. The pinned v0.4 rerun produced whole-JIT /
+warm-TRACE medians of 46.073 / 169.978 ns (countdown), 56.021 / 193.243
+(predictable) and 61.589 / 536.921 (changing). These differ from historical v0.4
+numbers; they reinforce the need to rerun baselines on each environment.
+
+A representative after countdown cold run compiled once, emitted 100 bytes,
+entered 19,992 times, completed 2,546,383 native iterations and side-exited 19,992
+times: 0.785% exits per native iteration. Available-entry hits/misses were
+19,991 / 1. Compilation timing and recording timing are reported separately;
+the first sample measured 12.854 us and 60 ns. These are observations with timing
+noise, not pure isolated recorder costs. Whole-function and trace counters retain
+their different meanings described in the runtime/tracing guides.
+
+Pressure medians over three outer invocations:
+
+| Suite | Size | Total ms before / after |
+| --- | ---: | ---: |
+| Integer | 1 function | 0.0167 / 0.0136 |
+| Integer | 32 functions | 0.2279 / 0.2023 |
+| Integer | 1,024 functions | 9.3239 / 8.5803 |
+| Integer | 4,096 functions | 53.7404 / 52.5158 |
+| Whole-function | 4 MiB | 5.202 / 5.296 |
+| Whole-function | 16 MiB | 19.550 / 19.744 |
+| Whole-function | 64 MiB | 83.924 / 80.042 |
+| Trace | 1 page | 83.276 / 81.801 |
+| Trace | 4 pages | 85.319 / 83.203 |
+| Trace | 16 pages | 86.215 / 84.236 |
+
+Whole-function 4/16 MiB totals regressed slightly. At 4,096 integer functions,
+both revisions retain a 16-page peak (65,536 bytes), 4,080 evictions, 4,096 hits,
+8,192 misses, 1,999,200 metadata bytes and 655,360 program bytes. Whole-function
+pressure at 16,416 functions peaks at exactly 64 MiB, with 8,272,992 metadata and
+262,656 program bytes, plus 32 evictions. Trace pressure compiles 4,096 entries
+and evicts 4,095 / 4,092 / 4,080 at its three budgets; requested metadata/IR are
+2,785,632 / 163,840 bytes. Clear reaches zero mapped bytes for every run. Peak
+mapping counts are the page counts for these single-page kernels; no smaller-page
+cache packing was introduced. Size reduction chiefly improves instruction fetch
+and leaves these page-rounded pressure footprints unchanged.
+
+## Post-commit quality review
+
+The isolated C-support fork's install metadata still identifies feat/c-native-analysis
+at 5179f6ba61dca2050813a1aa7e2f71ba7e4ce765. Scan, next, full displayed finding
+inspection and rescan used the same commands recorded for v0.5. It displayed 48
+open reports with eleven more hidden by the per-detector noise budget. Source
+inspection found C import/link/test discovery gaps, reachable goto cleanup labels,
+local helper signature collisions, file-size advisories and short deliberate
+benchmark/mapping duplication. The new dispatch probe is itself an executed CTest
+case; the integer benchmark was executed across immutable revisions. These are
+not untested/orphaned modules. Shared small IR fixtures keep measured rules equal
+to the independent application's expressions without coupling public consumers
+to private benchmark support. No confirmed source defect arose from these reports;
+none was hidden, marked fixed or excluded to improve a score. Rescan reproduced
+the reports. C analysis remains incomplete; subjective scores were not used as an
+acceptance criterion. Compiler analyzers, ABI/differential/failure/concurrency
+regressions and adversarial source review supply separate evidence.
