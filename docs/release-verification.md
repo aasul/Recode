@@ -197,3 +197,9 @@ score-driven suppression or cleanup was applied. Slow duplicate detection was
 skipped after the earlier jscpd failures; cppcheck remains unavailable. The
 compiler analyzers, differential/guard/ABI/failure/concurrency tests and completed
 independent source audit are separate evidence, not proof of security.
+
+Ubuntu GitHub Actions passed all five jobs for the v1.0 implementation head
+e954cef: [run 41297204850](https://github.com/aasul/Recode/actions/runs/41297204850).
+The v0.8/v0.9 implementation heads also passed their four/five expected jobs.
+Final checklist updates only record these completed checks and do not change the
+validated build inputs. Publication and maintainer merges remain pending.
