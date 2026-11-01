@@ -175,3 +175,25 @@ The integer descriptor grows by eight requested bytes per distinct program for
 the memory-entry flag and alignment; 4096 descriptors add 32 KiB. This is included
 in program_bytes, separate from executable pages. Every pressure suite clears all
 mappings; total process memory and allocator overhead remain outside these counters.
+
+## Post-commit review and distribution
+
+The final package implementation was committed as 1fe2dfe and the guides/benchmark
+evidence as f9cc352. A fresh `git archive` of f9cc352 was extracted without Git
+metadata and passed all 13 GCC Release CTests, including installed static/shared
+consumers. Its gzip SHA-256 is
+3a7da5c8fbb294e2f4b30391f615d3d98a0fa0d9efb068cf38aa81d311260ddb.
+Subsequent changes record verification/checklist results only; runtime source,
+package/build rules and consumers are unchanged.
+
+After both commits, the pinned C-support fork at 5179f6b completed fast scan,
+next, inspection of all 52 open candidates and rescan. Only build-* output and the
+isolated quality environment were excluded. Reports remain C import/link/test
+recognition gaps, reachable goto cleanup labels, file-local helper signature
+collisions (including `if`) and file-size/type-count advisories. Installed data
+rules and the optional fuzzer are executed tests despite their untested/orphaned
+reports. No confirmed source defect arose, no project code was excluded, and no
+score-driven suppression or cleanup was applied. Slow duplicate detection was
+skipped after the earlier jscpd failures; cppcheck remains unavailable. The
+compiler analyzers, differential/guard/ABI/failure/concurrency tests and completed
+independent source audit are separate evidence, not proof of security.

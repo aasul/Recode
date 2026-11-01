@@ -19,7 +19,7 @@ below are intentionally separate and are not authorization to publish.
 - [ ] Getting started, migration, troubleshooting, limitations and release notes reviewed.
 - [ ] MIT license is included in source and installed packages.
 - [ ] Source archive contains required files and excludes local/build/quality state.
-- [ ] Completed implementation committed; post-commit C-fork quality review recorded.
+- [x] Completed implementation committed; post-commit C-fork quality review recorded.
 - [ ] All three stacked PRs have passing GitHub Actions at their final heads.
 - [ ] No known release-blocking source defect remains unresolved.
 
