@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(recode VERSION 0.7.0 LANGUAGES C)
+project(recode VERSION 0.8.0 LANGUAGES C)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
    NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$" OR
@@ -70,6 +70,11 @@ if(BUILD_TESTING)
         set_tests_properties(dispatch_overhead PROPERTIES TIMEOUT 30)
     endif()
     enable_language(ASM)
+    add_executable(recode_memory_tests tests/test_memory.c tests/integer_abi.S)
+    target_include_directories(recode_memory_tests PRIVATE src)
+    target_link_libraries(recode_memory_tests PRIVATE recode)
+    add_test(NAME memory COMMAND recode_memory_tests)
+    set_tests_properties(memory PROPERTIES TIMEOUT 90)
     add_executable(recode_integer_tests tests/test_integer.c tests/integer_abi.S)
     target_include_directories(recode_integer_tests PRIVATE src)
     target_link_libraries(recode_integer_tests PRIVATE recode)
