@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(data_rules LANGUAGES C)
+find_package(Recode CONFIG REQUIRED)
+add_executable(data-rules main.c)
+target_link_libraries(data-rules PRIVATE Recode::recode)
+target_compile_options(data-rules PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Werror)

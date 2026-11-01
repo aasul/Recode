@@ -31,3 +31,8 @@ run("${CMAKE_COMMAND}" -S "${SOURCE_DIR}/examples/rules" -B "${TEST_DIR}/rules"
     "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_PREFIX_PATH=${TEST_DIR}/relocated")
 run("${CMAKE_COMMAND}" --build "${TEST_DIR}/rules" --parallel 2)
 run("${TEST_DIR}/rules/rules")
+
+run("${CMAKE_COMMAND}" -S "${SOURCE_DIR}/examples/data-rules" -B "${TEST_DIR}/data-rules"
+    "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_PREFIX_PATH=${TEST_DIR}/relocated")
+run("${CMAKE_COMMAND}" --build "${TEST_DIR}/data-rules" --parallel 2)
+run("${TEST_DIR}/data-rules/data-rules")
