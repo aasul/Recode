@@ -32,10 +32,19 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 0.5 provides static/shared installation and the `Recode::recode` CMake
+Version 0.7 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
 for platform, instruction and security limits. There is no stable binary ABI.
+
+## Integer programs
+
+The public [integer builder](docs/integer-programs.md) constructs validated
+programs with two inputs, numbered registers, modular arithmetic, bitwise and
+shift operations, signed/unsigned comparisons, branches and returns. Both the
+interpreter and managed whole-function JIT execute them. The independent
+[rules application](examples/rules) compares three rules against C expressions.
+TRACE remains limited to accumulator input.
 
 ## Supported input
 
@@ -112,6 +121,14 @@ code with guards and precise RAX/ZF/argument/IR-position side exits. Whole-funct
 compilation remains available through the existing policies. Traces share cache
 ownership, execution pins and the executable budget. See [docs/tracing.md](docs/tracing.md)
 for configuration, native state reconstruction, limits and measured regressions.
+
+## Performance measurements
+
+v0.7 removes unused dispatch clock reads, merges trace feedback under the existing
+completion lock and compacts integer native layout. See
+[performance verification](docs/performance-verification.md) for checked baselines,
+comparisons, reproduction commands and regressions. Direct C remains faster on
+these synthetic workloads; tracing remains slower than whole-function JIT.
 
 ## Verification
 
