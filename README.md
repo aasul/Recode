@@ -32,10 +32,11 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 0.8 provides static/shared installation and the `Recode::recode` CMake
+Version 0.9 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
-for platform, instruction and security limits. There is no stable binary ABI.
+for platform, instruction and security limits. The [proposed API freeze](docs/public-api.md)
+defines source and patch-level ABI expectations for v1.0; v0.9 remains experimental.
 
 ## Integer programs
 
