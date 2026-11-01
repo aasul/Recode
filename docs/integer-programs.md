@@ -3,8 +3,8 @@
 Include `<recode_integer.h>` to construct programs without machine-code bytes.
 The existing accumulator decoder, IR, low-level APIs and TRACE policy are unchanged.
 Integer programs use mutable numbered 64-bit registers with explicit operands,
-comparison results and branch conditions. There are no implicit flags or memory
-operations. This is a bounded execution model, not a general C compiler.
+comparison results and branch conditions. There are no implicit flags or implicit memory
+operands. Explicit bounded loads use a [call-scoped memory view](memory-views.md). This is a bounded execution model, not a general C compiler.
 
 Create a builder with 1..64 registers and 0..2 arguments. Append instructions in
 execution order, then finalize into an immutable owned program. Branch targets
@@ -102,7 +102,9 @@ that; there are no calls needing a new alignment adjustment. v0.7 lays out exact
 removing v0.6's fixed-slot NOP padding. Emission uses 32,776 bytes of bounded temporary
 offset storage on the C compiler's stack; generated functions still need at most
 512 bytes. All branches are rel32 within the bounded function. Compilation reserves page-rounded budget, emits RW, then protects RX
-before publishing a typed two-argument System V AMD64 entry. Failed cleanup
+before publishing a private System V AMD64 entry. Memory-free programs retain
+the two-argument entry; memory programs additionally receive the view and a
+private status/result channel. Failed cleanup
 retains the mapping with no callable entry. No sophisticated register allocator
 or performance claim is part of v0.6.
 

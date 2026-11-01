@@ -11,7 +11,7 @@ for argument in sys.argv[1:]:
     for row in csv.reader(path.open()):
         if not row:
             continue
-        if row[0] == 'integer':
+        if row[0] in ('integer', 'data'):
             fields = dict(zip(row[2::2], row[3::2]))
             key = (row[1], fields['distribution'], fields['mode'], fields['calls'])
             value = float(fields['ns'])

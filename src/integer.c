@@ -8,11 +8,11 @@ struct rc_builder { struct rc_integer_program program; size_t capacity; };
 static enum rc_status check_insn(const struct rc_integer_program *p,
                                   struct rc_integer_insn i)
 {
-    if (i.op < RC_INT_ARGUMENT || i.op > RC_INT_RETURN)
+    if (i.op < RC_INT_ARGUMENT || i.op > RC_INT_LOAD_U64)
         return RC_INVALID_IR;
     bool binary = i.op >= RC_INT_ADD && i.op <= RC_INT_SLE;
-    bool writes = i.op <= RC_INT_SLE;
-    bool reads = binary || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN;
+    bool writes = i.op <= RC_INT_SLE || rc_integer_load(i.op);
+    bool reads = rc_integer_load(i.op) || binary || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN;
     bool branch = i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH;
     if ((writes ? i.dst >= p->registers : i.dst != 0) ||
         (reads ? i.left >= p->registers : i.left != 0) ||
@@ -56,6 +56,7 @@ enum rc_status rc_builder_append(struct rc_builder *b, struct rc_integer_insn in
         b->capacity = capacity;
     }
     b->program.insns[b->program.count++] = insn;
+    b->program.memory |= rc_integer_load(insn.op);
     return rc_fail(error, RC_OK, 0, 0);
 }
 
@@ -90,7 +91,7 @@ static enum rc_status validate(const struct rc_integer_program *p, struct rc_err
             if (!facts[n].reachable) continue;
             struct rc_integer_insn i = p->insns[n];
             uint64_t defined = facts[n].defined;
-            if (i.op <= RC_INT_SLE) defined |= UINT64_C(1) << i.dst;
+            if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
             size_t edges[2], count = 0;
             if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) edges[count++] = i.target;
             if (i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) edges[count++] = n + 1;
@@ -111,7 +112,7 @@ static enum rc_status validate(const struct rc_integer_program *p, struct rc_err
         struct rc_integer_insn i = p->insns[n];
         bool binary = i.op >= RC_INT_ADD && i.op <= RC_INT_SLE;
         uint64_t reads = 0;
-        if (binary || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
+        if (rc_integer_load(i.op) || binary || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
             reads |= UINT64_C(1) << i.left;
         if (binary) reads |= UINT64_C(1) << i.right;
         if ((reads & facts[n].defined) != reads) { status = RC_UNINITIALIZED; goto done; }
@@ -153,12 +154,15 @@ void rc_integer_program_destroy(struct rc_integer_program *p)
     if (p != NULL) { free(p->insns); free(p); }
 }
 
-enum rc_status rc_integer_interpret(const struct rc_integer_program *p,
-                                     const uint64_t *arguments, size_t count, uint64_t budget,
+enum rc_status rc_integer_interpret_view(const struct rc_integer_program *p,
+                                     const uint64_t *arguments, size_t count,
+                                     const struct rc_memory_view *view, uint64_t budget,
                                      uint64_t *result, struct rc_error *error)
 {
-    if (p == NULL || result == NULL || count != p->arguments || (count != 0 && arguments == NULL))
+    if (p == NULL || result == NULL || count != p->arguments || (count != 0 && arguments == NULL) ||
+        (view != NULL && view->data == NULL && view->length != 0))
         return rc_fail(error, RC_ARGUMENT, 0, 0);
+    struct rc_memory_view memory = view != NULL ? *view : (struct rc_memory_view){0};
     uint64_t regs[RC_INTEGER_MAX_REGISTERS];
     size_t pc = 0;
     bool limited = budget != 0;
@@ -168,6 +172,18 @@ enum rc_status rc_integer_interpret(const struct rc_integer_program *p,
         uint64_t a = 0, b = 0, value = 0;
         if (i.op >= RC_INT_ADD && i.op <= RC_INT_SLE) { a = regs[i.left]; b = regs[i.right]; }
         switch (i.op) {
+        case RC_INT_LOAD_U8:
+        case RC_INT_LOAD_U16:
+        case RC_INT_LOAD_U32:
+        case RC_INT_LOAD_U64: {
+            size_t width = (size_t)1 << (i.op - RC_INT_LOAD_U8);
+            uint64_t offset = regs[i.left];
+            if (offset > memory.length || width > memory.length - (size_t)offset)
+                return rc_fail(error, RC_BOUNDS, pc - 1, 0);
+            const uint8_t *bytes = (const uint8_t *)memory.data + (size_t)offset;
+            for (size_t n = 0; n < width; ++n) value |= (uint64_t)bytes[n] << (n * 8);
+            break;
+        }
         case RC_INT_ARGUMENT: value = arguments[i.immediate]; break;
         case RC_INT_CONSTANT: value = i.immediate; break;
         case RC_INT_ADD: value = a + b; break;
@@ -192,4 +208,11 @@ enum rc_status rc_integer_interpret(const struct rc_integer_program *p,
         }
         regs[i.dst] = value;
     }
+}
+
+enum rc_status rc_integer_interpret(const struct rc_integer_program *p,
+                                     const uint64_t *arguments, size_t count, uint64_t budget,
+                                     uint64_t *result, struct rc_error *error)
+{
+    return rc_integer_interpret_view(p,arguments,count,NULL,budget,result,error);
 }

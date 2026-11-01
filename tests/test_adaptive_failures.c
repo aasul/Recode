@@ -630,9 +630,43 @@ static void test_integer_failures(void)
     CHECK(live_allocations == 0 && live_maps == 0);
 }
 
+static void test_memory_failures(void)
+{
+    struct rc_builder *b = NULL; struct rc_integer_program *p = NULL;
+    CHECK(rc_builder_create(1,1,&b,NULL) == RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_ARGUMENT},NULL) == RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_LOAD_U64},NULL) == RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_RETURN},NULL) == RC_OK);
+    CHECK(rc_builder_finalize(b,&p,NULL) == RC_OK); rc_builder_destroy(b);
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        struct rc_runtime *r = create(RC_POLICY_FIXED); rc_handle h;
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+        uint8_t data[] = {1,2,3,4,5,6,7,8}; struct rc_memory_view view = {data,8};
+        uint64_t arg = 0, value;
+        CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&value,NULL) == RC_OK);
+        fail_map = mode == 0; fail_protect = mode != 0; fail_release = mode == 2;
+        CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&value,NULL) == RC_OK && value == UINT64_C(0x0807060504030201));
+        CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).jitted == 0);
+        arg = UINT64_MAX; value = 91; struct rc_error error;
+        CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&value,&error) == RC_BOUNDS && value == 91 && error.offset == 1);
+        accounted(r);
+        if (mode == 2) CHECK(rc_runtime_destroy(&r,NULL) == RC_SYSTEM && r != NULL);
+        fail_map = false; fail_protect = false; fail_release = false;
+        arg = 0;
+        for (unsigned n = 0; n < 32; ++n)
+            CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&value,NULL) == RC_OK);
+        CHECK(function_stats(r,h).jitted > 0);
+        fail_release = true; CHECK(rc_runtime_invalidate(r,h,NULL) == RC_SYSTEM);
+        CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&value,NULL) == RC_OK);
+        accounted(r); fail_release = false;
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+    rc_integer_program_destroy(p); CHECK(live_maps == 0 && live_allocations == 0);
+}
+
 int main(void)
 {
-    test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
+    test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;

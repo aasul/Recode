@@ -80,6 +80,9 @@ cancellation-safe, or reusable after multithreaded fork before exec.
 Low-level `rc_compile` is separate: it returns a caller-owned native mapping,
 which must remain alive until every call ends. Never free a borrowed `rc_program`
 array with `rc_program_free`. The managed runtime exposes no native code pointers.
+The installed `examples/data-rules` consumer demonstrates record filtering with
+a borrowed data buffer, independent C results and explicit bounds errors.
+See [memory-views.md](memory-views.md) for its contract.
 For two-input register programs, use the [integer API](integer-programs.md).
 See [runtime.md](runtime.md), [translator.md](translator.md) and
 [compatibility.md](compatibility.md) for the full contracts.

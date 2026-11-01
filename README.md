@@ -32,7 +32,7 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 0.7 provides static/shared installation and the `Recode::recode` CMake
+Version 0.8 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
 for platform, instruction and security limits. There is no stable binary ABI.
@@ -44,7 +44,9 @@ programs with two inputs, numbered registers, modular arithmetic, bitwise and
 shift operations, signed/unsigned comparisons, branches and returns. Both the
 interpreter and managed whole-function JIT execute them. The independent
 [rules application](examples/rules) compares three rules against C expressions.
-TRACE remains limited to accumulator input.
+The [data-rules application](examples/data-rules) reads a borrowed byte buffer
+using bounded unsigned little-endian loads in both engines. See the
+[memory-view contract](docs/memory-views.md). TRACE remains limited to accumulator input.
 
 ## Supported input
 
@@ -170,7 +172,7 @@ calls, even when it improves on interpretation.
 
 ## Limitations
 
-No ELF loading, external or indirect branches, calls, memory operands, syscalls,
+No ELF loading, external or indirect branches, calls, decoded memory operands, syscalls,
 arbitrary binaries, process instrumentation, or
 cross-architecture execution are implemented. Only ZF is modeled, and only its
 in-function uses are preserved. Final flags, exception equivalence, timing, and

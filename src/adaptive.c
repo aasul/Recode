@@ -726,10 +726,13 @@ static void merge_trace_stats(struct rc_function_stats *to, const struct rc_func
 
 static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
                                     const uint64_t *arguments, size_t count, bool integer,
+                                    const struct rc_memory_view *view,
                                     uint64_t *result, struct rc_error *error)
 {
-    if (r == NULL || result == NULL)
+    if (r == NULL || result == NULL ||
+        (view != NULL && view->data == NULL && view->length != 0))
         return rc_fail(error, RC_ARGUMENT, 0, 0);
+    struct rc_memory_view memory = view != NULL ? *view : (struct rc_memory_view){0};
     pthread_mutex_lock(&r->mutex);
     struct function *f = find_function(r, handle);
     if (f == NULL) {
@@ -803,12 +806,22 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
 
     uint64_t start = sample ? now_ns() : 0;
     uint64_t value;
-    if (integer_native != NULL)
+    struct rc_error execution = {0};
+    enum rc_status status = RC_OK;
+    if (integer_native != NULL && t->integer->memory) {
+        rc_integer_view_function entry;
+        _Static_assert(sizeof(entry) == sizeof(integer_native), "native entry size");
+        memcpy(&entry,&integer_native,sizeof(entry));
+        struct rc_integer_result output;
+        status = entry(argument,second,memory.data,memory.length,&output);
+        if (status == RC_OK) value = output.value;
+        else execution = (struct rc_error){status,output.offset,0};
+    } else if (integer_native != NULL)
         value = integer_native(argument,second);
     else if (native != NULL)
         value = native(argument);
     else if (integer)
-        (void)rc_integer_interpret(t->integer,arguments,count,0,&value,NULL);
+        status = rc_integer_interpret_view(t->integer,arguments,count,&memory,0,&value,&execution);
     else if (tracing) {
         struct rc_state state = {.argument = argument};
         struct rc_observer observer = {&trace_call,NULL,trace_before,trace_after};
@@ -876,21 +889,30 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
     --f->active;
     --r->stats.active_calls;
     pthread_mutex_unlock(&r->mutex);
-    *result = value;
-    return rc_fail(error, RC_OK, 0, 0);
+    if (status == RC_OK) *result = value;
+    if (error != NULL) *error = execution;
+    return status;
 }
 
 enum rc_status rc_runtime_call(struct rc_runtime *r, rc_handle handle,
                                 uint64_t argument, uint64_t *result, struct rc_error *error)
 {
-    return runtime_call(r,handle,&argument,1,false,result,error);
+    return runtime_call(r,handle,&argument,1,false,NULL,result,error);
 }
 
 enum rc_status rc_runtime_call_integer(struct rc_runtime *r, rc_handle handle,
                                         const uint64_t *arguments, size_t count,
                                         uint64_t *result, struct rc_error *error)
 {
-    return runtime_call(r,handle,arguments,count,true,result,error);
+    return runtime_call(r,handle,arguments,count,true,NULL,result,error);
+}
+
+enum rc_status rc_runtime_call_integer_view(struct rc_runtime *r, rc_handle handle,
+                                             const uint64_t *arguments, size_t count,
+                                             const struct rc_memory_view *view,
+                                             uint64_t *result, struct rc_error *error)
+{
+    return runtime_call(r,handle,arguments,count,true,view,result,error);
 }
 
 enum rc_status rc_runtime_function_stats(struct rc_runtime *r, rc_handle handle,

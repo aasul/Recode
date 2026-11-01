@@ -9,7 +9,8 @@
   `rc_compile` reports failure instead. Generated entries include ENDBR64.
 - The [integer API](integer-programs.md) also supports 0..2 uint64_t arguments
   with explicit virtual registers. All its operations interpret and compile;
-  TRACE registration is rejected for this representation.
+  TRACE registration is rejected for this representation. Bounded read-only
+  [memory views](memory-views.md) are supported only by the integer API.
 - Byte functions have signature `uint64_t f(uint64_t)`. The exact accepted input
   encodings are listed in [README](../README.md#supported-input); alternative
   prefixes/registers/encodings are not implicitly supported. There are no memory
