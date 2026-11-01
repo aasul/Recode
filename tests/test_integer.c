@@ -182,6 +182,26 @@ static void test_validation(void)
     CHECK(rc_builder_finalize(NULL,&p,NULL) == RC_ARGUMENT);
     CHECK(rc_integer_interpret(NULL,NULL,0,0,&(uint64_t){0},NULL) == RC_ARGUMENT);
 }
+static void test_emitter_validation(void)
+{
+    struct rc_integer_insn insns[] = {{.op=RC_INT_CONSTANT},{.op=RC_INT_RETURN}};
+    struct rc_integer_program p = {1,0,2,false,insns};
+    uint8_t output[128]; size_t length = 91;
+    memset(output,0xa5,sizeof(output));
+    insns[0].op = (enum rc_integer_op)255;
+    CHECK(rc_integer_emit(&p,output,sizeof(output),&length,NULL) == RC_INVALID_IR);
+    CHECK(length == 91 && output[0] == 0xa5);
+    insns[0].op = RC_INT_CONSTANT;
+    p.count = RC_INTEGER_MAX_INSTRUCTIONS+1;
+    CHECK(rc_integer_emit(&p,output,sizeof(output),&length,NULL) == RC_INVALID_IR);
+    p.count = 2; p.registers = 65;
+    CHECK(rc_integer_emit(&p,output,sizeof(output),&length,NULL) == RC_INVALID_IR);
+    p.registers = 1; p.memory = true;
+    CHECK(rc_integer_emit(&p,output,sizeof(output),&length,NULL) == RC_INVALID_IR);
+    p.memory = false; insns[1].op = RC_INT_LOAD_U8;
+    CHECK(rc_integer_emit(&p,output,sizeof(output),&length,NULL) == RC_MISSING_RET);
+}
+
 static uint64_t seed = UINT64_C(0x18651a4e82b75903);
 static uint64_t random_value(void)
 {
@@ -323,7 +343,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
-    test_compact_layout(); test_validation(); test_operations(); test_random(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
+    test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_random(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
     puts("integer builder, operations, independent differential, ABI, policies, ownership and concurrency passed");
     return 0;
 }

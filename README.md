@@ -1,13 +1,15 @@
 # Recode
 
-Recode is an experimental dynamic binary optimizer for Linux x86-64, written in
-C11. It translates a restricted machine-code function with the System V AMD64
-signature `uint64_t f(uint64_t)`: decode bytes, build an accumulator IR and
-control-flow graph, simplify arithmetic, emit native instructions, and execute
-from a protected code buffer. Version 0.4 adds hot-loop recording and guarded
-native trace execution to the interpreter, function profiles, tier selection and
-bounded executable-code cache.
-The contract preserves branch decisions and the returned value.
+Recode is a C11 execution library for Linux x86-64. Applications can construct
+validated integer programs with arithmetic, comparisons, control flow and bounded
+read-only data access, then interpret them or use a managed whole-function JIT.
+A separate accumulator pipeline translates the documented x86 instruction subset
+and supports guarded loop tracing. Recode does not load or optimize arbitrary
+binaries and is not a sandbox.
+
+This branch prepares v1.0.0 for maintainer review. It is not an official release.
+Start with the [getting-started guide](docs/getting-started.md),
+[public API policy](docs/public-api.md) and [release checklist](docs/release-checklist.md).
 
 ## Build and run
 
@@ -32,10 +34,12 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 0.8 provides static/shared installation and the `Recode::recode` CMake
+Version 1.0 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
-for platform, instruction and security limits. There is no stable binary ABI.
+for platform, instruction and security limits. The [public API policy](docs/public-api.md)
+defines 1.x source compatibility and patch-level binary compatibility. Consumers
+rebuild across minor releases; the first stable SONAME is 1.0.
 
 ## Integer programs
 
@@ -178,7 +182,12 @@ cross-architecture execution are implemented. Only ZF is modeled, and only its
 in-function uses are preserved. Final flags, exception equivalence, timing, and
 other CPU state are outside the translation contract. Accepted loops need not
 terminate. This is not a sandbox for running arbitrary native code.
-Executable-memory policy failures are reported to the caller.
+Low-level executable-memory policy failures are reported directly; managed calls
+fall back to interpretation and retain compilation diagnostics in statistics.
+
+See the [release verification](docs/release-verification.md),
+[migration guide](docs/migration.md), [troubleshooting](docs/troubleshooting.md),
+[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.0.md).
 
 ## Contributing
 

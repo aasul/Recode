@@ -62,3 +62,9 @@ your process affinity. Frequency control is optional and should be reported, not
 assumed. The output directory retains exact revisions, environment, build logs
 and CSV. [Measured results](../docs/performance-verification.md) include both gains
 and regressions. No performance threshold gates normal CI.
+
+The summarizer also accepts the installed data consumer's `data` records and
+retains total initialization/execution and compilation median/min/max alongside
+call-loop latency. Build that consumer in Release, then run `data-rules --bench`.
+Final v1.0 preparation measurements and source-archive checks are documented in
+[release-verification.md](../docs/release-verification.md).

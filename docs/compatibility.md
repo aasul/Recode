@@ -27,9 +27,17 @@
 Recode is not a sandbox. Validation of a restricted instruction subset does not
 make arbitrary untrusted native code safe. Use process-level isolation and
 resource limits for hostile input. Bugs in validation/emission remain possible;
-do not expose this experimental runtime as an unrestricted execution service.
+do not expose this in-process runtime as an unrestricted execution service.
 Generated machine code is not sanitizer-instrumented. See [SECURITY](../SECURITY.md).
 
 Source compatibility and binary compatibility are separate. Existing v0.4 entry
-points remain available. Rebuild consumers against each experimental release;
-there is no stable ABI guarantee. The library remains MIT-licensed.
+points remain available. The 1.x public source contract is compatible within the
+major version; rebuild consumers across minor releases. Binary compatibility
+is limited to patches in one major/minor line, identified by SONAME 1.0.
+The library remains MIT-licensed.
+
+The [public API policy](public-api.md) defines installed surfaces, error semantics
+and major/minor SONAME isolation. See [memory limits](memory-limits.md) for why
+executable accounting is not a total allocation quota, and [fuzzing](fuzzing.md)
+for the optional bounded Clang harness. The supported-platform matrix and actual
+verification results are in [stability verification](stability-verification.md).

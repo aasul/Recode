@@ -1,6 +1,6 @@
 # Embedding Recode
 
-Recode is an experimental C11 library for Linux x86-64. Install an optimized
+Recode is a C11 execution library for Linux x86-64. Install an optimized
 build into a prefix you own:
 
 ```sh
@@ -22,7 +22,7 @@ A separate application needs only:
 ```cmake
 cmake_minimum_required(VERSION 3.16)
 project(application LANGUAGES C)
-find_package(Recode CONFIG REQUIRED)
+find_package(Recode 1.0 CONFIG REQUIRED)
 add_executable(application main.c)
 target_link_libraries(application PRIVATE Recode::recode)
 ```
@@ -89,8 +89,9 @@ See [runtime.md](runtime.md), [translator.md](translator.md) and
 
 `RECODE_VERSION` and its component macros describe the installed headers;
 `rc_version_string()` identifies the linked library. `RECODE_API_VERSION` detects
-incompatible source-contract revisions. Additive changes aim to preserve v0.4
-source compatibility. There is no stable binary ABI: public structs may grow,
-and clients must rebuild against matching headers and library. CMake versioned
-requests accept only the same minor release. SOVERSION 0 marks experimental ABI,
-not compatibility between arbitrary 0.x releases.
+incompatible source-contract revisions. Version 1 preserves documented source
+compatibility across compatible minor releases, but consumers must rebuild with
+matching headers/library for each major/minor. Binary compatibility is limited
+to patch releases in one major/minor line. CMake accepts same-major source version
+requests; SONAME 1.0 identifies the first stable binary line. See the exact
+[public API policy](public-api.md) and [migration guide](migration.md).

@@ -5,7 +5,10 @@
 #define RECODE_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
 #define RECODE_VERSION_MINOR @PROJECT_VERSION_MINOR@
 #define RECODE_VERSION_PATCH @PROJECT_VERSION_PATCH@
-/* Incremented for incompatible public source contracts. No stable binary ABI. */
+/* Incremented for incompatible public source contracts. */
 #define RECODE_API_VERSION 1
+/* Matching major/minor ABI only; patch releases preserve layouts and symbols. */
+#define RECODE_ABI_MAJOR @PROJECT_VERSION_MAJOR@
+#define RECODE_ABI_MINOR @PROJECT_VERSION_MINOR@
 
 #endif

@@ -16,6 +16,7 @@ static inline bool rc_integer_load(enum rc_integer_op op)
 {
     return op >= RC_INT_LOAD_U8 && op <= RC_INT_LOAD_U64;
 }
+enum rc_status rc_integer_validate(const struct rc_integer_program *program, struct rc_error *error);
 enum rc_status rc_integer_copy(const struct rc_integer_program *program,
                                 struct rc_integer_program **out, struct rc_error *error);
 enum rc_status rc_integer_emit(const struct rc_integer_program *program, uint8_t *bytes,

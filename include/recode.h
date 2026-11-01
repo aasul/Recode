@@ -51,7 +51,7 @@ const char *rc_status_string(enum rc_status status);
  * outputs are rejected unchanged. error may be NULL; storage must not overlap. */
 enum rc_status rc_decode(const uint8_t *bytes, size_t length,
                          struct rc_program *program, struct rc_error *error);
-/* Release a decoded allocation or an empty object, never a borrowed IR array. */
+/* Release a decoded allocation or an empty/NULL object, never a borrowed IR array. */
 void rc_program_free(struct rc_program *program);
 enum rc_status rc_validate(const struct rc_program *program, struct rc_error *error);
 enum rc_status rc_optimize(struct rc_program *program, struct rc_error *error);

@@ -14,16 +14,15 @@ enum rc_integer_op {
 };
 struct rc_integer_insn {
     enum rc_integer_op op;
-    uint32_t dst, left, right;
+    uint32_t dst, left, right; /* LOAD uses dst and left as an unsigned byte offset. */
     uint32_t target; /* Absolute instruction index; BRANCH takes it if left != 0. */
     uint64_t immediate; /* CONSTANT value or zero-based ARGUMENT index. */
 };
-/* LOAD uses dst and left (unsigned byte offset); all other fields are zero. */
 struct rc_memory_view { const void *data; size_t length; };
 struct rc_builder;
 struct rc_integer_program;
 
-/* Outputs point to NULL. 1..64 registers and 0..2 arguments. No binary ABI promise. */
+/* Outputs point to NULL. 1..64 registers and 0..2 arguments. Match headers and library major/minor. */
 enum rc_status rc_builder_create(size_t registers, size_t arguments,
                                   struct rc_builder **out, struct rc_error *error);
 /* Copies one instruction. Unused fields must be zero. Forward targets are
@@ -35,6 +34,7 @@ enum rc_status rc_builder_append(struct rc_builder *builder, struct rc_integer_i
  * unreachable or read a register undefined on any incoming path. */
 enum rc_status rc_builder_finalize(const struct rc_builder *builder,
                                     struct rc_integer_program **out, struct rc_error *error);
+/* Both destroy functions accept NULL; exclude concurrent readers/destruction. */
 void rc_builder_destroy(struct rc_builder *builder);
 void rc_integer_program_destroy(struct rc_integer_program *program);
 /* Program is immutable and safe for simultaneous readers. Caller excludes
