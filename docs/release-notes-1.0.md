@@ -1,11 +1,11 @@
-# Recode 1.0.0 release notes draft
+# Recode 1.0.0 release notes
 
-This branch prepares the first stable release; it does not publish or tag it.
-The maintainer must review and merge v0.8, v0.9 and v1.0 preparation in order,
-then separately authorize a tag and GitHub release.
+Recode 1.0.0 is the first stable release. The v0.8, v0.9 and v1.0
+preparation changes are merged into main.
 
-Recode is a C11 execution library for Linux x86-64 applications that construct
+Recode is a C11 execution library for Linux x86-64 only. Applications construct
 bounded integer rules or translate the documented accumulator instruction subset.
+It does not optimize arbitrary binaries and provides no sandboxing.
 It supplies validation, interpretation, whole-function native compilation,
 call statistics and a managed executable cache. Accumulator-only tracing remains
 available and can be substantially slower than whole-function compilation.

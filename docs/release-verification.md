@@ -1,8 +1,8 @@
 # v1.0 release verification
 
-This is release preparation, not an official release. The implementation descends
-from the three stacked milestone branches. No PR is merged and no tag or GitHub
-release is created by this work. See release-checklist.md for maintainer actions.
+The v0.8, v0.9 and v1.0 preparation changes are merged into main. The
+maintainer authorized the v1.0.0 tag and GitHub release on 2026-11-01.
+See release-checklist.md for the completed release checks.
 
 ## Reproduce from a clean archive
 
@@ -202,4 +202,25 @@ Ubuntu GitHub Actions passed all five jobs for the v1.0 implementation head
 e954cef: [run 41297204850](https://github.com/aasul/Recode/actions/runs/41297204850).
 The v0.8/v0.9 implementation heads also passed their four/five expected jobs.
 Final checklist updates only record these completed checks and do not change the
-validated build inputs. Publication and maintainer merges remain pending.
+validated build inputs. These candidate checks preceded the merged-source
+verification below.
+
+## Merged-source verification
+
+On 2026-11-01, main 85b6dc660299e72685f91ee3665b3978491327c7 passed all five
+GitHub Actions jobs in [run 41298196057](https://github.com/aasul/Recode/actions/runs/41298196057).
+A fresh Git-free archive of that exact commit matched all 115 tracked files,
+contained the required source/package/test/license files and excluded Git, build,
+virtualenv and quality-tool state. Its deterministic gzip SHA-256 is
+19c5694d47a682bd8bf16e6bb4283719cb5629ab497796ddabdd1194587eb868.
+
+The archive's verify-release.sh passed all 13 CTests in each GCC/Clang Release,
+ASan/UBSan and shared Release build, including relocated static/shared consumers
+and shared export/SONAME checks. GCC TSan passed all six focused suites.
+The publication documentation update changes no runtime source, build rules,
+headers, tests or benchmark inputs. The final release archive and checksum are
+attached to the GitHub release; its checksum differs because the documents changed.
+
+Linux x86-64 is the only supported platform. Arbitrary binary optimization and
+sandboxing are unsupported. Leak detection remains disabled in this matrix, and
+generated instructions are not sanitizer-instrumented.
