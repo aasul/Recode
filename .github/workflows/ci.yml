@@ -39,3 +39,25 @@ jobs:
           ASAN_OPTIONS: detect_leaks=0
           UBSAN_OPTIONS: halt_on_error=1
         run: ctest --test-dir build-ci --output-on-failure --timeout 120
+
+  shared-and-fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shared library and public consumers
+        run: |
+          cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+          cmake --build build-shared --parallel 2
+          ctest --test-dir build-shared --output-on-failure --timeout 120
+      - name: Bounded Clang fuzz smoke
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: halt_on_error=1
+        run: |
+          cmake -S . -B build-fuzz -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Debug \
+            -DRECODE_BUILD_FUZZERS=ON -DBUILD_TESTING=OFF -DRECODE_BUILD_TOOLS=OFF
+          cmake --build build-fuzz --parallel 2
+          mkdir -p /tmp/recode-corpus
+          cp fuzz/corpus/* /tmp/recode-corpus/
+          ./build-fuzz/recode_fuzz /tmp/recode-corpus -runs=100000 -max_len=512 -timeout=5

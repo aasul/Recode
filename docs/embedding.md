@@ -92,5 +92,5 @@ See [runtime.md](runtime.md), [translator.md](translator.md) and
 incompatible source-contract revisions. Additive changes aim to preserve v0.4
 source compatibility. There is no stable binary ABI: public structs may grow,
 and clients must rebuild against matching headers and library. CMake versioned
-requests accept only the same minor release. SOVERSION 0 marks experimental ABI,
-not compatibility between arbitrary 0.x releases.
+requests accept only the same minor release. The SONAME now includes major/minor (0.9), separating incompatible minor ABIs.
+The [proposed API freeze](public-api.md) describes the v1.0 contract.

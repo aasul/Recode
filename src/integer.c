@@ -62,14 +62,19 @@ enum rc_status rc_builder_append(struct rc_builder *b, struct rc_integer_insn in
 
 /* One instruction per node keeps branch validation and must analysis explicit.
  * Each fact drops at most 64 bits. The external entry always has no definitions. */
-static enum rc_status validate(const struct rc_integer_program *p, struct rc_error *error)
+enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc_error *error)
 {
+    if (p == NULL) return rc_fail(error, RC_ARGUMENT, 0, 0);
+    if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+        p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+        return rc_fail(error, RC_INVALID_IR, 0, 0);
     if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
     struct facts { uint64_t defined; bool reachable; };
     struct facts *facts = malloc(p->count * sizeof(*facts));
     if (facts == NULL) return rc_fail(error, RC_MEMORY, 0, 0);
     enum rc_status status = RC_OK;
     size_t offset = 0;
+    bool memory = false;
     for (size_t n = 0; n < p->count; ++n) {
         struct rc_integer_insn i = p->insns[n];
         offset = n;
@@ -81,8 +86,10 @@ static enum rc_status validate(const struct rc_integer_program *p, struct rc_err
         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
             status = RC_MISSING_RET; goto done;
         }
+        memory |= rc_integer_load(i.op);
         facts[n] = (struct facts){UINT64_MAX, false};
     }
+    if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
     facts[0] = (struct facts){0, true};
     bool changed;
     do {
@@ -140,7 +147,7 @@ enum rc_status rc_builder_finalize(const struct rc_builder *b,
 {
     if (b == NULL || out == NULL || *out != NULL)
         return rc_fail(error, RC_ARGUMENT, 0, 0);
-    enum rc_status status = validate(&b->program, error);
+    enum rc_status status = rc_integer_validate(&b->program, error);
     return status == RC_OK ? rc_integer_copy(&b->program, out, error) : status;
 }
 

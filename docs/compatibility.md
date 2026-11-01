@@ -33,3 +33,9 @@ Generated machine code is not sanitizer-instrumented. See [SECURITY](../SECURITY
 Source compatibility and binary compatibility are separate. Existing v0.4 entry
 points remain available. Rebuild consumers against each experimental release;
 there is no stable ABI guarantee. The library remains MIT-licensed.
+
+The [proposed API freeze](public-api.md) defines installed surfaces, error semantics
+and major/minor SONAME isolation. See [memory limits](memory-limits.md) for why
+executable accounting is not a total allocation quota, and [fuzzing](fuzzing.md)
+for the optional bounded Clang harness. The supported-platform matrix and actual
+verification results are in [stability verification](stability-verification.md).
