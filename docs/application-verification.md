@@ -80,3 +80,18 @@ Measured application medians, mixed distribution, 50,000 calls (ns/call):
 | c | 9.576 | 9.140 | 13.258 |
 | fixed | 45.967 | 42.944 | 50.865 |
 | interpreter | 60.078 | 55.833 | 67.226 |
+
+Post-commit quality review used the isolated Python environment whose direct-url
+metadata identifies aasul/desloppify feat/c-native-analysis at 5179f6b. A scan
+without output exclusions encountered old nested build trees; the corrected scan
+excluded only build-* directories and the quality-tool environment. The fast scan,
+next, inspection of all 50 open reports and rescan completed. Full duplicate
+analysis stalled in the optional jscpd phase; its result is not claimed.
+cppcheck is unavailable, so the tool's security phase uses incomplete heuristics.
+The reported missing C importers/tests do not model CMake linkage or CTest's
+installed examples. Cleanup labels in decoder.c/ir.c are reachable goto targets;
+file-local helpers need not share signatures, and `if` is not a function.
+File-size/type-count advisories did not identify a source defect. No report was
+marked fixed or hidden to improve a score; no project source was excluded.
+Compiler analysis, guard pages, ABI checks and differential/failure/concurrency
+suites provide separate evidence. No independent human review is claimed.
