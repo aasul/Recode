@@ -534,6 +534,7 @@ struct trace_call {
     struct rc_trace_view views[RC_TRACE_MAX_CANDIDATES];
     bool blocked[RC_TRACE_MAX_CANDIDATES];
     size_t recording;
+    uint32_t exits, short_exits;
     uint64_t recording_start;
     struct rc_function_stats stats;
 };
@@ -608,17 +609,8 @@ static bool trace_before(struct rc_observer *observer, struct rc_state *state)
             add(&call->stats.trace_side_exits,1);
             call->blocked[i] = true;
             stop_observing(observer);
-            pthread_mutex_lock(&call->runtime->mutex);
-            struct trace_slot *slot = &t->traces[i];
-            if (iterations == 0) ++slot->short_exits;
-            else slot->short_exits = 0;
-            if (slot->short_exits >= 8) {
-                slot->retry_after = rc_saturating_add(t->invocations,call->runtime->config.retry_calls);
-                slot->short_exits = 0;
-                add(&call->stats.trace_retirements,1);
-            }
-            touch(call->runtime,t);
-            pthread_mutex_unlock(&call->runtime->mutex);
+            call->exits |= UINT32_C(1) << i;
+            if (iterations == 0) call->short_exits |= UINT32_C(1) << i;
         } else if (reason == RC_TRACE_YIELD) {
             add(&call->stats.trace_yields,1);
         }
@@ -784,7 +776,7 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
     } else {
         add(&f->stats.cache_misses, 1);
         add(&r->stats.cache_misses, 1);
-        tick = now_ns();
+        if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
         if (t->code.function == NULL && t->integer_function == NULL && should_compile(r, f, tick))
             compile_translation(r, f);
     }
@@ -830,6 +822,20 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
     pthread_mutex_lock(&r->mutex);
     if (tracing) {
         --t->pins;
+        /* Each candidate exits at most once per call. Merge feedback under the
+         * completion lock, retaining pins until all native snapshots are done. */
+        for (size_t i = 0; i < t->trace_count; ++i) {
+            uint32_t bit = UINT32_C(1) << i;
+            if ((trace_call.exits & bit) == 0) continue;
+            struct trace_slot *slot = &t->traces[i];
+            if ((trace_call.short_exits & bit) != 0) ++slot->short_exits;
+            else slot->short_exits = 0;
+            if (slot->short_exits >= 8) {
+                slot->retry_after = rc_saturating_add(t->invocations,r->config.retry_calls);
+                slot->short_exits = 0;
+                add(&trace_call.stats.trace_retirements,1);
+            }
+        }
         merge_trace_stats(&f->stats,&trace_call.stats);
     }
     if (compiled) {

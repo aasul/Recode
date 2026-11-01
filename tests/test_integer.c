@@ -75,6 +75,7 @@ static void test_operations(void)
         size_t length; CHECK(rc_integer_emit(p,NULL,0,&length,NULL) == RC_OK);
         uint8_t bytes[256]; memset(bytes,0xaa,sizeof(bytes));
         CHECK(rc_integer_emit(p,bytes,1,&length,NULL) == RC_CAPACITY && bytes[0] == 0xaa);
+        CHECK(rc_integer_emit(p,bytes,length,&length,NULL) == RC_OK && bytes[length] == 0xaa);
         struct rc_code code = {0}; rc_integer_function fn; bool allocated;
         CHECK(rc_integer_map(p,length,&code,&fn,&allocated,NULL) == RC_OK && allocated);
         for (size_t a = 0; a < sizeof(values)/sizeof(values[0]); ++a)
@@ -118,6 +119,22 @@ static void invalid(const struct rc_integer_insn *insns, size_t count,
     for (size_t n = 0; n < count; ++n) CHECK(rc_builder_append(b,insns[n],NULL) == RC_OK);
     CHECK(rc_builder_finalize(b,&p,&error) == status && p == NULL && error.offset == offset);
     rc_builder_destroy(b);
+}
+static void test_compact_layout(void)
+{
+    const struct rc_integer_insn insns[] = {{.op=RC_INT_ARGUMENT},
+        {.op=RC_INT_BRANCH,.target=4}, {.op=RC_INT_CONSTANT,.immediate=7},
+        {.op=RC_INT_RETURN}, {.op=RC_INT_CONSTANT,.immediate=9}, {.op=RC_INT_RETURN}};
+    struct rc_integer_program *p = build(insns,6,1,1);
+    uint8_t bytes[256]; size_t length;
+    CHECK(rc_integer_emit(p,bytes,sizeof(bytes),&length,NULL) == RC_OK);
+    CHECK(length == 104); /* 11-byte entry, exact operation sizes, no padding. */
+    CHECK(bytes[30] == 0x0f && bytes[31] == 0x85);
+    CHECK(bytes[32] == 34 && bytes[33] == 0 && bytes[34] == 0 && bytes[35] == 0);
+    struct rc_code code = {0}; rc_integer_function fn; bool allocated;
+    CHECK(rc_integer_map(p,length,&code,&fn,&allocated,NULL) == RC_OK);
+    CHECK(fn(0,0) == 7 && fn(1,0) == 9);
+    CHECK(rc_code_free(&code,NULL) == RC_OK); rc_integer_program_destroy(p);
 }
 static void test_validation(void)
 {
@@ -245,15 +262,15 @@ static void test_loops_and_ownership(void)
 static void test_capacity_and_identity(void)
 {
     struct rc_runtime *r = runtime(RC_POLICY_FIXED,4096);
-    struct rc_integer_insn insns[130];
-    for (size_t n = 0; n < 129; ++n)
+    struct rc_integer_insn insns[514];
+    for (size_t n = 0; n < 513; ++n)
         insns[n] = (struct rc_integer_insn){.op=RC_INT_CONSTANT,.immediate=n};
-    insns[129] = (struct rc_integer_insn){.op=RC_INT_RETURN};
-    struct rc_integer_program *p = build(insns,130,1,0);
+    insns[513] = (struct rc_integer_insn){.op=RC_INT_RETURN};
+    struct rc_integer_program *p = build(insns,514,1,0);
     rc_handle h;
     CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
     uint64_t value;
-    for (unsigned n = 0; n < 3; ++n) CHECK(rc_runtime_call_integer(r,h,NULL,0,&value,NULL) == RC_OK && value == 128);
+    for (unsigned n = 0; n < 3; ++n) CHECK(rc_runtime_call_integer(r,h,NULL,0,&value,NULL) == RC_OK && value == 512);
     struct rc_function_stats f;
     CHECK(rc_runtime_function_stats(r,h,&f,NULL) == RC_OK && f.last_compile_error.status == RC_CAPACITY);
     rc_integer_program_destroy(p);
@@ -306,7 +323,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
-    test_validation(); test_operations(); test_random(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
+    test_compact_layout(); test_validation(); test_operations(); test_random(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
     puts("integer builder, operations, independent differential, ABI, policies, ownership and concurrency passed");
     return 0;
 }
