@@ -1,7 +1,7 @@
-# v1.0 release-preparation checklist
+# v1.0 release checklist
 
-The implementation checklist records checks actually performed. Maintainer actions
-below are intentionally separate and are not authorization to publish.
+The checklist records completed implementation and merged-source checks.
+The maintainer explicitly authorized the v1.0.0 tag and GitHub release.
 
 - [x] Version/header/package metadata identify 1.0.0; stable SONAME is 1.0.
 - [x] Public headers, error/ownership/fallback/thread contracts are finalized.
@@ -21,11 +21,12 @@ below are intentionally separate and are not authorization to publish.
 - [x] All three stacked PRs have passing GitHub Actions at their final heads.
 - [x] No known release-blocking source defect remains unresolved.
 
-Maintainer actions after review:
+Maintainer release checks:
 
-- [ ] Merge v0.8 into main, then v0.9 into main, then v1.0 preparation into main.
-- [ ] Verify the merged source and intended release archive again.
-- [ ] Explicitly authorize creation of v1.0.0 and publication of the GitHub release.
+- [x] Merge v0.8, v0.9 and v1.0 preparation into main.
+- [x] Verify the merged source and intended release archive again.
+- [x] Explicitly authorize creation of v1.0.0 and publication of the GitHub release.
 
-No merge, release tag, GitHub release or release-asset upload is performed by this
-preparation. Exact revision/test evidence and limitations are in release-verification.md.
+The release notes retain the Linux x86-64-only scope, unsupported arbitrary binary
+optimization and absence of sandboxing. Exact revision/test evidence and limitations
+are in release-verification.md.
