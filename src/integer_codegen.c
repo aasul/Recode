@@ -35,10 +35,11 @@ static uint64_t reads(struct rc_integer_insn i)
     if (binary(i.op)) mask |= UINT64_C(1) << i.right;
     return mask;
 }
-static struct allocation allocate(const struct rc_integer_program *p)
+static void allocate(const struct rc_integer_program *p, struct allocation *a)
 {
-    struct allocation a = {0};
-    bool targets[RC_INTEGER_MAX_INSTRUCTIONS] = {0}, arguments[2] = {false,false};
+    a->frame = 0;
+    bool targets[RC_INTEGER_MAX_INSTRUCTIONS], arguments[2] = {false,false};
+    memset(targets,0,p->count*sizeof(*targets));
     unsigned weights[RC_INTEGER_MAX_REGISTERS] = {0};
     for (size_t n = 0; n < p->count; ++n) {
         struct rc_integer_insn i = p->insns[n];
@@ -52,8 +53,8 @@ static struct allocation allocate(const struct rc_integer_program *p)
         if (i.op == RC_INT_BRANCH || i.op == RC_INT_JUMP) live = UINT64_MAX;
         /* All registers are live on block exits. Only overwritten or unused
          * pure writes inside a block disappear; faulting reads always remain. */
-        a.skip[n] = writes && !rc_integer_load(i.op) && !(live & (UINT64_C(1) << i.dst));
-        if (!a.skip[n]) {
+        a->skip[n] = writes && !rc_integer_load(i.op) && !(live & (UINT64_C(1) << i.dst));
+        if (!a->skip[n]) {
             if (writes) live &= ~(UINT64_C(1) << i.dst);
             live |= reads(i);
             if (i.op == RC_INT_ARGUMENT) arguments[i.immediate] = true;
@@ -63,7 +64,7 @@ static struct allocation allocate(const struct rc_integer_program *p)
         }
         if (targets[n]) live = UINT64_MAX;
     }
-    for (size_t n = 0; n < RC_INTEGER_MAX_REGISTERS; ++n) a.registers[n] = -1;
+    for (size_t n = 0; n < RC_INTEGER_MAX_REGISTERS; ++n) a->registers[n] = -1;
     const int pool[] = {2,8,9,10,11,7,6};
     for (size_t slot = 0; slot < sizeof(pool)/sizeof(*pool); ++slot) {
         int reg = pool[slot];
@@ -73,11 +74,10 @@ static struct allocation allocate(const struct rc_integer_program *p)
         for (size_t n = 1; n < p->registers; ++n)
             if (weights[n] > weights[best]) best = n;
         if (weights[best] == 0) break;
-        a.registers[best] = reg; weights[best] = 0;
+        a->registers[best] = reg; weights[best] = 0;
     }
     for (size_t n = 0; n < p->registers; ++n)
-        if (weights[n] != 0) a.frame = (uint32_t)((n * 8 + 8 + 15) / 16 * 16);
-    return a;
+        if (weights[n] != 0) a->frame = (uint32_t)((n * 8 + 8 + 15) / 16 * 16);
 }
 static void regop(struct output *o, uint8_t opcode, int dst, int src)
 {
@@ -194,9 +194,9 @@ static void emit_body(const struct rc_integer_program *p, const struct allocatio
         case RC_INT_BRANCH: {
             int condition = source(o,a,i.left,0);
             regop(o,0x85,condition,condition);
-            byte(o,0x0f); byte(o,0x85); branch(o,offsets[i.target]); continue;
+            byte(o,0x0f); byte(o,0x85); branch(o,o->bytes != NULL ? offsets[i.target] : 0); continue;
         }
-        case RC_INT_JUMP: byte(o,0xe9); branch(o,offsets[i.target]); continue;
+        case RC_INT_JUMP: byte(o,0xe9); branch(o,o->bytes != NULL ? offsets[i.target] : 0); continue;
         case RC_INT_RETURN:
             move(o,0,source(o,a,i.left,0));
             if (p->memory) {
@@ -221,8 +221,8 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
         return rc_fail(error,RC_ARGUMENT,0,0);
     enum rc_status status = rc_integer_validate(p,error);
     if (status != RC_OK) return status;
-    struct allocation a = allocate(p);
-    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS+1] = {0};
+    struct allocation a; allocate(p,&a);
+    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS+1];
     struct output query = {0};
     emit_body(p,&a,&query,offsets,0);
     *length = query.count;
