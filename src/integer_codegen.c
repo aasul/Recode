@@ -5,187 +5,233 @@
 #include <string.h>
 #include <sys/mman.h>
 
-/* Layout uses bounded offsets to avoid padding between operations.
- * RAX/RCX are scratch, RDI/RSI retain the two arguments. No calls or callee-saved
- * clobbers; at most 512 stack bytes, restored on every RETURN. */
-enum { ENTRY_SIZE = 11 };
+/* RAX/RCX are scratch. Memory entries also reserve RDX=data, R8=result,
+ * R9=length and R10=fault PC. Assigned registers have one home across all
+ * edges, including backedges; the remaining virtuals keep authoritative slots.
+ * No calls or callee-saved registers occur in generated code. */
 _Static_assert(offsetof(struct rc_integer_result,value) == 0, "native result offset");
 _Static_assert(offsetof(struct rc_integer_result,offset) == 8, "native fault offset");
-static size_t stack_size(uint32_t reg)
-{
-    return reg < 16 ? 5u : 8u;
-}
-
-static bool reads_rax(enum rc_integer_op op)
-{
-    return (op >= RC_INT_ADD && op <= RC_INT_SLE) || rc_integer_load(op) ||
-        op == RC_INT_BRANCH || op == RC_INT_RETURN;
-}
-
-static size_t encoded_size(struct rc_integer_insn i, bool memory, bool reuse)
-{
-    static const uint8_t sizes[RC_INT_LOAD_U64 + 1] = {
-        [RC_INT_ARGUMENT] = 8, [RC_INT_CONSTANT] = 18,
-        [RC_INT_ADD] = 27, [RC_INT_SUB] = 27, [RC_INT_MUL] = 28,
-        [RC_INT_AND] = 27, [RC_INT_OR] = 27, [RC_INT_XOR] = 27,
-        [RC_INT_SHL] = 27, [RC_INT_SHR] = 27,
-        [RC_INT_EQ] = 33, [RC_INT_NE] = 33, [RC_INT_ULT] = 33,
-        [RC_INT_ULE] = 33, [RC_INT_SLT] = 33, [RC_INT_SLE] = 33,
-        [RC_INT_JUMP] = 5, [RC_INT_BRANCH] = 17, [RC_INT_RETURN] = 16,
-        [RC_INT_LOAD_U8] = 51, [RC_INT_LOAD_U16] = 51,
-        [RC_INT_LOAD_U32] = 50, [RC_INT_LOAD_U64] = 51
-    };
-    size_t size = sizes[i.op] + (memory && i.op == RC_INT_RETURN ? 5u : 0u);
-    if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) size -= 8 - stack_size(i.dst);
-    if (reads_rax(i.op)) size -= reuse ? 8 : 8 - stack_size(i.left);
-    if (i.op >= RC_INT_ADD && i.op <= RC_INT_SLE) size -= 8 - stack_size(i.right);
-    return size;
-}
+struct allocation {
+    int registers[RC_INTEGER_MAX_REGISTERS];
+    bool skip[RC_INTEGER_MAX_INSTRUCTIONS];
+    uint32_t frame;
+};
 struct output { uint8_t *bytes; size_t count; };
-static void byte(struct output *o, uint8_t value) { o->bytes[o->count++] = value; }
+static void byte(struct output *o, uint8_t value)
+{
+    if (o->bytes != NULL) o->bytes[o->count] = value;
+    ++o->count;
+}
 static void word(struct output *o, uint32_t value)
 {
-    for (unsigned n = 0; n < 32; n += 8) byte(o, (uint8_t)(value >> n));
+    for (unsigned n = 0; n < 32; n += 8) byte(o,(uint8_t)(value >> n));
 }
-static void stack(struct output *o, uint8_t opcode, uint8_t modrm, uint32_t reg)
+static bool binary(enum rc_integer_op op) { return op >= RC_INT_ADD && op <= RC_INT_SLE; }
+static uint64_t reads(struct rc_integer_insn i)
 {
-    bool compact = reg < 16; /* disp8 is signed; slot 16 starts at +128. */
-    byte(o, 0x48); byte(o, opcode); byte(o, compact ? (uint8_t)(modrm - 0x40) : modrm);
-    byte(o, 0x24);
-    if (compact) byte(o, (uint8_t)(reg * 8));
-    else word(o, reg * 8);
+    uint64_t mask = 0;
+    if (binary(i.op) || rc_integer_load(i.op) || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
+        mask = UINT64_C(1) << i.left;
+    if (binary(i.op)) mask |= UINT64_C(1) << i.right;
+    return mask;
+}
+static void allocate(const struct rc_integer_program *p, struct allocation *a)
+{
+    a->frame = 0;
+    bool targets[RC_INTEGER_MAX_INSTRUCTIONS], arguments[2] = {false,false};
+    memset(targets,0,p->count*sizeof(*targets));
+    unsigned weights[RC_INTEGER_MAX_REGISTERS] = {0};
+    for (size_t n = 0; n < p->count; ++n) {
+        struct rc_integer_insn i = p->insns[n];
+        if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) targets[i.target] = true;
+    }
+    uint64_t live = UINT64_MAX;
+    for (size_t n = p->count; n-- > 0;) {
+        struct rc_integer_insn i = p->insns[n];
+        bool writes = i.op <= RC_INT_SLE || rc_integer_load(i.op);
+        if (i.op == RC_INT_RETURN) live = 0;
+        if (i.op == RC_INT_BRANCH || i.op == RC_INT_JUMP) live = UINT64_MAX;
+        /* All registers are live on block exits. Only overwritten or unused
+         * pure writes inside a block disappear; faulting reads always remain. */
+        a->skip[n] = writes && !rc_integer_load(i.op) && !(live & (UINT64_C(1) << i.dst));
+        if (!a->skip[n]) {
+            if (writes) live &= ~(UINT64_C(1) << i.dst);
+            live |= reads(i);
+            if (i.op == RC_INT_ARGUMENT) arguments[i.immediate] = true;
+            if (writes) ++weights[i.dst];
+            if (reads(i) != 0) ++weights[i.left];
+            if (binary(i.op)) ++weights[i.right];
+        }
+        if (targets[n]) live = UINT64_MAX;
+    }
+    for (size_t n = 0; n < RC_INTEGER_MAX_REGISTERS; ++n) a->registers[n] = -1;
+    const int pool[] = {2,8,9,10,11,7,6};
+    for (size_t slot = 0; slot < sizeof(pool)/sizeof(*pool); ++slot) {
+        int reg = pool[slot];
+        if ((p->memory && reg != 11 && reg != 7 && reg != 6) ||
+            (reg == 7 && arguments[0]) || (reg == 6 && arguments[1])) continue;
+        size_t best = 0;
+        for (size_t n = 1; n < p->registers; ++n)
+            if (weights[n] > weights[best]) best = n;
+        if (weights[best] == 0) break;
+        a->registers[best] = reg; weights[best] = 0;
+    }
+    for (size_t n = 0; n < p->registers; ++n)
+        if (weights[n] != 0) a->frame = (uint32_t)((n * 8 + 8 + 15) / 16 * 16);
+}
+static void regop(struct output *o, uint8_t opcode, int dst, int src)
+{
+    byte(o,(uint8_t)(0x48 | (src >= 8 ? 4 : 0) | (dst >= 8 ? 1 : 0)));
+    byte(o,opcode); byte(o,(uint8_t)(0xc0 | ((src & 7) << 3) | (dst & 7)));
+}
+static void move(struct output *o, int dst, int src)
+{
+    if (dst != src) regop(o,0x89,dst,src);
+}
+static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+{
+    bool compact = reg < 16;
+    byte(o,(uint8_t)(0x48 | (machine >= 8 ? 4 : 0)));
+    byte(o,opcode); byte(o,(uint8_t)((compact ? 0x44 : 0x84) | ((machine & 7) << 3)));
+    byte(o,0x24);
+    if (compact) byte(o,(uint8_t)(reg * 8)); else word(o,reg * 8);
+}
+static int source(struct output *o, const struct allocation *a, uint32_t reg, int scratch)
+{
+    if (a->registers[reg] >= 0) return a->registers[reg];
+    stack(o,0x8b,scratch,reg); return scratch;
+}
+static void constant(struct output *o, int dst, uint64_t value)
+{
+    if (value <= UINT32_MAX) {
+        if (dst >= 8) byte(o,0x41);
+        byte(o,(uint8_t)(0xb8 + (dst & 7))); word(o,(uint32_t)value);
+    } else {
+        byte(o,(uint8_t)(0x48 | (dst >= 8 ? 1 : 0)));
+        byte(o,(uint8_t)(0xb8 + (dst & 7)));
+        word(o,(uint32_t)value); word(o,(uint32_t)(value >> 32));
+    }
 }
 static void frame(struct output *o, uint8_t modrm, uint32_t size)
 {
-    byte(o, 0x48); byte(o, 0x81); byte(o, modrm); word(o, size);
+    if (size == 0) return;
+    byte(o,0x48); byte(o,0x81); byte(o,modrm); word(o,size);
+}
+static void branch(struct output *o, size_t target)
+{
+    word(o,o->bytes != NULL ? (uint32_t)target - (uint32_t)(o->count+4) : 0);
+}
+static void operation(struct output *o, enum rc_integer_op op, int dst, int right)
+{
+    switch (op) {
+    case RC_INT_ADD: regop(o,0x01,dst,right); break;
+    case RC_INT_SUB: regop(o,0x29,dst,right); break;
+    case RC_INT_AND: regop(o,0x21,dst,right); break;
+    case RC_INT_OR: regop(o,0x09,dst,right); break;
+    case RC_INT_XOR: regop(o,0x31,dst,right); break;
+    case RC_INT_MUL:
+        byte(o,(uint8_t)(0x48 | (dst >= 8 ? 4 : 0) | (right >= 8 ? 1 : 0)));
+        byte(o,0x0f); byte(o,0xaf); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (right & 7)));
+        break;
+    case RC_INT_SHL:
+    case RC_INT_SHR:
+        byte(o,(uint8_t)(0x48 | (dst >= 8 ? 1 : 0))); byte(o,0xd3);
+        byte(o,(uint8_t)((op == RC_INT_SHL ? 0xe0 : 0xe8) | (dst & 7)));
+        break;
+    default: {
+        const uint8_t conditions[] = {0x94,0x95,0x92,0x96,0x9c,0x9e};
+        regop(o,0x39,dst,right);
+        /* A REX prefix also selects SIL/DIL instead of AH..BH. */
+        if (dst >= 4) byte(o,(uint8_t)(0x40 | (dst >= 8 ? 1 : 0)));
+        byte(o,0x0f); byte(o,conditions[op-RC_INT_EQ]); byte(o,(uint8_t)(0xc0 | (dst & 7)));
+        if (dst >= 4) byte(o,(uint8_t)(dst >= 8 ? 0x45 : 0x40));
+        byte(o,0x0f); byte(o,0xb6); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (dst & 7)));
+        break;
+    }
+    }
+}
+static size_t emit_body(const struct rc_integer_program *p, const struct allocation *a,
+                        struct output *o, size_t *offsets, size_t failure)
+{
+    byte(o,0xf3); byte(o,0x0f); byte(o,0x1e); byte(o,0xfa);
+    frame(o,0xec,a->frame);
+    if (p->memory) move(o,9,1);
+    for (size_t n = 0; n < p->count; ++n) {
+        if (o->bytes == NULL) offsets[n] = o->count;
+        if (a->skip[n]) continue;
+        struct rc_integer_insn i = p->insns[n];
+        int dst = a->registers[i.dst] >= 0 ? a->registers[i.dst] : 0;
+        if (binary(i.op)) {
+            int left = source(o,a,i.left,0), right = source(o,a,i.right,1);
+            if (dst == right && (i.op == RC_INT_ADD || i.op == RC_INT_MUL ||
+                i.op == RC_INT_AND || i.op == RC_INT_OR || i.op == RC_INT_XOR ||
+                i.op == RC_INT_EQ || i.op == RC_INT_NE)) {
+                int swap = left; left = right; right = swap;
+            }
+            if (i.op == RC_INT_SHL || i.op == RC_INT_SHR || (dst == right && dst != left)) {
+                move(o,1,right); right = 1;
+            }
+            move(o,dst,left); operation(o,i.op,dst,right);
+        } else switch (i.op) {
+        case RC_INT_ARGUMENT: move(o,dst,i.immediate == 0 ? 7 : 6); break;
+        case RC_INT_CONSTANT: constant(o,dst,i.immediate); break;
+        case RC_INT_LOAD_U8:
+        case RC_INT_LOAD_U16:
+        case RC_INT_LOAD_U32:
+        case RC_INT_LOAD_U64:
+            byte(o,0x41); byte(o,0xba); word(o,(uint32_t)n);
+            move(o,0,source(o,a,i.left,0)); move(o,1,9);
+            regop(o,0x39,0,1); byte(o,0x0f); byte(o,0x87); branch(o,failure);
+            regop(o,0x29,1,0);
+            byte(o,0x48); byte(o,0x83); byte(o,0xf9); byte(o,(uint8_t)(1u << (i.op-RC_INT_LOAD_U8)));
+            byte(o,0x0f); byte(o,0x82); branch(o,failure);
+            if (i.op == RC_INT_LOAD_U64) byte(o,0x48);
+            if (i.op == RC_INT_LOAD_U8 || i.op == RC_INT_LOAD_U16) {
+                byte(o,0x0f); byte(o,i.op == RC_INT_LOAD_U8 ? 0xb6 : 0xb7);
+            } else byte(o,0x8b);
+            byte(o,0x04); byte(o,0x02);
+            move(o,dst,0); break;
+        case RC_INT_BRANCH: {
+            int condition = source(o,a,i.left,0);
+            regop(o,0x85,condition,condition);
+            byte(o,0x0f); byte(o,0x85); branch(o,o->bytes != NULL ? offsets[i.target] : 0); continue;
+        }
+        case RC_INT_JUMP: byte(o,0xe9); branch(o,o->bytes != NULL ? offsets[i.target] : 0); continue;
+        case RC_INT_RETURN:
+            move(o,0,source(o,a,i.left,0));
+            if (p->memory) {
+                byte(o,0x49); byte(o,0x89); byte(o,0x00); byte(o,0x31); byte(o,0xc0);
+            }
+            frame(o,0xc4,a->frame); byte(o,0xc3); continue;
+        default: break; /* Binary operations were emitted above. */
+        }
+        if (a->registers[i.dst] < 0) stack(o,0x89,0,i.dst);
+    }
+    size_t failure_offset = o->count;
+    if (p->memory) {
+        byte(o,0x4d); byte(o,0x89); byte(o,0x50); byte(o,0x08);
+        byte(o,0xb8); word(o,RC_BOUNDS); frame(o,0xc4,a->frame); byte(o,0xc3);
+    }
+    return failure_offset;
 }
 
 enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *bytes,
                                 size_t capacity, size_t *length, struct rc_error *error)
 {
     if (p == NULL || length == NULL || (bytes == NULL && capacity != 0))
-        return rc_fail(error, RC_ARGUMENT, 0, 0);
+        return rc_fail(error,RC_ARGUMENT,0,0);
     enum rc_status status = rc_integer_validate(p,error);
     if (status != RC_OK) return status;
-    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS + 1];
-    bool targets[RC_INTEGER_MAX_INSTRUCTIONS];
-    memset(targets,0,p->count * sizeof(*targets));
-    bool reuse[RC_INTEGER_MAX_INSTRUCTIONS];
-    for (size_t n = 0; n < p->count; ++n) {
-        struct rc_integer_insn i = p->insns[n];
-        if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) targets[i.target] = true;
-    }
-    offsets[0] = ENTRY_SIZE + (p->memory ? 3u : 0u);
-    uint32_t cached = UINT32_MAX;
-    for (size_t n = 0; n < p->count; ++n) {
-        struct rc_integer_insn i = p->insns[n];
-        /* Stack slots remain authoritative at all control-flow joins. Only
-         * straight-line RAX values can bypass a load; every write still spills. */
-        if (targets[n]) cached = UINT32_MAX;
-        reuse[n] = reads_rax(i.op) && cached == i.left;
-        offsets[n+1] = offsets[n] + encoded_size(i,p->memory,reuse[n]);
-        if (i.op == RC_INT_ARGUMENT) {
-            if (cached == i.dst) cached = UINT32_MAX;
-        } else if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) cached = i.dst;
-        else cached = UINT32_MAX;
-    }
-    size_t failure = offsets[p->count];
-    size_t needed = failure + (p->memory ? 17u : 0u);
-    *length = needed;
-    if (bytes == NULL) return rc_fail(error, RC_OK, 0, 0);
-    if (capacity < needed) return rc_fail(error, RC_CAPACITY, 0, 0);
-    struct output o = {bytes, 0};
-    byte(&o, 0xf3); byte(&o, 0x0f); byte(&o, 0x1e); byte(&o, 0xfa);
-    uint32_t size = (uint32_t)((p->registers * 8 + 15) / 16 * 16);
-    frame(&o, 0xec, size); /* SUB RSP, imm32 */
-    if (p->memory) { byte(&o,0x49); byte(&o,0x89); byte(&o,0xc9); } /* MOV R9,RCX */
-    for (size_t n = 0; n < p->count; ++n) {
-        struct rc_integer_insn i = p->insns[n];
-        if (i.op >= RC_INT_ADD && i.op <= RC_INT_SLE) {
-            if (!reuse[n]) stack(&o, 0x8b, 0x84, i.left);
-            stack(&o, 0x8b, 0x8c, i.right);
-        }
-        switch (i.op) {
-        case RC_INT_LOAD_U8:
-        case RC_INT_LOAD_U16:
-        case RC_INT_LOAD_U32:
-        case RC_INT_LOAD_U64:
-            /* RDX is data, R9 is length, R8 is the private result address.
-             * Check offset <= length, then width <= length-offset before load. */
-            byte(&o,0x41); byte(&o,0xba); word(&o,(uint32_t)n); /* MOV R10D,pc */
-            if (!reuse[n]) stack(&o,0x8b,0x84,i.left);
-            byte(&o,0x4c); byte(&o,0x89); byte(&o,0xc9); /* MOV RCX,R9 */
-            byte(&o,0x48); byte(&o,0x39); byte(&o,0xc8); /* CMP RAX,RCX */
-            byte(&o,0x0f); byte(&o,0x87); /* JA failure */
-            word(&o,(uint32_t)failure - (uint32_t)(o.count+4));
-            byte(&o,0x48); byte(&o,0x29); byte(&o,0xc1); /* SUB RCX,RAX */
-            byte(&o,0x48); byte(&o,0x83); byte(&o,0xf9);
-            byte(&o,(uint8_t)(1u << (i.op-RC_INT_LOAD_U8)));
-            byte(&o,0x0f); byte(&o,0x82); /* JB failure */
-            word(&o,(uint32_t)failure - (uint32_t)(o.count+4));
-            if (i.op == RC_INT_LOAD_U64) byte(&o,0x48);
-            if (i.op == RC_INT_LOAD_U8 || i.op == RC_INT_LOAD_U16) {
-                byte(&o,0x0f); byte(&o,i.op == RC_INT_LOAD_U8 ? 0xb6 : 0xb7);
-            } else byte(&o,0x8b);
-            byte(&o,0x04); byte(&o,0x02); /* [RDX+RAX], unaligned x86 read */
-            break;
-        case RC_INT_ARGUMENT:
-            stack(&o, 0x89, i.immediate == 0 ? 0xbc : 0xb4, i.dst);
-            continue;
-        case RC_INT_CONSTANT:
-            byte(&o, 0x48); byte(&o, 0xb8);
-            word(&o, (uint32_t)i.immediate); word(&o, (uint32_t)(i.immediate >> 32));
-            break;
-        case RC_INT_ADD: byte(&o, 0x48); byte(&o, 0x01); byte(&o, 0xc8); break;
-        case RC_INT_SUB: byte(&o, 0x48); byte(&o, 0x29); byte(&o, 0xc8); break;
-        case RC_INT_MUL: byte(&o, 0x48); byte(&o, 0x0f); byte(&o, 0xaf); byte(&o, 0xc1); break;
-        case RC_INT_AND: byte(&o, 0x48); byte(&o, 0x21); byte(&o, 0xc8); break;
-        case RC_INT_OR: byte(&o, 0x48); byte(&o, 0x09); byte(&o, 0xc8); break;
-        case RC_INT_XOR: byte(&o, 0x48); byte(&o, 0x31); byte(&o, 0xc8); break;
-        case RC_INT_SHL:
-        case RC_INT_SHR:
-            byte(&o, 0x48); byte(&o, 0xd3); byte(&o, i.op == RC_INT_SHL ? 0xe0 : 0xe8);
-            break;
-        case RC_INT_EQ:
-        case RC_INT_NE:
-        case RC_INT_ULT:
-        case RC_INT_ULE:
-        case RC_INT_SLT:
-        case RC_INT_SLE: {
-            const uint8_t conditions[] = {0x94, 0x95, 0x92, 0x96, 0x9c, 0x9e};
-            byte(&o, 0x48); byte(&o, 0x39); byte(&o, 0xc8); /* CMP RAX,RCX */
-            byte(&o, 0x0f); byte(&o, conditions[i.op - RC_INT_EQ]); byte(&o, 0xc0);
-            byte(&o, 0x0f); byte(&o, 0xb6); byte(&o, 0xc0); /* MOVZX EAX,AL */
-            break;
-        }
-        case RC_INT_BRANCH:
-            if (!reuse[n]) stack(&o, 0x8b, 0x84, i.left);
-            byte(&o, 0x48); byte(&o, 0x85); byte(&o, 0xc0);
-            byte(&o, 0x0f); byte(&o, 0x85);
-            word(&o, (uint32_t)offsets[i.target] - (uint32_t)(o.count + 4));
-            continue;
-        case RC_INT_JUMP:
-            byte(&o, 0xe9);
-            word(&o, (uint32_t)offsets[i.target] - (uint32_t)(o.count + 4));
-            continue;
-        case RC_INT_RETURN:
-            if (!reuse[n]) stack(&o, 0x8b, 0x84, i.left);
-            if (p->memory) {
-                byte(&o,0x49); byte(&o,0x89); byte(&o,0x00); /* MOV [R8],RAX */
-                byte(&o,0x31); byte(&o,0xc0); /* RC_OK */
-            }
-            frame(&o, 0xc4, size); /* ADD RSP, imm32 */
-            byte(&o, 0xc3);
-            continue;
-        }
-        stack(&o, 0x89, 0x84, i.dst);
-    }
-    if (p->memory) {
-        byte(&o,0x4d); byte(&o,0x89); byte(&o,0x50); byte(&o,0x08); /* MOV [R8+8],R10 */
-        byte(&o,0xb8); word(&o,RC_BOUNDS);
-        frame(&o,0xc4,size); byte(&o,0xc3);
-    }
-    return rc_fail(error, RC_OK, 0, 0);
+    struct allocation a; allocate(p,&a);
+    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS];
+    struct output query = {0};
+    size_t failure = emit_body(p,&a,&query,offsets,0);
+    *length = query.count;
+    if (bytes == NULL) return rc_fail(error,RC_OK,0,0);
+    if (capacity < query.count) return rc_fail(error,RC_CAPACITY,0,0);
+    struct output output = {bytes,0};
+    (void)emit_body(p,&a,&output,offsets,failure);
+    return rc_fail(error,RC_OK,0,0);
 }
 
 enum rc_status rc_integer_map(const struct rc_integer_program *p, size_t mapped,
