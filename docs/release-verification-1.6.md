@@ -151,3 +151,24 @@ lifetime, native pins, counter saturation, rollback and benchmark boundaries.
 No unresolved correctness defect was confirmed by these checks. Tool scores,
 limited C parsing and passing tests do not prove correctness. Maintainer review,
 ordered merges and separate post-merge archive/release authorization remain.
+
+
+## Published stack and CI record
+
+All five PRs were open and unmerged when checked. Their bases retain the intended
+merge order. CI completed successfully on these exact observed heads:
+
+| PR | Head | Base | Verified head | CI run |
+| --- | --- | --- | --- | --- |
+| [32](https://github.com/aasul/Recode/pull/32) | perf/v1.6-profiling | main | ee17778 | [41](https://github.com/aasul/Recode/actions/runs/41498582176) |
+| [33](https://github.com/aasul/Recode/pull/33) | perf/v1.6-register-allocation | perf/v1.6-profiling | bc84cd2 | [42](https://github.com/aasul/Recode/actions/runs/41500003516) |
+| [34](https://github.com/aasul/Recode/pull/34) | perf/v1.6-batch-fast-path | perf/v1.6-register-allocation | 7118731 | [43](https://github.com/aasul/Recode/actions/runs/41500677255) |
+| [35](https://github.com/aasul/Recode/pull/35) | perf/v1.6-compilation-cost | perf/v1.6-batch-fast-path | 5be0a43 | [44](https://github.com/aasul/Recode/actions/runs/41501912579) |
+| [36](https://github.com/aasul/Recode/pull/36) | release/v1.6.0 | perf/v1.6-compilation-cost | 0ae8528 | [45](https://github.com/aasul/Recode/actions/runs/41505774052) |
+
+The five jobs are build-gcc-release, build-clang-release, build-gcc-sanitize,
+build-clang-sanitize and shared-and-fuzz. A second local archive from 0ae8528,
+including the final data/documentation, passed GCC Release 14/14. Its source,
+headers, tests, build rules, examples, scripts and license match eeb6803 exactly.
+This record update changes only documentation. CI on its new head is checked again
+after publication; these run links intentionally identify the earlier exact heads.

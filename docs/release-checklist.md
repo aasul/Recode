@@ -12,7 +12,7 @@ is part of this assignment. The immutable baseline is v1.5.0 at 9f49d55.
 - [x] Complete final clean-archive compiler/sanitizer/static/shared/TSan matrix.
 - [x] Rebuild unmodified v1.0 and v1.5 consumer sources against 1.6 static/shared installs.
 - [x] Complete final immutable baseline/candidate performance and optional fuzz smoke.
-- [ ] Record post-commit quality review, all five PRs and current CI results.
+- [x] Record post-commit quality review, all five PRs and observed CI results.
 
 Maintainer actions after development:
 
