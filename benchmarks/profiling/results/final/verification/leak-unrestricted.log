@@ -1,0 +1,13 @@
+Test project /tmp/recode-v16-verification/gcc-sanitize
+    Start 1: batch
+1/4 Test #1: batch ............................   Passed    0.15 sec
+    Start 4: memory
+2/4 Test #4: memory ...........................   Passed    0.09 sec
+    Start 5: integer
+3/4 Test #5: integer ..........................   Passed    0.93 sec
+    Start 9: adaptive_failures
+4/4 Test #9: adaptive_failures ................   Passed    0.04 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   1.22 sec

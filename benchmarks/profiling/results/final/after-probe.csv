@@ -1,0 +1,11 @@
+compile-probe,clocks,4,locks,2,allocations,0,mmap,1,mprotect,1,munmap,0
+probe,integer,0,policy,0,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,0,policy,1,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,0,policy,2,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,0,policy,3,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,1,policy,0,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,1,policy,1,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,1,policy,2,calls,10000,clocks,1250,locks,20000,allocations,0
+batch-probe,policy,0,items,10000,clocks,1250,locks,2,allocations,0
+batch-probe,policy,1,items,10000,clocks,1250,locks,2,allocations,0
+batch-probe,policy,2,items,10000,clocks,1251,locks,2,allocations,0

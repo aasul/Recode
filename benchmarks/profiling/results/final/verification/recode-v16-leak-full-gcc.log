@@ -1,0 +1,33 @@
+Test project /tmp/recode-v16-verification/gcc-sanitize
+      Start  1: batch
+ 1/14 Test  #1: batch ............................   Passed    0.16 sec
+      Start  2: stability
+ 2/14 Test  #2: stability ........................   Passed    0.61 sec
+      Start  3: dispatch_overhead
+ 3/14 Test  #3: dispatch_overhead ................   Passed    0.57 sec
+      Start  4: memory
+ 4/14 Test  #4: memory ...........................   Passed    0.06 sec
+      Start  5: integer
+ 5/14 Test  #5: integer ..........................   Passed    0.95 sec
+      Start  6: embedding-OFF
+ 6/14 Test  #6: embedding-OFF ....................   Passed    5.96 sec
+      Start  7: embedding-ON
+ 7/14 Test  #7: embedding-ON .....................   Passed    5.87 sec
+      Start  8: trace
+ 8/14 Test  #8: trace ............................   Passed    0.12 sec
+      Start  9: adaptive_failures
+ 9/14 Test  #9: adaptive_failures ................   Passed    0.04 sec
+      Start 10: adaptive
+10/14 Test #10: adaptive .........................   Passed    0.21 sec
+      Start 11: control_flow
+11/14 Test #11: control_flow .....................   Passed    4.27 sec
+      Start 12: failures
+12/14 Test #12: failures .........................   Passed    0.02 sec
+      Start 13: translator
+13/14 Test #13: translator .......................   Passed    0.55 sec
+      Start 14: demo
+14/14 Test #14: demo .............................   Passed    0.02 sec
+
+100% tests passed out of 14
+
+Total Test time (real) =  19.42 sec
