@@ -258,3 +258,28 @@ on immutable v1.5: the diagnostic stops unrolling the complete initialization
 loop before following an arbitrary validated edge. Every target is in range and
 all p->count facts are initialized first; this is not a confirmed defect. No
 extra initialization or suppressed diagnostic was added to improve tool output.
+
+Immutable compiler comparison: 7118731 versus f0bdafc. Median ns/operation
+across seven processes (each compilation-stage sample averages 100 operations):
+
+| Program | Validate before/after | Query before/after | Emit before/after | Managed compilation before/after |
+| --- | ---: | ---: | ---: | ---: |
+| arithmetic | 120.64/52.97 | 292.59/223.88 | 358.61/281.14 | 6175.91/5761.31 |
+| bitwise | 143.67/58.95 | 354.74/273.33 | 450.58/373.82 | 5523.46/5234.62 |
+| conditional | 192.76/194.74 | 414.44/411.92 | 538.38/536.04 | 5874.29/5597.76 |
+| branches | 930.30/1008.54 | 1771.29/1773.11 | 2320.47/2401.75 | 9511.67/7548.51 |
+| loop8 | 187.50/192.00 | 422.08/437.30 | 528.82/540.84 | 5898.91/5691.13 |
+| records | 287.00/289.37 | 585.30/575.43 | 898.18/917.47 | 6939.78/6510.72 |
+
+Managed compilation uses the runtime's compilation_ns boundary for 100 fresh
+registrations, with construction/registration/execution/cleanup outside that
+counter. Both libraries use the same current harness. This is separate from the
+map/emit/publication/free interval. The probe confirms two temporary allocations
+before and zero after for straight-line compilation, with one mmap/mprotect and
+no munmap during successful compilation in both. Counter measurements, all
+execution cells and pressure diagnostics are retained in profiling/results/compiler.
+The single pressure diagnostic retains a 65536-byte executable peak for 4096
+functions and identical persistent program/metadata ledgers; it is not an RSS
+measurement or a seven-sample claim of lifecycle improvement. Native text is
+unchanged from PR 2. No new quality finding was confirmed by the post-commit fork
+scan/next. Its incomplete C coverage/import heuristics remain a limitation.
