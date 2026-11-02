@@ -1,0 +1,4 @@
+compiler,16.2.1 20260810,clock,CLOCK_MONOTONIC,rounds,1,page_size,4096
+pressure,pages,1,total_ms,174.412,compilations,4096,evictions,4095,peak_mapping,4096,metadata,2785632,program,163840
+pressure,pages,4,total_ms,219.172,compilations,4096,evictions,4092,peak_mapping,16384,metadata,2785632,program,163840
+pressure,pages,16,total_ms,192.260,compilations,4096,evictions,4080,peak_mapping,65536,metadata,2785632,program,163840
