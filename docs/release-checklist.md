@@ -14,7 +14,7 @@ explicit authorization. The v1.0.0 tag is the immutable baseline.
 - [x] Rebuild unchanged v1.0 external consumer sources against installed 1.5.
 - [x] Complete final reproducible v1.0 versus v1.5 measurements and optional fuzz smoke.
 - [x] Record final post-commit C-support quality review and compiler diagnostics.
-- [ ] Publish and check all four PRs with correct stack bases and passing CI.
+- [x] Publish and check all four PRs with correct stack bases and passing CI.
 - [x] Keep MIT licensing and unsupported platform/sandbox limits explicit.
 
 Maintainer release actions, intentionally pending:

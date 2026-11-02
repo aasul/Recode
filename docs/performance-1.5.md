@@ -21,8 +21,9 @@ footprint and API trade-off, not for a claim of universally faster code.
 
 Both libraries were extracted from immutable archives, installed separately, and
 consumed by the same comparison source. Three outer rounds alternate library order;
-engine order also alternates. All latency cells run on CPU 0 in fresh processes.
-The separate batch thread study uses CPUs 0..3. Frequency, other system load and
+engine order also alternates. Scalar/context/bulk latency cells run on CPU 0 in fresh processes; pressure also
+uses CPU 0. The retained-registration executable inherits the driver's CPU 0..3
+affinity. The separate batch thread study explicitly uses CPUs 0..3. Frequency, other system load and
 CPU isolation are uncontrolled. No local build/test job overlaps these collections.
 Three samples per cell are insufficient for a universal ordering of close results.
 All raw observations, environmental metadata, lifecycle, pressure and cold counts

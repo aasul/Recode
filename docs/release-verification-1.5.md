@@ -139,7 +139,19 @@ The benchmark, optimization and batch PRs have passed GitHub Actions:
 [benchmark](https://github.com/aasul/Recode/actions/runs/41480069279),
 [optimization](https://github.com/aasul/Recode/actions/runs/41481141439),
 [batch](https://github.com/aasul/Recode/actions/runs/41484772684).
-The final release PR's live CI is checked after publication and reported there.
+The release preparation head e25cb59 also passed
+[all GitHub Actions jobs](https://github.com/aasul/Recode/actions/runs/41491846980).
+The final documentation/result archive of e25cb59 passed a fresh GCC shared build
+and all 14 tests, including relocated consumers. Its deterministic gzip SHA-256 is
+`0bf80b2b5a9c52b8f3b3c6cdbc4eda4ce328c0f690de6185df3bdbc7b80eb6d1`.
+
+The four review branches are published as [benchmark #26](https://github.com/aasul/Recode/pull/26),
+[optimization #27](https://github.com/aasul/Recode/pull/27),
+[batch #28](https://github.com/aasul/Recode/pull/28) and
+[release #29](https://github.com/aasul/Recode/pull/29), with bases main,
+bench/v1.5-jit-comparison, perf/v1.5-runtime-optimization and
+feat/v1.5-batch-execution respectively. This final record update changes only
+documentation; live CI on the current PR head is checked again after publication.
 No source correctness blocker was found by the executed checks. Maintainer review,
 ordered merges, post-merge archive verification and explicit tag/release authorization
 are still required. Any final documentation-only archive has a different checksum;
