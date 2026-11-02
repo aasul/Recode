@@ -128,14 +128,52 @@ static void test_compact_layout(void)
     struct rc_integer_program *p = build(insns,6,1,1);
     uint8_t bytes[256]; size_t length;
     CHECK(rc_integer_emit(p,bytes,sizeof(bytes),&length,NULL) == RC_OK);
-    CHECK(length == 104); /* 11-byte entry, exact operation sizes, no padding. */
-    CHECK(bytes[30] == 0x0f && bytes[31] == 0x85);
-    CHECK(bytes[32] == 34 && bytes[33] == 0 && bytes[34] == 0 && bytes[35] == 0);
+    CHECK(length == 76); /* disp8 slots and two forwarded return values. */
+    CHECK(bytes[24] == 0x0f && bytes[25] == 0x85);
+    CHECK(bytes[26] == 23 && bytes[27] == 0 && bytes[28] == 0 && bytes[29] == 0);
     struct rc_code code = {0}; rc_integer_function fn; bool allocated;
     CHECK(rc_integer_map(p,length,&code,&fn,&allocated,NULL) == RC_OK);
     CHECK(fn(0,0) == 7 && fn(1,0) == 9);
     CHECK(rc_code_free(&code,NULL) == RC_OK); rc_integer_program_destroy(p);
 }
+static void test_forwarding(void)
+{
+    for (uint32_t reg = 0; reg < 64; ++reg) {
+        /* A later ARGUMENT overwrites the cached slot without writing RAX. */
+        struct rc_integer_insn insns[] = {{.op=RC_INT_CONSTANT,.dst=reg,.immediate=99},
+            {.op=RC_INT_ARGUMENT,.dst=reg},{.op=RC_INT_CONSTANT,.dst=63,.immediate=7},
+            {.op=RC_INT_ADD,.dst=reg,.left=reg,.right=63},{.op=RC_INT_RETURN,.left=reg}};
+        struct rc_integer_program *p = build(insns,5,64,1);
+        struct rc_code code = {0}; rc_integer_function fn; bool allocated; size_t length;
+        CHECK(rc_integer_emit(p,NULL,0,&length,NULL) == RC_OK);
+        CHECK(rc_integer_map(p,length,&code,&fn,&allocated,NULL) == RC_OK);
+        uint64_t args[] = {UINT64_MAX,0};
+        verify(p,args,reg == 63 ? 14 : 6,fn);
+        CHECK(rc_code_free(&code,NULL) == RC_OK); rc_integer_program_destroy(p);
+    }
+    /* The RETURN join cannot trust the immediately preceding textual producer. */
+    const struct rc_integer_insn join[] = {{.op=RC_INT_ARGUMENT},
+        {.op=RC_INT_BRANCH,.target=5},{.op=RC_INT_CONSTANT,.dst=1,.immediate=99},
+        {.op=RC_INT_CONSTANT,.dst=2,.immediate=7},{.op=RC_INT_JUMP,.target=6},
+        {.op=RC_INT_CONSTANT,.dst=1,.immediate=123},{.op=RC_INT_RETURN,.left=1}};
+    struct rc_integer_program *joined = build(join,7,3,1);
+    struct rc_code joined_code = {0}; rc_integer_function joined_fn; bool joined_allocated; size_t joined_size;
+    CHECK(rc_integer_emit(joined,NULL,0,&joined_size,NULL) == RC_OK);
+    CHECK(rc_integer_map(joined,joined_size,&joined_code,&joined_fn,&joined_allocated,NULL) == RC_OK);
+    for (uint64_t a = 0; a < 2; ++a) {
+        uint64_t inputs[] = {a,0}; verify(joined,inputs,a == 0 ? 99 : 123,joined_fn);
+    }
+    CHECK(rc_code_free(&joined_code,NULL) == RC_OK); rc_integer_program_destroy(joined);
+    const struct rc_integer_insn overwritten[] = {{.op=RC_INT_CONSTANT,.immediate=99},
+        {.op=RC_INT_ARGUMENT},{.op=RC_INT_RETURN}};
+    struct rc_integer_program *p = build(overwritten,3,1,1);
+    struct rc_code code = {0}; rc_integer_function fn; bool allocated; size_t length;
+    CHECK(rc_integer_emit(p,NULL,0,&length,NULL) == RC_OK && length == 44);
+    CHECK(rc_integer_map(p,length,&code,&fn,&allocated,NULL) == RC_OK);
+    uint64_t args[] = {UINT64_MAX,0}; verify(p,args,UINT64_MAX,fn);
+    CHECK(rc_code_free(&code,NULL) == RC_OK); rc_integer_program_destroy(p);
+}
+
 static void test_validation(void)
 {
     struct rc_builder *b = NULL; struct rc_integer_program *p = NULL;
@@ -343,7 +381,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
-    test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_random(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
+    test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_forwarding(); test_random(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
     puts("integer builder, operations, independent differential, ABI, policies, ownership and concurrency passed");
     return 0;
 }
