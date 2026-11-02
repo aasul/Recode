@@ -1,4 +1,23 @@
-# Migrating v1.0 to v1.5
+# Migrating v1.0 or v1.5 to v1.6
+
+Rebuild with matching 1.6.0 headers and library. The new SONAME is
+librecode.so.1.6 and RECODE_ABI_MINOR is 6; RECODE_API_VERSION remains 1.
+There are no new public functions, enum values or struct fields in this minor.
+Existing scalar and batch source, borrowed memory views, failure outputs,
+statistics meanings, policies and ownership rules remain supported. Same-major
+CMake discovery accepts requests for 1.0 or 1.5 when rebuilding old source.
+Cross-minor binary substitution is not promised.
+
+Integer machine-code layouts and private compilation helpers changed. Do not
+rely on private native entries or generated instruction offsets. Batch samples
+still time the same records and omit unsampled execution from sampled totals.
+The first batch on a new handle remains interpreted. Code still uses separate
+RW-to-RX mappings, so smaller text does not remove page-rounding overhead.
+No new CPU extension is required. See [performance-1.6.md](performance-1.6.md)
+for measured trade-offs and [release verification](release-verification-1.6.md)
+for source compatibility and package checks.
+
+## Earlier migration: v1.0 to v1.5
 
 Rebuild existing source with matching 1.5 headers and library. The SONAME changes
 from librecode.so.1.0 to librecode.so.1.5; no cross-minor binary compatibility is
