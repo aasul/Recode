@@ -1,0 +1,7 @@
+probe,integer,0,policy,0,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,0,policy,1,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,0,policy,2,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,0,policy,3,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,1,policy,0,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,1,policy,1,calls,10000,clocks,1250,locks,20000,allocations,0
+probe,integer,1,policy,2,calls,10000,clocks,11250,locks,20000,allocations,0

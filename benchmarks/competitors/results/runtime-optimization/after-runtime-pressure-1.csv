@@ -1,0 +1,7 @@
+compiler,16.2.1 20260810,page_size,4096,clock,CLOCK_MONOTONIC,rounds,5
+pressure,budget_mib,4,functions,1056,total_ms,8.662,registration_ms,0.775,execution_ms,7.826,peak_mapping,4194304,metadata,531552,program,16896,hits,1056,misses,2112,evictions,32
+cleanup,budget_mib,4,ms,2.695,remaining_mapping,0
+pressure,budget_mib,16,functions,4128,total_ms,32.677,registration_ms,3.509,execution_ms,28.929,peak_mapping,16777216,metadata,2079840,program,66048,hits,4128,misses,8256,evictions,32
+cleanup,budget_mib,16,ms,13.392,remaining_mapping,0
+pressure,budget_mib,64,functions,16416,total_ms,134.032,registration_ms,16.657,execution_ms,116.443,peak_mapping,67108864,metadata,8272992,program,262656,hits,16416,misses,32832,evictions,32
+cleanup,budget_mib,64,ms,52.151,remaining_mapping,0
