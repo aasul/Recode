@@ -270,7 +270,7 @@ static void test_cold_policy(void)
     rc_integer_program_destroy(p); free(out); free(items);
 }
 
-struct worker { struct rc_runtime *r; rc_handle h; unsigned id; bool memory; atomic_bool *start; };
+struct worker { struct rc_runtime *r; rc_handle h; unsigned id; bool memory; atomic_bool *start; bool contiguous; };
 static void *work(void *context)
 {
     struct worker *w=context; while(!atomic_load(w->start)) { }
@@ -281,13 +281,18 @@ static void *work(void *context)
         args[n][0]=w->memory ? 0 : n+w->id; args[n][1]=UINT64_MAX-n;
         items[n]=(struct rc_integer_batch_item){args[n],2,w->memory ? &view : NULL};
     }
+    struct record { uint64_t args[2]; uint8_t data[8]; } records[128];
+    for (size_t n=0;n<128;++n) { memcpy(records[n].args,args[n],sizeof(args[n])); memcpy(records[n].data,data,8); }
+    struct rc_integer_record_batch layout={records,128,sizeof(*records),sizeof(*records),2,{0,8},16,8};
     for(unsigned repeat=0;repeat<200;++repeat) {
-        size_t done; CHECK(rc_runtime_call_integer_batch(w->r,w->h,items,128,out,128,&done,NULL)==RC_OK && done==128);
+        size_t done;
+        if (w->contiguous) CHECK(rc_runtime_call_integer_records(w->r,w->h,&layout,out,128,&done,NULL)==RC_OK && done==128);
+        else CHECK(rc_runtime_call_integer_batch(w->r,w->h,items,128,out,128,&done,NULL)==RC_OK && done==128);
         for(size_t n=0;n<128;++n) CHECK(out[n]==(w->memory ? UINT64_C(0x0101010101010101)*data[0] : args[n][0]+args[n][1]));
     }
     return NULL;
 }
-static void test_concurrency(bool memory, bool cold)
+static void test_concurrency(bool memory, bool cold, bool contiguous)
 {
     struct rc_integer_program *p=program(memory,0); struct rc_runtime *r=NULL; rc_handle h,alias;
     struct rc_runtime_config c=rc_runtime_default_config(); c.policy=RC_POLICY_FIXED;
@@ -296,7 +301,7 @@ static void test_concurrency(bool memory, bool cold)
     CHECK(rc_runtime_register_integer(r,p,&h,NULL)==RC_OK); CHECK(rc_runtime_register_integer(r,p,&alias,NULL)==RC_OK);
     rc_integer_program_destroy(p); pthread_t threads[4]; struct worker workers[4]; atomic_bool start=false;
     for(unsigned n=0;n<4;++n) {
-        workers[n]=(struct worker){r,n%2 ? h : alias,n,memory,&start}; CHECK(pthread_create(&threads[n],NULL,work,&workers[n])==0);
+        workers[n]=(struct worker){r,n%2 ? h : alias,n,memory,&start,contiguous}; CHECK(pthread_create(&threads[n],NULL,work,&workers[n])==0);
     }
     atomic_store(&start,true);
     for(unsigned n=0;n<200;++n) {
@@ -317,6 +322,6 @@ static void test_concurrency(bool memory, bool cold)
 }
 int main(void)
 {
-    alarm(60); test_inputs(); test_results(); test_bounds(); test_guard_page(); test_sampling(); test_cold_policy(); test_concurrency(false,false); test_concurrency(true,false); test_concurrency(false,true); test_concurrency(true,true);
+    alarm(60); test_inputs(); test_results(); test_bounds(); test_guard_page(); test_sampling(); test_cold_policy(); test_concurrency(false,false,false); test_concurrency(true,false,false); test_concurrency(false,true,false); test_concurrency(true,true,false); test_concurrency(false,true,true); test_concurrency(true,true,true);
     puts("batch preflight, aliases, partial faults, independent results, policies and concurrent cache pressure passed"); return 0;
 }

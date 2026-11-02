@@ -42,3 +42,9 @@ run("${CMAKE_COMMAND}" -S "${SOURCE_DIR}/examples/batch-rules" -B "${TEST_DIR}/b
     -DCMAKE_BUILD_TYPE=Release)
 run("${CMAKE_COMMAND}" --build "${TEST_DIR}/batch-rules" --parallel 2)
 run("${TEST_DIR}/batch-rules/batch-rules")
+
+run("${CMAKE_COMMAND}" -S "${SOURCE_DIR}/examples/contiguous-rules" -B "${TEST_DIR}/contiguous-rules"
+    "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_PREFIX_PATH=${TEST_DIR}/relocated"
+    -DCMAKE_BUILD_TYPE=Release)
+run("${CMAKE_COMMAND}" --build "${TEST_DIR}/contiguous-rules" --parallel 2)
+run("${TEST_DIR}/contiguous-rules/contiguous-rules")

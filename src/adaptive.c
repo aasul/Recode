@@ -1177,13 +1177,13 @@ static enum rc_status validate_batch(const struct rc_integer_batch_item *items, 
     return malformed ? rc_fail(error,RC_ARGUMENT,0,0) : RC_OK;
 }
 
-enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle handle,
+static enum rc_status runtime_integer_batch(struct rc_runtime *r, rc_handle handle,
                                               const struct rc_integer_batch_item *items,
-                                              size_t count, uint64_t *results, size_t capacity,
+                                              const struct rc_integer_record_batch *records,
+                                              size_t count, uint64_t *results,
                                               size_t *completed, struct rc_error *error)
 {
-    enum rc_status status = validate_batch(items,count,results,capacity,completed,error);
-    if (status != RC_OK) return status;
+    enum rc_status status = RC_OK;
     if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
     pthread_mutex_lock(&r->mutex);
     struct function *f = find_function(r,handle);
@@ -1192,8 +1192,8 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
         return rc_fail(error,RC_NOT_FOUND,0,0);
     }
     struct translation *t = f->translation;
-    bool valid = t->integer != NULL;
-    for (size_t n = 0; valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
+    bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+    for (size_t n = 0; records == NULL && valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
     if (!valid || count == 0) {
         pthread_mutex_unlock(&r->mutex);
         return rc_fail(error,valid ? RC_OK : RC_ARGUMENT,0,0);
@@ -1241,7 +1241,10 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
         size_t run = native != NULL ? rc_unsampled_run(rc_saturating_add(base,n),
             rc_saturating_add(prior_samples,samples),count-n,r->config.sample_period) : 0;
         if (run != 0) {
-            struct rc_integer_batch_context context = {items+n,results+n,run,0,0};
+            const void *first = records != NULL ? (records->records != NULL
+                ? (const uint8_t *)records->records+n*records->stride : NULL) : (const void *)(items+n);
+            struct rc_integer_batch_context context = {first,results+n,run,0,0,records,
+                records != NULL ? records->stride : sizeof(*items)};
             status = batch_native(&context);
             attempted += context.completed + (status != RC_OK ? 1u : 0u);
             n += context.completed;
@@ -1249,24 +1252,38 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
             *completed = n;
             if (status != RC_OK || n == count) break;
         }
-        struct rc_memory_view memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
+        uint64_t record_arguments[2];
+        const uint64_t *arguments;
+        size_t arity = t->integer->arguments;
+        struct rc_memory_view memory;
+        if (records != NULL) {
+            const uint8_t *record = records->records != NULL
+                ? (const uint8_t *)records->records+n*records->stride : NULL;
+            for (size_t arg = 0; arg < arity; ++arg)
+                memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+            arguments = record_arguments;
+            memory = (struct rc_memory_view){record != NULL ? record+records->view_offset : NULL,records->view_length};
+        } else {
+            arguments = items[n].arguments;
+            memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
+        }
         /* A native run stops exactly at a required sample. */
         bool sample = native != NULL || rc_saturating_add(prior_samples,samples) < 8 ||
             rc_saturating_add(base,n) % r->config.sample_period == 0;
         uint64_t start = sample ? now_ns() : 0, value;
         ++attempted;
         if (memory_native != NULL) {
-            uint64_t a = items[n].argument_count > 0 ? items[n].arguments[0] : 0;
-            uint64_t b = items[n].argument_count > 1 ? items[n].arguments[1] : 0;
+            uint64_t a = arity > 0 ? arguments[0] : 0;
+            uint64_t b = arity > 1 ? arguments[1] : 0;
             struct rc_integer_result output;
             status = memory_native(a,b,memory.data,memory.length,&output);
             if (status == RC_OK) value = output.value;
             else execution = (struct rc_error){status,output.offset,0};
         } else if (native != NULL) {
-            uint64_t a = items[n].argument_count > 0 ? items[n].arguments[0] : 0;
-            uint64_t b = items[n].argument_count > 1 ? items[n].arguments[1] : 0;
+            uint64_t a = arity > 0 ? arguments[0] : 0;
+            uint64_t b = arity > 1 ? arguments[1] : 0;
             value = native(a,b);
-        } else status = rc_integer_interpret_validated(t->integer,items[n].arguments,memory,0,&value,&execution);
+        } else status = rc_integer_interpret_validated(t->integer,arguments,memory,0,&value,&execution);
         if (sample) {
             uint64_t duration = elapsed(start,now_ns());
             add(&samples,1); add(&nanoseconds,duration);
@@ -1310,6 +1327,52 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
     pthread_mutex_unlock(&r->mutex);
     if (error != NULL) *error = execution;
     return status;
+}
+
+enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle handle,
+                                              const struct rc_integer_batch_item *items,
+                                              size_t count, uint64_t *results, size_t capacity,
+                                              size_t *completed, struct rc_error *error)
+{
+    enum rc_status status = validate_batch(items,count,results,capacity,completed,error);
+    return status == RC_OK ? runtime_integer_batch(r,handle,items,NULL,count,results,completed,error) : status;
+}
+
+enum rc_status rc_runtime_call_integer_records(struct rc_runtime *r, rc_handle handle,
+                                                const struct rc_integer_record_batch *records,
+                                                uint64_t *results, size_t capacity,
+                                                size_t *completed, struct rc_error *error)
+{
+    if (completed == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+    if (!valid_span(completed,sizeof(*completed)) ||
+        (error != NULL && (!valid_span(error,sizeof(*error)) ||
+                          overlaps(completed,sizeof(*completed),error,sizeof(*error)))))
+        return RC_ARGUMENT;
+    if (records == NULL || !valid_span(records,sizeof(*records))) {
+        *completed = 0; return rc_fail(error,RC_ARGUMENT,0,0);
+    }
+    if (batch_output_overlap(records,sizeof(*records),NULL,0,completed,error)) return RC_ARGUMENT;
+    size_t count = records->record_count;
+    if (count > SIZE_MAX/sizeof(*results)) { *completed = 0; return rc_fail(error,RC_ARGUMENT,0,0); }
+    size_t bytes = count*sizeof(*results), span = records->record_size;
+    bool malformed = records->argument_count > 2 || records->stride < records->record_size ||
+        records->view_offset > records->record_size || records->view_length > records->record_size-records->view_offset;
+    for (size_t n = 0; n < records->argument_count && n < 2; ++n)
+        malformed |= records->argument_offsets[n] > records->record_size ||
+            sizeof(uint64_t) > records->record_size-records->argument_offsets[n];
+    if (count == 0) span = 0;
+    else if (records->stride != 0 && count-1 > (SIZE_MAX-span)/records->stride) malformed = true;
+    else span += (count-1)*records->stride;
+    if (!valid_span(results,bytes) || !valid_span(records->records,span)) malformed = true;
+    if (batch_output_overlap(records,sizeof(*records),results,bytes,completed,error) ||
+        batch_output_overlap(records->records,span,results,bytes,completed,error) ||
+        overlaps(results,bytes,completed,sizeof(*completed)) ||
+        (error != NULL && overlaps(results,bytes,error,sizeof(*error))))
+        return RC_ARGUMENT;
+    *completed = 0;
+    if (malformed) return rc_fail(error,RC_ARGUMENT,0,0);
+    if (capacity < count) return rc_fail(error,RC_CAPACITY,0,0);
+    return runtime_integer_batch(r,handle,NULL,records,count,results,completed,error);
 }
 
 enum rc_status rc_runtime_function_stats(struct rc_runtime *r, rc_handle handle,

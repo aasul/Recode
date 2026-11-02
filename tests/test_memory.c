@@ -87,7 +87,15 @@ static void test_reads(void)
             if (expected != RC_OK) CHECK(out.offset == 1);
             struct rc_integer_batch_item items[3] = {{&offset,1,&view},{&offset,1,&view},{&offset,1,&view}};
             uint64_t results[3] = {91,92,93};
-            struct rc_integer_batch_context context = {items,results,3,99,99};
+            struct rc_integer_batch_context context = {items,results,3,99,99,NULL,sizeof(struct rc_integer_batch_item)};
+            CHECK(rc_test_batch_abi(batch,&context,&abi) == expected && abi == 1);
+            CHECK(context.completed == (expected == RC_OK ? 3u : 0u));
+            for (size_t n = 0; n < 3; ++n) CHECK(results[n] == (expected == RC_OK ? reference : 91+n));
+            if (expected != RC_OK) CHECK(context.offset == 1);
+            uint8_t records[3][42];
+            for (size_t n = 0; n < 3; ++n) { memcpy(records[n]+1,&offset,8); memcpy(records[n]+9,data,33); }
+            struct rc_integer_record_batch layout = {records,3,42,42,1,{1,0},9,size};
+            context = (struct rc_integer_batch_context){records,results,3,99,99,&layout,42};
             CHECK(rc_test_batch_abi(batch,&context,&abi) == expected && abi == 1);
             CHECK(context.completed == (expected == RC_OK ? 3u : 0u));
             for (size_t n = 0; n < 3; ++n) CHECK(results[n] == (expected == RC_OK ? reference : 91+n));
@@ -151,7 +159,7 @@ static void test_validation_and_control(void)
     uint64_t args[] = {0,3,0,4}, results[] = {91,92,93,94}, abi;
     struct rc_integer_batch_item items[] = {{args,1,NULL},{args+1,1,&view},
         {args+2,1,NULL},{args+3,1,&view}};
-    struct rc_integer_batch_context context = {items,results,4,99,99};
+    struct rc_integer_batch_context context = {items,results,4,99,99,NULL,sizeof(struct rc_integer_batch_item)};
     CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_BOUNDS && abi == 1);
     CHECK(context.completed == 3 && context.offset == 5);
     CHECK(results[0] == 0 && results[1] == 0 && results[2] == 0 && results[3] == 94);

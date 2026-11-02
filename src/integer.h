@@ -13,9 +13,11 @@ struct rc_integer_result { uint64_t value; size_t offset; };
 typedef enum rc_status (*rc_integer_view_function)(uint64_t, uint64_t, const void *, size_t,
                                                   struct rc_integer_result *);
 struct rc_integer_batch_context {
-    const struct rc_integer_batch_item *items;
+    const void *items;
     uint64_t *results;
     size_t count, completed, offset;
+    const struct rc_integer_record_batch *records;
+    size_t stride;
 };
 typedef enum rc_status (*rc_integer_batch_function)(struct rc_integer_batch_context *);
 static inline bool rc_integer_load(enum rc_integer_op op)
@@ -35,7 +37,7 @@ struct rc_integer_plan {
     size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS];
     size_t failure, length;
     size_t batch, batch_offsets[RC_INTEGER_MAX_INSTRUCTIONS];
-    size_t batch_success, batch_failure, batch_finish, batch_exit;
+    size_t batch_success, batch_failure, batch_finish, batch_exit, batch_record, batch_program;
 };
 static inline uint64_t rc_integer_reads(struct rc_integer_insn i)
 {

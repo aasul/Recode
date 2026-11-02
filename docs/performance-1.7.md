@@ -109,3 +109,39 @@ led to a member list per slab; copying and pin checks now visit just that page
 while candidate selection can still scan translations. This avoids the large
 repeated membership scans without a general-purpose allocation framework.
 Large/pinned/full-budget translations retain isolated allocation.
+
+## Contiguous-record milestone
+
+The record benchmark runs three internal alternating engine rounds at each
+workload/count/stride on CPU 0. Raw data is benchmarks/v1.7/records/raw-final.csv;
+raw.csv retains the earlier loop diagnostic. The final loop checks zero count
+once and falls through the final RETURN into the common success store.
+The same complete integer lowering serves descriptor and strided input setup.
+
+Warm medians at 128 records, stride 33, in ns/record:
+
+| Workload | C | Scalar | Descriptor | Records |
+| --- | ---: | ---: | ---: | ---: |
+| arithmetic | 3.097 | 52.605 | 15.414 | 6.512 |
+| bitwise | 4.282 | 53.547 | 15.651 | 7.382 |
+| conditional | 3.186 | 56.870 | 16.161 | 6.645 |
+| branches | 3.487 | 63.704 | 26.457 | 17.580 |
+| loop8 | 6.845 | 58.562 | 22.885 | 14.428 |
+| records | 13.390 | 58.415 | 18.989 | 9.712 |
+
+Direct records meet the arithmetic target in this setup; the existing descriptor
+API remains above 10 ns/record. The generic input setup adds branches and cursor
+state, reducing some fusion-only gains. One-request measurements include
+descriptor/argument/view preparation and are separate from repeated warm timing.
+For 128 records the converted descriptor storage is 7168 bytes, versus one
+72-byte record layout; raw records/results exist in both paths. Heap allocation,
+input generation and registration/compilation are excluded from this warm study.
+C uses the common checked reference function and includes its call/dispatch;
+it is not an inlined specialized application lower bound.
+
+The profile/ subdirectory retains a separate seven-round alternating comparison
+with v1.6, using its identical input representation for both revisions. Its
+results differ from the deliberately unaligned record harness; do not mix the
+absolute timings. The added shared setup and text/compilation trade-offs remain
+visible in those samples. This study has three internal record rounds in one
+process, so cross-process uncertainty is not established for strided timings.

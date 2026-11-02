@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(contiguous_rules LANGUAGES C)
+find_package(Recode 1.0 CONFIG REQUIRED)
+add_executable(contiguous-rules main.c)
+target_compile_features(contiguous-rules PRIVATE c_std_11)
+target_compile_options(contiguous-rules PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_link_libraries(contiguous-rules PRIVATE Recode::recode)
