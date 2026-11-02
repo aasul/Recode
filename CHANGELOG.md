@@ -1,6 +1,16 @@
 # Changelog
 
-## 1.0.0 preparation (unreleased)
+## 1.5.0 preparation (unreleased)
+
+- Add fail-fast integer batch execution with borrowed per-item views and checked result prefixes.
+- Amortize lookup, locking and native pinning while preserving concurrent cache ownership.
+- Compact integer stack addresses and forward local RAX values without changing virtual-register semantics.
+- Add optional actual LLVM ORC/MIR comparisons, immutable baselines, raw measurements and batch studies.
+- Add installed batch-rules, guard/alias/partial-failure/cache-pressure tests and batch sanitizer coverage.
+- Identify the rebuilt minor ABI with SONAME 1.5; retain documented 1.x source compatibility.
+- Record one-item, adaptive and compilation regressions alongside measured improvements.
+
+## 1.0.0
 
 - Finalize Linux x86-64 C11 public source and patch-level ABI contracts, with SONAME 1.0.
 - Add getting started, migration, troubleshooting, release notes and release validation.

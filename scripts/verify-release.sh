@@ -41,6 +41,6 @@ build="$results/gcc-tsan"
 cmake -S "$root" -B "$build" -DCMAKE_C_COMPILER=gcc -DCMAKE_BUILD_TYPE=Debug \
     -DRECODE_THREAD_SANITIZE=ON > "$build.log" 2>&1
 cmake --build "$build" --parallel 2 >> "$build.log" 2>&1
-ctest --test-dir "$build" -R '^(memory|integer|stability|trace|adaptive|adaptive_failures)$' \
+ctest --test-dir "$build" -R '^(batch|memory|integer|stability|trace|adaptive|adaptive_failures)$' \
     --output-on-failure >> "$build.log" 2>&1
 echo 'gcc thread sanitizer passed'

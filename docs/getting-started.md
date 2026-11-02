@@ -1,6 +1,6 @@
 # Getting started
 
-This is the 1.0 release-preparation candidate. Publication and tagging still need
+This is the 1.5 release-preparation candidate. Publication and tagging still need
 maintainer approval. Use Linux x86-64, GCC or Clang with C11, CMake 3.16+, libc and
 POSIX threads. Native execution requires anonymous mappings that can transition
 from RW to RX. Interpretation works when executable mappings are denied.
@@ -10,7 +10,7 @@ Obtain the reviewed source archive, or clone and select the candidate branch:
 ```sh
 git clone https://github.com/aasul/Recode.git
 cd Recode
-git checkout release/v1.0-stable-api
+git checkout release/v1.5.0
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
@@ -30,7 +30,7 @@ cmake --build build-consumer --parallel 2
 ./build-consumer/data-rules
 ```
 
-Your external CMake project needs `find_package(Recode 1.0 CONFIG REQUIRED)` and
+Your external CMake project needs `find_package(Recode 1.5 CONFIG REQUIRED)` and
 `target_link_libraries(your_target PRIVATE Recode::recode)`. Do not add Recode's
 source directory to include paths. The target supplies C11, public includes and
 Threads::Threads. See [embedding.md](embedding.md) for deployment/loader paths.
@@ -60,3 +60,8 @@ Read [public-api.md](public-api.md), [integer-programs.md](integer-programs.md) 
 arguments, stores, external calls, integer traces or managed/native deadlines.
 Recode is not a sandbox. Direct C remains faster on the measured small workloads;
 use the [release verification](release-verification.md) to assess overhead.
+
+For repeated records, build examples/batch-rules with the same installed prefix
+and call rc_runtime_call_integer_batch. See [batch execution](batch-execution.md)
+for result-prefix failures, borrowed input lifetime and tier boundaries. Scalar
+calls are still appropriate for isolated evaluations.

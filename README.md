@@ -7,7 +7,7 @@ A separate accumulator pipeline translates the documented x86 instruction subset
 and supports guarded loop tracing. Recode does not load or optimize arbitrary
 binaries and is not a sandbox.
 
-This branch prepares v1.0.0 for maintainer review. It is not an official release.
+This branch prepares v1.5.0 for maintainer review. It is not an official release.
 Start with the [getting-started guide](docs/getting-started.md),
 [public API policy](docs/public-api.md) and [release checklist](docs/release-checklist.md).
 
@@ -34,12 +34,12 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 1.0 provides static/shared installation and the `Recode::recode` CMake
+Version 1.5 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
 for platform, instruction and security limits. The [public API policy](docs/public-api.md)
 defines 1.x source compatibility and patch-level binary compatibility. Consumers
-rebuild across minor releases; the first stable SONAME is 1.0.
+rebuild across minor releases; the v1.5 SONAME is 1.5.
 
 ## Integer programs
 
@@ -51,6 +51,14 @@ interpreter and managed whole-function JIT execute them. The independent
 The [data-rules application](examples/data-rules) reads a borrowed byte buffer
 using bounded unsigned little-endian loads in both engines. See the
 [memory-view contract](docs/memory-views.md). TRACE remains limited to accumulator input.
+
+For independent records, [batch execution](docs/batch-execution.md) reuses one
+handle lookup and execution pin across a request. The [batch-rules consumer](examples/batch-rules)
+checks bounded filtering against C and builds through the installed package.
+Warm FIXED batches can reduce dispatch cost; one-item and cold/adaptive cases can
+regress. See [batch measurements](docs/batch-verification.md) and the optional
+[LLVM ORC/MIR comparison suite](benchmarks/competitors/README.md). These compilers
+are not dependencies of the Recode library.
 
 ## Supported input
 
@@ -187,7 +195,7 @@ fall back to interpretation and retain compilation diagnostics in statistics.
 
 See the [release verification](docs/release-verification.md),
 [migration guide](docs/migration.md), [troubleshooting](docs/troubleshooting.md),
-[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.0.md).
+[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.5.md).
 
 ## Contributing
 

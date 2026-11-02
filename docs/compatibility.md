@@ -33,7 +33,7 @@ Generated machine code is not sanitizer-instrumented. See [SECURITY](../SECURITY
 Source compatibility and binary compatibility are separate. Existing v0.4 entry
 points remain available. The 1.x public source contract is compatible within the
 major version; rebuild consumers across minor releases. Binary compatibility
-is limited to patches in one major/minor line, identified by SONAME 1.0.
+is limited to patches in one major/minor line, identified by SONAME 1.5 for this minor release.
 The library remains MIT-licensed.
 
 The [public API policy](public-api.md) defines installed surfaces, error semantics
@@ -41,3 +41,7 @@ and major/minor SONAME isolation. See [memory limits](memory-limits.md) for why
 executable accounting is not a total allocation quota, and [fuzzing](fuzzing.md)
 for the optional bounded Clang harness. The supported-platform matrix and actual
 verification results are in [stability verification](stability-verification.md).
+
+Version 1.5 adds batched integer execution without removing or renumbering v1.0
+interfaces. Existing v1.0 applications rebuild against the 1.5 package; binary
+substitution across the two minor SONAMEs is not promised. See [migration](migration.md).
