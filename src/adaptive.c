@@ -454,7 +454,34 @@ static bool should_compile(struct rc_runtime *r, struct function *f, uint64_t no
     return worthwhile;
 }
 
-static void compile_translation(struct rc_runtime *r, struct function *f)
+/* Static cost model for an unseen program. It intentionally does not
+ * predict loop iterations or future requests. Observed compilation costs replace
+ * the configured initial estimate. A 2x margin absorbs model/timer error. */
+static bool should_compile_cold_batch(struct rc_runtime *r, struct function *f, size_t count)
+{
+    if (!r->config.cold_batch_compile || f->stats.interpreted != 0 ||
+        r->config.policy == RC_POLICY_INTERPRET ||
+        f->translation->invocations <= f->translation->retry_after ||
+        r->config.executable_budget < r->page_size)
+        return false;
+    const struct rc_integer_program *p = f->translation->integer;
+    uint64_t work = p->count;
+    for (size_t n = 0; n < p->count; ++n)
+        if (rc_integer_load(p->insns[n].op) || p->insns[n].op == RC_INT_MUL) ++work;
+    uint64_t saving = 4+3*work;
+    if (count <= rc_saturating_add(r->compile_cost,r->compile_cost)/saving) {
+        add(&f->stats.policy_postponed,1);
+        return false;
+    }
+    /* Do not trigger eviction on an unmeasured cold estimate. */
+    if (r->config.executable_budget-r->stats.executable_bytes < r->page_size) {
+        add(&f->stats.policy_postponed,1);
+        return false;
+    }
+    return true;
+}
+
+static void compile_translation(struct rc_runtime *r, struct function *f, bool cold)
 {
     struct translation *t = f->translation;
     struct rc_error error = {0};
@@ -487,7 +514,8 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
             status = rc_fail(&error, RC_MEMORY, 0, 0);
         else {
             mapped = (emitted + r->page_size - 1) / r->page_size * r->page_size;
-            status = make_room(r, mapped, &error);
+            status = cold && mapped > r->config.executable_budget-r->stats.executable_bytes
+                ? rc_fail(&error,RC_CAPACITY,0,0) : make_room(r,mapped,&error);
         }
     }
     if (status == RC_OK) {
@@ -791,7 +819,7 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
         add(&r->stats.cache_misses, 1);
         if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
         if (t->code.function == NULL && t->integer_function == NULL && should_compile(r, f, tick))
-            compile_translation(r, f);
+            compile_translation(r,f,false);
     }
     rc_function native = f->stats.interpreted != 0 ? t->code.function : NULL;
     rc_integer_function integer_native = f->stats.interpreted != 0 ? t->integer_function : NULL;
@@ -1024,14 +1052,16 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
     add(&r->stats.invocations,1);
     add(&t->invocations,1);
     uint64_t tick = 0;
-    if (f->stats.interpreted != 0 && t->integer_function != NULL) {
+    bool allow_native = f->stats.interpreted != 0 || r->config.cold_batch_compile;
+    if (allow_native && t->integer_function != NULL) {
         add(&f->stats.cache_hits,1); add(&r->stats.cache_hits,1);
     } else {
         add(&f->stats.cache_misses,1); add(&r->stats.cache_misses,1);
         if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
-        if (t->integer_function == NULL && should_compile(r,f,tick)) compile_translation(r,f);
+        if (t->integer_function == NULL && (should_compile_cold_batch(r,f,count) || should_compile(r,f,tick)))
+            compile_translation(r,f,f->stats.interpreted == 0);
     }
-    rc_integer_function native = f->stats.interpreted != 0 ? t->integer_function : NULL;
+    rc_integer_function native = allow_native ? t->integer_function : NULL;
     rc_integer_batch_function batch_native = native != NULL ? t->batch_function : NULL;
     rc_integer_view_function memory_native = NULL;
     if (native != NULL) {
@@ -1113,7 +1143,7 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
         add(&f->stats.interpreted_ns,nanoseconds);
         if (samples != 0) f->interpreted_cost = average(f->interpreted_cost,nanoseconds / samples);
     }
-    if (r->config.policy == RC_POLICY_ADAPTIVE && native != NULL &&
+    if (r->config.policy == RC_POLICY_ADAPTIVE && native != NULL && f->stats.interpreted_samples != 0 &&
         f->slow_native_samples >= 8 && f->native_cost >
         rc_saturating_add(f->interpreted_cost,f->interpreted_cost / 4) && t->pins == 0) {
         (void)release_mapping(r,t,NULL);

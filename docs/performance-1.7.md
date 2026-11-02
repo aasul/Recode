@@ -45,3 +45,33 @@ python3 benchmarks/profiling/collect.py BASELINE_PROFILE CANDIDATE_PROFILE OUTPU
   --before-revision 0e4a9cca12a45dd5964ee4e9108455878b3256de \
   --after-revision CANDIDATE_SHA --rounds 7 --cpu 0
 ```
+
+## Cold-batch milestone
+
+Three independent processes per revision alternate baseline/candidate order.
+Each process has seven internal rounds alternating default/opt-in order on CPU 0.
+The same cold_bench.c links immutable v1.6 without RECODE_HAS_COLD_BATCH and the
+candidate with it. The v1.6 opt_in labels are duplicates of its default behavior.
+Unnumbered CSVs retain the initial diagnostic runs; the numbered files provide
+the following medians. The environment and Release flags match the fusion study.
+Runtime creation/registration, execution/compilation and destruction are included.
+Rule construction, input preparation, stats queries and C checks are excluded
+for every path. These are short-lived runtime measurements, not warm throughput.
+
+Total microseconds, default / opt-in:
+
+| Workload | 128 records | 4096 records | 65536 records |
+| --- | ---: | ---: | ---: |
+| arithmetic | 6.025 / 6.027 | 180.365 / 70.595 | 2945.885 / 1101.059 |
+| bitwise | 7.408 / 7.448 | 223.242 / 78.052 | 3522.348 / 1034.687 |
+| conditional | 7.176 / 7.220 | 216.308 / 68.775 | 3495.453 / 1027.686 |
+| branches | 25.049 / 24.902 | 735.925 / 117.378 | 11850.390 / 1754.998 |
+| loop8 | 27.545 / 27.446 | 861.090 / 90.745 | 14139.586 / 1405.610 |
+| records | 9.629 / 9.638 | 290.485 / 89.811 | 4670.812 / 1178.023 |
+
+The model declines tiny requests here, promotes arithmetic at 4096 records,
+and benefits the large requests in this sample. Counts between tested sizes
+are not measured break-even points. Early bounds failures, expensive publication,
+cache pressure or different hardware can reverse the benefit. A high configured
+compilation estimate deliberately declines even large batches. The default first
+batch remains interpreted. LLVM/MIR cold comparisons are deferred to integration.

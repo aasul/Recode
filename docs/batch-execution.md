@@ -58,8 +58,9 @@ and cause another compilation to fall back when no unpinned capacity remains.
 Join callers and exclude new API entry before destruction. Cancellation, signal
 handlers, execution timeouts and hostile in-process sandboxing remain unsupported.
 
-Tier decisions happen at batch boundaries. Every new handle interprets its entire
-first batch, including when an alias has cached code. FIXED/ADAPTIVE can compile
+Tier decisions happen at batch boundaries. By default every new handle interprets its entire
+first batch, including when an alias has cached code. The additive
+[cold_batch_compile option](cold-batch.md) permits earlier native execution. FIXED/ADAPTIVE can compile
 on a later request based on completed evaluation history. Compilation failures
 fall back for the entire batch and retain existing retry cooldowns and cleanup
 ownership. Batches do not force adaptive promotion or change scalar thresholds.

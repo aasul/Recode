@@ -690,6 +690,32 @@ static void test_memory_failures(void)
     rc_integer_program_destroy(p); CHECK(live_maps == 0 && live_allocations == 0);
 }
 
+static void test_cold_failures(void)
+{
+    struct rc_integer_program *p = NULL; CHECK(integer_build(&p) == RC_OK);
+    uint64_t args[2] = {UINT64_MAX,1}, results[32]; struct rc_integer_batch_item items[32];
+    for (size_t n = 0; n < 32; ++n) items[n] = (struct rc_integer_batch_item){args,2,NULL};
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        struct rc_runtime_config c = rc_runtime_default_config();
+        c.policy = RC_POLICY_FIXED; c.cold_batch_compile = true;
+        c.initial_compile_ns = 1; c.retry_calls = 128; c.hot_threshold = UINT64_MAX;
+        struct rc_runtime *r = NULL; rc_handle h; size_t done;
+        CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+        fail_map = mode == 0; fail_protect = mode != 0; fail_release = mode == 2;
+        CHECK(rc_runtime_call_integer_batch(r,h,items,32,results,32,&done,NULL) == RC_OK && done == 32);
+        CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).interpreted == 32);
+        for (size_t n = 0; n < 32; ++n) CHECK(results[n] == 0);
+        accounted(r);
+        fail_map = fail_protect = fail_release = false;
+        CHECK(rc_runtime_call_integer_batch(r,h,items,32,results,32,&done,NULL) == RC_OK);
+        CHECK(function_stats(r,h).compilation_attempts == 1);
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+    rc_integer_program_destroy(p);
+    CHECK(live_maps == 0 && live_allocations == 0);
+}
+
 struct batch_worker {
     struct rc_runtime *runtime;
     rc_handle handle;
@@ -760,7 +786,7 @@ static void test_batch_failures(void)
 
 int main(void)
 {
-    test_batch_failures(); test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
+    test_cold_failures(); test_batch_failures(); test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;
