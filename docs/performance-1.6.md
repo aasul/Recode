@@ -152,3 +152,26 @@ that generated text exceeds the one-page budget before checking fallback.
 GCC Release passed 14 tests; GCC ASan/UBSan passed 14, and four affected tests
 passed again after scratch initialization changes. Leak detection was disabled.
 Native code is checked by execution, not sanitizer instrumentation.
+
+Final register-allocation comparison uses baseline 9f49d55 and implementation
+92da324, seven alternating processes. Medians at batch size 128:
+
+| Program | Kernel before/after ns | Scalar before/after ns | Batch before/after ns | Map+emit+publish+free before/after ns | Bytes before/after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| arithmetic | 4.474/3.888 | 55.687/53.527 | 20.888/21.699 | 6529.230/6632.320 | 81/27 |
+| bitwise | 4.713/4.289 | 57.679/55.465 | 21.907/19.467 | 6140.350/6094.790 | 119/41 |
+| conditional | 5.267/4.573 | 60.545/54.535 | 20.546/19.987 | 6069.730/6285.810 | 140/57 |
+| branches | 17.655/15.181 | 69.792/67.136 | 33.149/30.353 | 7642.250/8536.240 | 850/430 |
+| loop8 | 15.472/10.760 | 69.940/61.776 | 33.551/26.445 | 6191.620/6621.600 | 138/51 |
+| records | 7.808/6.950 | 58.487/57.719 | 22.362/22.331 | 6196.570/7027.860 | 275/248 |
+
+The first five programs eliminate all explicit stack loads/stores. Arithmetic is
+8 static instructions instead of 16; loop8 is 13 instead of 26. Records changes
+from 60 to 61 static instructions while reducing stack stores from nine to three;
+its kernel result is close and should not be presented as a strong gain. The
+public API benefits are smaller than kernel gains. Raw ranges and all batch sizes
+are retained in profiling/results/registers. These map intervals include cleanup,
+not just compilation; final runtime compilation statistics are measured separately.
+The repeated validation and layout overhead remains a compilation target for PR 4.
+The post-commit fork scan/next and Clang static analysis identified no confirmed
+new defect; known incomplete import/coverage heuristics remain as above.
