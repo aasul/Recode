@@ -101,3 +101,13 @@ rc_test_integer_view_abi:
     ret
 .size rc_test_integer_view_abi,.-rc_test_integer_view_abi
 .section .note.GNU-stack,"",@progbits
+
+.text
+.globl rc_test_batch_abi
+.type rc_test_batch_abi,@function
+rc_test_batch_abi:
+    endbr64
+    mov %rdx,%rcx
+    xor %edx,%edx
+    jmp rc_test_integer_abi
+.size rc_test_batch_abi,.-rc_test_batch_abi

@@ -14,6 +14,8 @@ enum rc_status rc_test_integer_view_abi(rc_integer_view_function fn, uint64_t a,
                                         const void *data, size_t length,
                                         struct rc_integer_result *out, uint64_t *ok);
 
+enum rc_status rc_test_batch_abi(rc_integer_batch_function fn, struct rc_integer_batch_context *context, uint64_t *ok);
+
 static struct rc_integer_program *build(enum rc_integer_op op, uint64_t salt)
 {
     struct rc_builder *b = NULL;
@@ -57,6 +59,11 @@ static void test_reads(void)
         CHECK(rc_integer_emit(p,bytes,sizeof(bytes),&length,NULL) == RC_OK && bytes[length] == 0xa5);
         CHECK(rc_integer_map(p,length,&code,&raw,&allocated,NULL) == RC_OK);
         rc_integer_view_function native; memcpy(&native,&raw,sizeof(native));
+        struct rc_integer_plan plan; CHECK(rc_integer_prepare_batch(p,&plan,NULL) == RC_OK);
+        struct rc_code fused = {0}; rc_integer_function fused_scalar;
+        CHECK(rc_integer_map_prepared(&plan,plan.length,&fused,&fused_scalar,&allocated,NULL) == RC_OK);
+        void *entry = (uint8_t *)fused.mapping+plan.batch;
+        rc_integer_batch_function batch; memcpy(&batch,&entry,sizeof(batch));
         struct rc_runtime *r = runtime(RC_POLICY_FIXED); rc_handle h;
         CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
         size_t width = (size_t)1 << (op-RC_INT_LOAD_U8);
@@ -78,6 +85,13 @@ static void test_reads(void)
             CHECK(rc_test_integer_view_abi(native,offset,0,view.data,view.length,&out,&abi) == expected && abi == 1);
             CHECK(out.value == (expected == RC_OK ? reference : 91));
             if (expected != RC_OK) CHECK(out.offset == 1);
+            struct rc_integer_batch_item items[3] = {{&offset,1,&view},{&offset,1,&view},{&offset,1,&view}};
+            uint64_t results[3] = {91,92,93};
+            struct rc_integer_batch_context context = {items,results,3,99,99};
+            CHECK(rc_test_batch_abi(batch,&context,&abi) == expected && abi == 1);
+            CHECK(context.completed == (expected == RC_OK ? 3u : 0u));
+            for (size_t n = 0; n < 3; ++n) CHECK(results[n] == (expected == RC_OK ? reference : 91+n));
+            if (expected != RC_OK) CHECK(context.offset == 1);
             result = 91;
             CHECK(rc_runtime_call_integer_view(r,h,&offset,1,&view,&result,&error) == expected);
             CHECK(result == (expected == RC_OK ? reference : 91));
@@ -93,6 +107,7 @@ static void test_reads(void)
         CHECK(rc_integer_interpret(p,&offset,1,0,&result,NULL) == RC_BOUNDS && result == 91);
         struct rc_function_stats stats;
         CHECK(rc_runtime_function_stats(r,h,&stats,NULL) == RC_OK && stats.jitted == 3000);
+        CHECK(rc_code_free(&fused,NULL) == RC_OK);
         CHECK(rc_code_free(&code,NULL) == RC_OK);
         CHECK(rc_runtime_destroy(&r,NULL) == RC_OK); rc_integer_program_destroy(p);
     }
@@ -128,6 +143,19 @@ static void test_validation_and_control(void)
         CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&c,&e2) == status);
         CHECK(a == c && e1.offset == e2.offset && status == (arg > 3 ? RC_BOUNDS : RC_OK));
     }
+    struct rc_integer_plan plan; CHECK(rc_integer_prepare_batch(p,&plan,NULL) == RC_OK);
+    struct rc_code code = {0}; rc_integer_function scalar; bool allocated;
+    CHECK(rc_integer_map_prepared(&plan,plan.length,&code,&scalar,&allocated,NULL) == RC_OK);
+    void *entry = (uint8_t *)code.mapping+plan.batch;
+    rc_integer_batch_function batch; memcpy(&batch,&entry,sizeof(batch));
+    uint64_t args[] = {0,3,0,4}, results[] = {91,92,93,94}, abi;
+    struct rc_integer_batch_item items[] = {{args,1,NULL},{args+1,1,&view},
+        {args+2,1,NULL},{args+3,1,&view}};
+    struct rc_integer_batch_context context = {items,results,4,99,99};
+    CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_BOUNDS && abi == 1);
+    CHECK(context.completed == 3 && context.offset == 5);
+    CHECK(results[0] == 0 && results[1] == 0 && results[2] == 0 && results[3] == 94);
+    CHECK(rc_code_free(&code,NULL) == RC_OK);
     uint64_t arg = 0, value = 91;
     CHECK(rc_runtime_call_integer(r,h,&arg,1,&value,NULL) == RC_OK && value == 0);
     arg = UINT64_MAX;

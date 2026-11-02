@@ -56,12 +56,36 @@ static struct rc_runtime *runtime(enum rc_policy policy, size_t budget)
     CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
     return r;
 }
+enum rc_status rc_test_batch_abi(rc_integer_batch_function function,
+                                  struct rc_integer_batch_context *context, uint64_t *ok);
+
+static void verify_fused(const struct rc_integer_program *p, const uint64_t *args, uint64_t value)
+{
+    struct rc_integer_plan plan;
+    CHECK(rc_integer_prepare_batch(p,&plan,NULL) == RC_OK);
+    struct rc_code code = {0}; rc_integer_function scalar; bool allocated;
+    CHECK(rc_integer_map_prepared(&plan,plan.length,&code,&scalar,&allocated,NULL) == RC_OK);
+    void *entry = (uint8_t *)code.mapping+plan.batch;
+    rc_integer_batch_function batch; memcpy(&batch,&entry,sizeof(batch));
+    uint64_t alternate[2] = {0,UINT64_MAX}, reference;
+    CHECK(rc_integer_interpret(p,alternate,p->arguments,100000,&reference,NULL) == RC_OK);
+    struct rc_integer_batch_item items[] = {{args,p->arguments,NULL},
+        {alternate,p->arguments,NULL},{args,p->arguments,NULL}};
+    uint64_t out[3] = {91,92,93}, abi = 0;
+    struct rc_integer_batch_context context = {items,out,3,99,0};
+    CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_OK && abi == 1);
+    CHECK(context.completed == 3 && out[0] == value && out[1] == reference && out[2] == value);
+    context = (struct rc_integer_batch_context){NULL,NULL,0,99,0};
+    CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_OK && abi == 1 && context.completed == 0);
+    CHECK(rc_code_free(&code,NULL) == RC_OK);
+}
 static void verify(const struct rc_integer_program *p, const uint64_t *args, uint64_t value,
                      rc_integer_function native)
 {
     uint64_t result = 19, abi = 0;
     CHECK(rc_integer_interpret(p,args,p->arguments,10000,&result,NULL) == RC_OK && result == value);
     CHECK(rc_test_integer_abi(native,args[0],args[1],&abi) == value && abi == 1);
+    verify_fused(p,args,value);
 }
 static void test_operations(void)
 {
@@ -349,6 +373,18 @@ static void test_pressure_loop(void)
     }
     CHECK(rc_code_free(&code,NULL) == RC_OK); rc_integer_program_destroy(p);
 }
+static void test_maximum_fused(void)
+{
+    struct rc_integer_insn insns[RC_INTEGER_MAX_INSTRUCTIONS] = {
+        {.op=RC_INT_CONSTANT},{.op=RC_INT_CONSTANT,.dst=1,.immediate=1}};
+    for (size_t n = 2; n < RC_INTEGER_MAX_INSTRUCTIONS-1; ++n)
+        insns[n] = (struct rc_integer_insn){.op=RC_INT_ADD,.right=1};
+    insns[RC_INTEGER_MAX_INSTRUCTIONS-1] = (struct rc_integer_insn){.op=RC_INT_RETURN};
+    struct rc_integer_program *p = build(insns,RC_INTEGER_MAX_INSTRUCTIONS,64,0);
+    uint64_t args[2] = {0};
+    verify_fused(p,args,RC_INTEGER_MAX_INSTRUCTIONS-3);
+    rc_integer_program_destroy(p);
+}
 static void test_loops_and_ownership(void)
 {
     struct rc_integer_insn loop[] = {{.op=RC_INT_ARGUMENT},
@@ -454,7 +490,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
-    test_prepared_mapping(); test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_forwarding(); test_aliasing(); test_random(); test_pressure_loop(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
+    test_prepared_mapping(); test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_forwarding(); test_aliasing(); test_random(); test_pressure_loop(); test_maximum_fused(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
     puts("integer builder, operations, independent differential, ABI, policies, ownership and concurrency passed");
     return 0;
 }

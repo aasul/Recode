@@ -8,7 +8,16 @@
 /* RAX/RCX are scratch. Memory entries also reserve RDX=data, R8=result,
  * R9=length and R10=fault PC. Assigned registers have one home across all
  * edges, including backedges; the remaining virtuals keep authoritative slots.
- * No calls or callee-saved registers occur in generated code. */
+ * Batch control uses saved R12..R15, outside the scalar allocation pool. */
+_Static_assert(offsetof(struct rc_integer_batch_context,items) == 0, "native batch items");
+_Static_assert(offsetof(struct rc_integer_batch_context,results) == 8, "native batch results");
+_Static_assert(offsetof(struct rc_memory_view,data) == 0, "native view data");
+_Static_assert(offsetof(struct rc_memory_view,length) == 8, "native view length");
+_Static_assert(sizeof(struct rc_integer_batch_item) == 24, "native item stride");
+_Static_assert(offsetof(struct rc_integer_batch_item,view) == 16, "native item view");
+_Static_assert(offsetof(struct rc_integer_batch_context,count) == 16, "native batch count");
+_Static_assert(offsetof(struct rc_integer_batch_context,completed) == 24, "native batch prefix");
+_Static_assert(offsetof(struct rc_integer_batch_context,offset) == 32, "native batch fault");
 _Static_assert(offsetof(struct rc_integer_result,value) == 0, "native result offset");
 _Static_assert(offsetof(struct rc_integer_result,offset) == 8, "native fault offset");
 struct output { uint8_t *bytes; size_t count; };
@@ -137,12 +146,52 @@ static void operation(struct output *o, enum rc_integer_op op, int dst, int righ
     }
     }
 }
+/* disp8 addressing always encodes a displacement, including for R13. */
+static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+{
+    byte(o,(uint8_t)(0x48 | (reg >= 8 ? 4 : 0) | (base >= 8 ? 1 : 0)));
+    byte(o,opcode); byte(o,(uint8_t)(0x40 | ((reg & 7) << 3) | (base & 7)));
+    if ((base & 7) == 4) byte(o,0x24);
+    byte(o,offset);
+}
+static void advance(struct output *o, int reg, uint8_t amount)
+{
+    byte(o,(uint8_t)(0x48 | (reg >= 8 ? 1 : 0))); byte(o,0x83);
+    byte(o,(uint8_t)(0xc0 | (reg & 7))); byte(o,amount);
+}
+static void batch_exit(struct output *o, const struct rc_integer_allocation *a)
+{
+    memory(o,0x8b,1,12,16); regop(o,0x29,1,15);
+    memory(o,0x89,1,12,24);
+    frame(o,0xc4,a->frame);
+    for (int reg = 15; reg >= 12; --reg) { byte(o,0x41); byte(o,(uint8_t)(0x58+(reg & 7))); }
+    byte(o,0xc3);
+}
 static size_t emit_body(const struct rc_integer_program *p, const struct rc_integer_allocation *a,
-                        struct output *o, size_t *offsets, size_t failure)
+                        struct output *o, size_t *offsets, size_t failure, struct rc_integer_plan *batch)
 {
     byte(o,0xf3); byte(o,0x0f); byte(o,0x1e); byte(o,0xfa);
+    if (batch != NULL) {
+        for (int reg = 12; reg <= 15; ++reg) { byte(o,0x41); byte(o,(uint8_t)(0x50+(reg & 7))); }
+        move(o,12,7);
+        memory(o,0x8b,13,12,0); memory(o,0x8b,14,12,8); memory(o,0x8b,15,12,16);
+    }
     frame(o,0xec,a->frame);
-    if (p->memory) move(o,9,1);
+    if (batch == NULL && p->memory) move(o,9,1);
+    size_t loop = o->count;
+    if (batch != NULL) {
+        regop(o,0x85,15,15); byte(o,0x0f); byte(o,0x84); branch(o,batch->batch_finish);
+        if (p->arguments != 0) {
+            memory(o,0x8b,0,13,0); memory(o,0x8b,7,0,0);
+            if (p->arguments > 1) memory(o,0x8b,6,0,8);
+        }
+        if (p->memory) {
+            /* NULL view is the empty view. Do not dereference it. */
+            constant(o,2,0); constant(o,9,0); memory(o,0x8b,0,13,16);
+            regop(o,0x85,0,0); byte(o,0x0f); byte(o,0x84); branch(o,o->count+4+8);
+            memory(o,0x8b,2,0,0); memory(o,0x8b,9,0,8);
+        }
+    }
     for (size_t n = 0; n < p->count; ++n) {
         if (o->bytes == NULL) offsets[n] = o->count;
         if (a->skip[n]) continue;
@@ -186,6 +235,9 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
         case RC_INT_JUMP: byte(o,0xe9); branch(o,o->bytes != NULL ? offsets[i.target] : 0); continue;
         case RC_INT_RETURN:
             move(o,0,source(o,a,i.left,0));
+            if (batch != NULL) {
+                byte(o,0xe9); branch(o,batch->batch_success); continue;
+            }
             if (p->memory) {
                 byte(o,0x49); byte(o,0x89); byte(o,0x00); byte(o,0x31); byte(o,0xc0);
             }
@@ -193,6 +245,21 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
         default: break; /* Binary operations were emitted above. */
         }
         if (a->registers[i.dst] < 0) stack(o,0x89,0,i.dst);
+    }
+    if (batch != NULL) {
+        if (o->bytes == NULL) batch->batch_success = o->count;
+        memory(o,0x89,0,14,0);
+        advance(o,13,(uint8_t)sizeof(struct rc_integer_batch_item)); advance(o,14,8);
+        advance(o,15,255); /* ADD -1, keeping flags for the loop backedge. */
+        byte(o,0x0f); byte(o,0x85); branch(o,loop);
+        if (o->bytes == NULL) batch->batch_finish = o->count;
+        constant(o,0,RC_OK); byte(o,0xe9); branch(o,batch->batch_exit);
+        if (o->bytes == NULL) batch->batch_failure = o->count;
+        if (p->memory) memory(o,0x89,10,12,32);
+        constant(o,0,RC_BOUNDS);
+        if (o->bytes == NULL) batch->batch_exit = o->count;
+        batch_exit(o,a);
+        return batch->batch_failure;
     }
     size_t failure_offset = o->count;
     if (p->memory) {
@@ -209,11 +276,25 @@ enum rc_status rc_integer_prepare(const struct rc_integer_program *p,
     enum rc_status status = rc_integer_validate(p,error);
     if (status != RC_OK) return status;
     plan->program = p;
+    plan->batch = 0;
     allocate(p,&plan->allocation);
     struct output query = {0};
-    plan->failure = emit_body(p,&plan->allocation,&query,plan->offsets,0);
+    plan->failure = emit_body(p,&plan->allocation,&query,plan->offsets,0,NULL);
     plan->length = query.count;
     return rc_fail(error,RC_OK,0,0);
+}
+
+enum rc_status rc_integer_prepare_batch(const struct rc_integer_program *p,
+                                         struct rc_integer_plan *plan, struct rc_error *error)
+{
+    enum rc_status status = rc_integer_prepare(p,plan,error);
+    if (status != RC_OK) return status;
+    plan->batch_success = plan->batch_failure = plan->batch_finish = plan->batch_exit = 0;
+    plan->batch = (plan->length+15)/16*16;
+    struct output query = {.count = plan->batch};
+    (void)emit_body(p,&plan->allocation,&query,plan->batch_offsets,0,plan);
+    plan->length = query.count;
+    return RC_OK;
 }
 
 enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *bytes,
@@ -228,7 +309,7 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
     if (bytes == NULL) return rc_fail(error,RC_OK,0,0);
     if (capacity < plan.length) return rc_fail(error,RC_CAPACITY,0,0);
     struct output output = {bytes,0};
-    (void)emit_body(p,&plan.allocation,&output,plan.offsets,plan.failure);
+    (void)emit_body(p,&plan.allocation,&output,plan.offsets,plan.failure,NULL);
     return rc_fail(error,RC_OK,0,0);
 }
 
@@ -244,7 +325,11 @@ enum rc_status rc_integer_map_prepared(struct rc_integer_plan *plan, size_t mapp
     *allocated = true;
     *code = (struct rc_code){mapping, mapped, NULL};
     struct output output = {mapping,0};
-    (void)emit_body(plan->program,&plan->allocation,&output,plan->offsets,plan->failure);
+    (void)emit_body(plan->program,&plan->allocation,&output,plan->offsets,plan->failure,NULL);
+    if (plan->batch != 0) {
+        while (output.count < plan->batch) byte(&output,0x90);
+        (void)emit_body(plan->program,&plan->allocation,&output,plan->batch_offsets,plan->batch_failure,plan);
+    }
     if (mprotect(mapping, mapped, PROT_READ | PROT_EXEC) != 0) {
         enum rc_status status = rc_fail(error,RC_SYSTEM,0,errno);
         struct rc_error cleanup;

@@ -24,6 +24,7 @@ struct translation {
     struct rc_program program;
     struct rc_integer_program *integer;
     rc_integer_function integer_function;
+    rc_integer_batch_function batch_function;
     struct rc_code code;
     size_t references, pins, generated;
     uint64_t invocations, retry_after;
@@ -365,6 +366,7 @@ static enum rc_status release_mapping(struct rc_runtime *r, struct translation *
     /* A failed invalidation must not publish the old function again. */
     t->code.function = NULL;
     t->integer_function = NULL;
+    t->batch_function = NULL;
     struct rc_error release_error;
     enum rc_status status = rc_code_free(&t->code, &release_error);
     if (status != RC_OK) {
@@ -476,7 +478,7 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
     struct rc_integer_plan integer_plan;
     if (status == RC_OK) {
         if (t->integer != NULL) {
-            status = rc_integer_prepare(t->integer,&integer_plan,&error);
+            status = rc_integer_prepare_batch(t->integer,&integer_plan,&error);
             if (status == RC_OK) emitted = integer_plan.length;
         } else status = rc_emit(&prepared,NULL,0,&emitted,&error);
     }
@@ -493,6 +495,10 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
         status = t->integer != NULL
             ? rc_integer_map_prepared(&integer_plan,mapped,&t->code,&t->integer_function,&allocated,&error)
             : rc_map_program(&prepared, mapped, &t->code, &allocated, &error);
+        if (status == RC_OK && t->integer != NULL) {
+            void *entry = (uint8_t *)t->code.mapping + integer_plan.batch;
+            memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+        }
         size_t peak = r->stats.executable_bytes + (allocated ? mapped : 0);
         if (peak > r->stats.peak_executable_bytes)
             r->stats.peak_executable_bytes = peak;
@@ -1026,6 +1032,7 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
         if (t->integer_function == NULL && should_compile(r,f,tick)) compile_translation(r,f);
     }
     rc_integer_function native = f->stats.interpreted != 0 ? t->integer_function : NULL;
+    rc_integer_batch_function batch_native = native != NULL ? t->batch_function : NULL;
     rc_integer_view_function memory_native = NULL;
     if (native != NULL) {
         ++t->pins; touch(r,t); f->stats.generated_size = t->generated;
@@ -1044,25 +1051,15 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
     uint64_t samples = 0, nanoseconds = 0, timing_failures = 0;
     size_t attempted = 0;
     struct rc_error execution = {0};
-    size_t arity = t->integer->arguments;
     for (size_t n = 0; n < count; ++n) {
         size_t run = native != NULL ? rc_unsampled_run(rc_saturating_add(base,n),
             rc_saturating_add(prior_samples,samples),count-n,r->config.sample_period) : 0;
         if (run != 0) {
-            size_t end = n+run;
-            for (; n < end; ++n) {
-                uint64_t a = arity > 0 ? items[n].arguments[0] : 0;
-                uint64_t b = arity > 1 ? items[n].arguments[1] : 0, value;
-                ++attempted;
-                if (memory_native != NULL) {
-                    struct rc_memory_view memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
-                    struct rc_integer_result output;
-                    status = memory_native(a,b,memory.data,memory.length,&output);
-                    if (status != RC_OK) { execution = (struct rc_error){status,output.offset,0}; break; }
-                    value = output.value;
-                } else value = native(a,b);
-                results[n] = value;
-            }
+            struct rc_integer_batch_context context = {items+n,results+n,run,0,0};
+            status = batch_native(&context);
+            attempted += context.completed + (status != RC_OK ? 1u : 0u);
+            n += context.completed;
+            if (status != RC_OK) execution = (struct rc_error){status,context.offset,0};
             *completed = n;
             if (status != RC_OK || n == count) break;
         }
