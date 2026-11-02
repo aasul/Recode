@@ -2,7 +2,7 @@ name: ci
 
 on:
   pull_request:
-    branches: [main, feat/v0.5-developer-integration, feat/v0.6-execution-model, feat/v0.8-application-runtime, feat/v0.9-stability]
+    branches: [main, bench/v1.5-jit-comparison, perf/v1.5-runtime-optimization, feat/v1.5-batch-execution, feat/v0.5-developer-integration, feat/v0.6-execution-model, feat/v0.8-application-runtime, feat/v0.9-stability]
   push:
     branches: [main]
   workflow_dispatch:
@@ -58,6 +58,13 @@ jobs:
           cmake -S /tmp/recode-ci-source -B build-shared -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
           cmake --build build-shared --parallel 2
           ctest --test-dir build-shared --output-on-failure --timeout 120
+      - name: Installed comparison consumer
+        run: |
+          cmake --install build-shared --prefix /tmp/recode-comparison-prefix
+          cmake -S /tmp/recode-ci-source/benchmarks/competitors -B build-comparison \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/tmp/recode-comparison-prefix
+          cmake --build build-comparison --parallel 2
+          ctest --test-dir build-comparison --output-on-failure
       - name: Bounded Clang fuzz smoke
         env:
           ASAN_OPTIONS: detect_leaks=0
