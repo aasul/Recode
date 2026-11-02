@@ -24,4 +24,8 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *program, uint8_t
 enum rc_status rc_integer_map(const struct rc_integer_program *program, size_t mapped,
                                struct rc_code *code, rc_integer_function *function,
                                bool *allocated, struct rc_error *error);
+enum rc_status rc_integer_interpret_validated(const struct rc_integer_program *program,
+                                               const uint64_t *arguments,
+                                               struct rc_memory_view memory, uint64_t budget,
+                                               uint64_t *result, struct rc_error *error);
 #endif

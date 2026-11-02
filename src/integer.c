@@ -170,6 +170,14 @@ enum rc_status rc_integer_interpret_view(const struct rc_integer_program *p,
         (view != NULL && view->data == NULL && view->length != 0))
         return rc_fail(error, RC_ARGUMENT, 0, 0);
     struct rc_memory_view memory = view != NULL ? *view : (struct rc_memory_view){0};
+    return rc_integer_interpret_validated(p,arguments,memory,budget,result,error);
+}
+
+enum rc_status rc_integer_interpret_validated(const struct rc_integer_program *p,
+                                               const uint64_t *arguments,
+                                               struct rc_memory_view memory, uint64_t budget,
+                                               uint64_t *result, struct rc_error *error)
+{
     uint64_t regs[RC_INTEGER_MAX_REGISTERS];
     size_t pc = 0;
     bool limited = budget != 0;

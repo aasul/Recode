@@ -95,3 +95,9 @@ matching headers/library for each major/minor. Binary compatibility is limited
 to patch releases in one major/minor line. CMake accepts same-major source version
 requests; SONAME 1.0 identifies the first stable binary line. See the exact
 [public API policy](public-api.md) and [migration guide](migration.md).
+
+For repeated record processing, the [batch API](batch-execution.md) amortizes
+handle lookup and locking while retaining code ownership throughout the request.
+Build `examples/batch-rules` independently against the installed package. Scalar
+calls remain useful for isolated evaluations; batch tier decisions occur at request
+boundaries and the first batch of a new handle is interpreted in full.

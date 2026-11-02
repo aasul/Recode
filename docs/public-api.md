@@ -3,7 +3,7 @@
 The supported installed interfaces are recode.h, recode_integer.h and generated
 recode_version.h. Functions in src headers, native entry conventions, optimizer
 analysis structures and trace kernels are private. The shared library exports
-only the 30 declared public functions, controlled by cmake/recode.map and checked
+only the 31 declared public functions, controlled by cmake/recode.map and checked
 with nm/readelf in the shared-abi CTest. Static archives also contain private
 symbols for linking; those names carry no compatibility promise.
 
@@ -93,3 +93,7 @@ Emitters set queried length on capacity failure and leave byte storage unchanged
 rc_emit resets length to zero before validation. Integer emitter internals are
 private. rc_optimize mutates a caller-owned program only after successful analysis.
 NULL error is supported. Destroy/free with NULL is allowed only where documented; rc_code_free(NULL) and rc_runtime_destroy(NULL) are errors.
+
+The additive [integer batch API](batch-execution.md) preserves scalar signatures
+and enum values. Its fail-fast prefix is the documented exception to scalar
+execution-error result preservation: completed earlier batch slots remain valid.

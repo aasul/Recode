@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(batch_rules LANGUAGES C)
+find_package(Recode 1.0 CONFIG REQUIRED)
+add_executable(batch-rules main.c)
+target_link_libraries(batch-rules PRIVATE Recode::recode)
+target_compile_options(batch-rules PRIVATE -Wall -Wextra -Wpedantic -Werror)

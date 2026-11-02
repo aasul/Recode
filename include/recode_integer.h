@@ -66,6 +66,39 @@ enum rc_status rc_runtime_call_integer_view(struct rc_runtime *runtime, rc_handl
                                              const uint64_t *arguments, size_t count,
                                              const struct rc_memory_view *view,
                                              uint64_t *result, struct rc_error *error);
+struct rc_integer_batch_item {
+    const uint64_t *arguments;
+    size_t argument_count;
+    const struct rc_memory_view *view;
+};
+/* Execute independent items in order, selecting a tier once per batch. All
+ * structural inputs are checked before execution. item_count == 0 accepts NULL
+ * items/results, still checks the handle and performs no evaluation. completed
+ * is required and set to zero before handle lookup. Capacity must cover every
+ * item. Counts and address ranges must not overflow.
+ *
+ * On execution failure, results[0..*completed) are valid; the failing and later
+ * slots stay unchanged. *completed identifies the failed item; error.offset
+ * remains an instruction index. On success *completed == item_count.
+ *
+ * Inputs, descriptors and view bytes are borrowed until return. Read-only inputs
+ * may overlap each other, but output/error/completed storage must not overlap
+ * one another or any input. Detected overlap returns RC_ARGUMENT without writing
+ * any output, including completed/error. Ordinary argument failures set completed
+ * to zero. Caller supplies actual readable/writable objects of declared lengths.
+ *
+ * Native code stays pinned for the whole batch. Removal/invalidation can return
+ * BUSY; long batches can delay eviction. No cancellation or deadline is provided.
+ * Invocation and tier counters count attempted items, including a failing load;
+ * cache hit/miss counters count tier acquisitions, once per public batch call.
+ * First use of a handle interprets the entire batch. FIXED/ADAPTIVE can promote
+ * on a later batch boundary. Scalar policy decisions remain unchanged. */
+enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *runtime, rc_handle handle,
+                                              const struct rc_integer_batch_item *items,
+                                              size_t item_count, uint64_t *results,
+                                              size_t result_capacity, size_t *completed,
+                                              struct rc_error *error);
+
 /* The original execution interfaces use an empty view. LOAD returns RC_BOUNDS
  * only if reached. Views do not impose execution deadlines or sandbox native code. */
 

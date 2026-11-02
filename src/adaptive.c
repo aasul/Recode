@@ -915,6 +915,194 @@ enum rc_status rc_runtime_call_integer_view(struct rc_runtime *r, rc_handle hand
     return runtime_call(r,handle,arguments,count,true,view,result,error);
 }
 
+/* All range comparisons use integer addresses on the supported LP64 ABI. They
+ * reject wrap/overlap, not forged pointers or overstated object lengths. */
+static bool valid_span(const void *pointer, size_t size)
+{
+    return size == 0 || (pointer != NULL && size <= UINTPTR_MAX - (uintptr_t)pointer);
+}
+
+static bool overlaps(const void *a, size_t a_size, const void *b, size_t b_size)
+{
+    uintptr_t x = (uintptr_t)a, y = (uintptr_t)b;
+    return a_size != 0 && b_size != 0 && (x <= y ? y - x < a_size : x - y < b_size);
+}
+
+static bool batch_output_overlap(const void *input, size_t size, uint64_t *results,
+                                  size_t result_bytes, size_t *completed, struct rc_error *error)
+{
+    return overlaps(input,size,results,result_bytes) ||
+        overlaps(input,size,completed,sizeof(*completed)) ||
+        (error != NULL && overlaps(input,size,error,sizeof(*error)));
+}
+
+static enum rc_status validate_batch(const struct rc_integer_batch_item *items, size_t count,
+                                      uint64_t *results, size_t capacity, size_t *completed,
+                                      struct rc_error *error)
+{
+    if (completed == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+    if (!valid_span(completed,sizeof(*completed)) ||
+        (error != NULL && (!valid_span(error,sizeof(*error)) ||
+                          overlaps(completed,sizeof(*completed),error,sizeof(*error)))))
+        return RC_ARGUMENT;
+    if (count > SIZE_MAX / sizeof(*items) || count > SIZE_MAX / sizeof(*results)) {
+        *completed = 0;
+        return rc_fail(error,RC_ARGUMENT,0,0);
+    }
+    size_t item_bytes = count * sizeof(*items), result_bytes = count * sizeof(*results);
+    if (!valid_span(items,item_bytes) || !valid_span(results,result_bytes)) {
+        *completed = 0;
+        return rc_fail(error,RC_ARGUMENT,0,0);
+    }
+    if (batch_output_overlap(items,item_bytes,results,result_bytes,completed,error) ||
+        overlaps(results,result_bytes,completed,sizeof(*completed)) ||
+        (error != NULL && overlaps(results,result_bytes,error,sizeof(*error))))
+        return RC_ARGUMENT;
+    if (capacity < count) {
+        *completed = 0;
+        return rc_fail(error,RC_CAPACITY,0,0);
+    }
+    bool malformed = false;
+    for (size_t n = 0; n < count; ++n) {
+        const struct rc_integer_batch_item *i = &items[n];
+        if (i->argument_count > 2) { malformed = true; continue; }
+        size_t bytes = i->argument_count * sizeof(*i->arguments);
+        if (batch_output_overlap(i->arguments,bytes,results,result_bytes,completed,error))
+            return RC_ARGUMENT;
+        malformed |= !valid_span(i->arguments,bytes);
+        if (i->view != NULL) {
+            if (batch_output_overlap(i->view,sizeof(*i->view),results,result_bytes,completed,error))
+                return RC_ARGUMENT;
+            if (!valid_span(i->view,sizeof(*i->view))) { malformed = true; continue; }
+            if (batch_output_overlap(i->view->data,i->view->length,results,result_bytes,completed,error))
+                return RC_ARGUMENT;
+            malformed |= !valid_span(i->view->data,i->view->length);
+        }
+    }
+    *completed = 0;
+    return malformed ? rc_fail(error,RC_ARGUMENT,0,0) : RC_OK;
+}
+
+enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle handle,
+                                              const struct rc_integer_batch_item *items,
+                                              size_t count, uint64_t *results, size_t capacity,
+                                              size_t *completed, struct rc_error *error)
+{
+    enum rc_status status = validate_batch(items,count,results,capacity,completed,error);
+    if (status != RC_OK) return status;
+    if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+    pthread_mutex_lock(&r->mutex);
+    struct function *f = find_function(r,handle);
+    if (f == NULL) {
+        pthread_mutex_unlock(&r->mutex);
+        return rc_fail(error,RC_NOT_FOUND,0,0);
+    }
+    struct translation *t = f->translation;
+    bool valid = t->integer != NULL;
+    for (size_t n = 0; valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
+    if (!valid || count == 0) {
+        pthread_mutex_unlock(&r->mutex);
+        return rc_fail(error,valid ? RC_OK : RC_ARGUMENT,0,0);
+    }
+    if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+        pthread_mutex_unlock(&r->mutex);
+        return rc_fail(error,RC_CAPACITY,0,0);
+    }
+    ++f->active;
+    ++r->stats.active_calls;
+    add(&f->stats.invocations,1);
+    add(&r->stats.invocations,1);
+    add(&t->invocations,1);
+    uint64_t tick = 0;
+    if (f->stats.interpreted != 0 && t->integer_function != NULL) {
+        add(&f->stats.cache_hits,1); add(&r->stats.cache_hits,1);
+    } else {
+        add(&f->stats.cache_misses,1); add(&r->stats.cache_misses,1);
+        if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
+        if (t->integer_function == NULL && should_compile(r,f,tick)) compile_translation(r,f);
+    }
+    rc_integer_function native = f->stats.interpreted != 0 ? t->integer_function : NULL;
+    rc_integer_view_function memory_native = NULL;
+    if (native != NULL) {
+        ++t->pins; touch(r,t); f->stats.generated_size = t->generated;
+        if (t->integer->memory) memcpy(&memory_native,&native,sizeof(memory_native));
+    }
+    if (tick != 0) {
+        if (f->window_start == 0 || tick < f->window_start) f->window_start = tick;
+        if (tick - f->window_start > r->config.horizon_ns) {
+            f->window_start = tick; f->window_calls = 0;
+        }
+    }
+    uint64_t base = f->stats.invocations;
+    uint64_t prior_samples = native != NULL ? f->stats.compiled_samples : f->stats.interpreted_samples;
+    pthread_mutex_unlock(&r->mutex);
+
+    uint64_t samples = 0, nanoseconds = 0, timing_failures = 0;
+    size_t attempted = 0;
+    struct rc_error execution = {0};
+    for (size_t n = 0; n < count; ++n) {
+        struct rc_memory_view memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
+        bool sample = rc_saturating_add(prior_samples,samples) < 8 ||
+            rc_saturating_add(base,n) % r->config.sample_period == 0;
+        uint64_t start = sample ? now_ns() : 0, value;
+        ++attempted;
+        if (memory_native != NULL) {
+            uint64_t a = items[n].argument_count > 0 ? items[n].arguments[0] : 0;
+            uint64_t b = items[n].argument_count > 1 ? items[n].arguments[1] : 0;
+            struct rc_integer_result output;
+            status = memory_native(a,b,memory.data,memory.length,&output);
+            if (status == RC_OK) value = output.value;
+            else execution = (struct rc_error){status,output.offset,0};
+        } else if (native != NULL) {
+            uint64_t a = items[n].argument_count > 0 ? items[n].arguments[0] : 0;
+            uint64_t b = items[n].argument_count > 1 ? items[n].arguments[1] : 0;
+            value = native(a,b);
+        } else status = rc_integer_interpret_validated(t->integer,items[n].arguments,memory,0,&value,&execution);
+        if (sample) {
+            uint64_t duration = elapsed(start,now_ns());
+            add(&samples,1); add(&nanoseconds,duration);
+            if (duration == 0) add(&timing_failures,1);
+        }
+        if (status != RC_OK) break;
+        results[n] = value;
+        ++*completed;
+    }
+
+    pthread_mutex_lock(&r->mutex);
+    /* The first invocation was reserved before tier selection; account only
+     * attempted records, including a fault, when the batch completes. */
+    add(&f->stats.invocations,attempted-1); add(&r->stats.invocations,attempted-1);
+    add(&t->invocations,attempted-1); add(&f->window_calls,attempted);
+    add(&f->stats.timing_failures,timing_failures);
+    if (native != NULL) {
+        --t->pins;
+        add(&f->stats.jitted,attempted); add(&f->stats.compiled_samples,samples);
+        add(&f->stats.compiled_ns,nanoseconds);
+        if (samples != 0) {
+            uint64_t mean = nanoseconds / samples;
+            f->native_cost = average(f->native_cost,mean);
+            if (mean > rc_saturating_add(f->interpreted_cost,f->interpreted_cost / 4)) {
+                if (f->slow_native_samples < 8) ++f->slow_native_samples;
+            } else f->slow_native_samples = 0;
+        }
+    } else {
+        add(&f->stats.interpreted,attempted); add(&f->stats.interpreted_samples,samples);
+        add(&f->stats.interpreted_ns,nanoseconds);
+        if (samples != 0) f->interpreted_cost = average(f->interpreted_cost,nanoseconds / samples);
+    }
+    if (r->config.policy == RC_POLICY_ADAPTIVE && native != NULL &&
+        f->slow_native_samples >= 8 && f->native_cost >
+        rc_saturating_add(f->interpreted_cost,f->interpreted_cost / 4) && t->pins == 0) {
+        (void)release_mapping(r,t,NULL);
+        t->retry_after = rc_saturating_add(t->invocations,r->config.retry_calls);
+        add(&f->stats.policy_postponed,1); f->slow_native_samples = 0;
+    }
+    --f->active; --r->stats.active_calls;
+    pthread_mutex_unlock(&r->mutex);
+    if (error != NULL) *error = execution;
+    return status;
+}
+
 enum rc_status rc_runtime_function_stats(struct rc_runtime *r, rc_handle handle,
                                           struct rc_function_stats *out, struct rc_error *error)
 {
