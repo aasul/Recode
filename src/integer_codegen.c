@@ -150,7 +150,7 @@ static void operation(struct output *o, enum rc_integer_op op, int dst, int righ
     }
     }
 }
-static void emit_body(const struct rc_integer_program *p, const struct allocation *a,
+static size_t emit_body(const struct rc_integer_program *p, const struct allocation *a,
                         struct output *o, size_t *offsets, size_t failure)
 {
     byte(o,0xf3); byte(o,0x0f); byte(o,0x1e); byte(o,0xfa);
@@ -207,11 +207,12 @@ static void emit_body(const struct rc_integer_program *p, const struct allocatio
         }
         if (a->registers[i.dst] < 0) stack(o,0x89,0,i.dst);
     }
-    if (o->bytes == NULL) offsets[p->count] = o->count;
+    size_t failure_offset = o->count;
     if (p->memory) {
         byte(o,0x4d); byte(o,0x89); byte(o,0x50); byte(o,0x08);
         byte(o,0xb8); word(o,RC_BOUNDS); frame(o,0xc4,a->frame); byte(o,0xc3);
     }
+    return failure_offset;
 }
 
 enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *bytes,
@@ -222,14 +223,14 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
     enum rc_status status = rc_integer_validate(p,error);
     if (status != RC_OK) return status;
     struct allocation a; allocate(p,&a);
-    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS+1];
+    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS];
     struct output query = {0};
-    emit_body(p,&a,&query,offsets,0);
+    size_t failure = emit_body(p,&a,&query,offsets,0);
     *length = query.count;
     if (bytes == NULL) return rc_fail(error,RC_OK,0,0);
     if (capacity < query.count) return rc_fail(error,RC_CAPACITY,0,0);
     struct output output = {bytes,0};
-    emit_body(p,&a,&output,offsets,offsets[p->count]);
+    (void)emit_body(p,&a,&output,offsets,failure);
     return rc_fail(error,RC_OK,0,0);
 }
 

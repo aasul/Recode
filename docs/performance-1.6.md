@@ -107,3 +107,48 @@ positive: sscanf converts a bounded fgets buffer using %ld into a long, with no
 string destination. No confirmed source defect was identified. Scores are not
 correctness evidence. Historical generated-file findings from the first scan are
 not release source findings. No project source was excluded from review.
+
+## Register allocation design
+
+The integer backend assigns the most frequently referenced virtual registers to
+fixed caller-saved homes using a bounded use-count scan and at most seven
+64-register selection scans. Non-memory programs can use RDX and R8..R11, plus
+argument registers that are never read by retained ARGUMENT operations. Memory
+entries reserve data/result/length/fault registers and use R11 and unused argument
+registers. RAX and RCX remain scratch. Spills are deterministic, with authoritative
+stack slots for unassigned virtuals. Frames disappear when no slots are needed.
+There are no edge shuffles, callee-saved clobbers or extra CPU requirements.
+
+A block-local allocator was considered, but flushing at every edge would retain
+traffic in the branch and loop workloads. Fixed homes avoid that reconciliation
+and any global liveness fixed point. This is not a next-use or global optimizing
+allocator; high-pressure programs still spill. A small backward pass drops dead
+pure writes inside a block, conservatively treating every register as live on
+block exits. Loads remain even when their value is unused, retaining bounds faults.
+The pass neither changes program objects nor propagates values across branches.
+Constant materialization uses zero-extending 32-bit moves only when the complete
+64-bit value fits. Commutative operations reuse a destination that aliases either
+operand; other right-destination aliases and shifts preserve inputs in RCX.
+SETcc uses explicit REX prefixes for SIL/DIL and high registers.
+
+The first complete experiment exposed excessive setup cost from initializing
+limit-sized scratch arrays. That implementation was revised to initialize only
+used target entries and assign every used skip/offset entry before reading it.
+The discarded timing experiment stays outside the proposed release. A Clang
+analyzer candidate on the failure-offset array read was inspected: the query
+always assigned it. Returning the failure offset directly makes this invariant
+explicit and removes the diagnostic. The analyzer then reported no warnings.
+
+Regression coverage expands to 600 randomized 256-instruction programs over
+8/16/64 registers, 32 inputs each, against an independent operation evaluator,
+interpretation and native ABI sentinels. Every binary operation also exercises
+left/right/different destination aliases, equal sources and all shift counts.
+A 64-live-register loop checks spills across backedges and both return paths.
+The earlier exact-offset snapshot now independently decodes the branch's rel32
+target and checks its constant, entry marker and smaller size. The capacity test
+uses a live multiplication chain: overwritten constants now legitimately vanish,
+so they no longer exercise multi-page compilation failure. The replacement asserts
+that generated text exceeds the one-page budget before checking fallback.
+GCC Release passed 14 tests; GCC ASan/UBSan passed 14, and four affected tests
+passed again after scratch initialization changes. Leak detection was disabled.
+Native code is checked by execution, not sanitizer instrumentation.
