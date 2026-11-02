@@ -1,0 +1,13 @@
+revision,workload,bytes,instructions,stack_loads,stack_stores,branches
+before,arithmetic,81,16,4,5,0
+before,bitwise,119,26,10,7,0
+before,branches,850,199,65,34,16
+before,conditional,140,30,8,7,1
+before,loop8,138,26,6,8,1
+before,records,275,60,4,9,6
+after,arithmetic,81,16,4,5,0
+after,bitwise,119,26,10,7,0
+after,branches,850,199,65,34,16
+after,conditional,140,30,8,7,1
+after,loop8,138,26,6,8,1
+after,records,275,60,4,9,6

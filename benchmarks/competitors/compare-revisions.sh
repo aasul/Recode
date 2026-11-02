@@ -28,7 +28,7 @@ for name in before after; do
     printf '%s\n' "$revision" > "$output/$name-revision.txt"
 done
 round=1
-while [ "$round" -le 3 ]; do
+while [ "$round" -le "${BENCH_ROUNDS:-7}" ]; do
     if [ $((round % 2)) -eq 1 ]; then order='before after'; else order='after before'; fi
     for name in $order; do
         revision=$(cat "$output/$name-revision.txt")
