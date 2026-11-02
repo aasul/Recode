@@ -1,0 +1,5 @@
+compiler,16.2.1 20260810,clock,CLOCK_MONOTONIC,rounds,5,page,4096
+integer-pressure,functions,1,total_us,21.697,register_us,2.661,cleanup_us,5.795,hits,1,misses,2,evictions,0,peak,4096,peak_pages,1,metadata,1080,program,168
+integer-pressure,functions,32,total_us,305.279,register_us,24.710,cleanup_us,34.455,hits,32,misses,64,evictions,16,peak,65536,peak_pages,16,metadata,15968,program,5376
+integer-pressure,functions,1024,total_us,12834.618,register_us,668.719,cleanup_us,194.322,hits,1024,misses,2048,evictions,1008,peak,65536,peak_pages,16,metadata,500064,program,172032
+integer-pressure,functions,4096,total_us,77832.642,register_us,2259.503,cleanup_us,831.481,hits,4096,misses,8192,evictions,4080,peak,65536,peak_pages,16,metadata,1999200,program,688128
