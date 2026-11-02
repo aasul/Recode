@@ -75,3 +75,37 @@ are not measured break-even points. Early bounds failures, expensive publication
 cache pressure or different hardware can reverse the benefit. A high configured
 compilation estimate deliberately declines even large batches. The default first
 batch remains interpreted. LLVM/MIR cold comparisons are deferred to integration.
+
+## Executable storage milestone
+
+Five alternating revision processes use the same public storage_bench.c harness
+for immutable v1.6 and this milestone, pinned to CPU 0 after builds/tests.
+Each function returns a distinct constant. Registration includes builder work;
+compilation_ns sums managed compilation counters. Lookup/execution includes
+16 checked scalar passes. Cleanup is runtime destruction. Raw data, RSS,
+occupied/free bytes, peak bytes, mappings and failures are in benchmarks/v1.7/storage.
+VmHWM is cumulative within each process across increasing counts, not an isolated
+per-case RSS measurement. The pressure diagnostic runs baseline before candidate.
+
+| Functions | v1.6 committed bytes | Slab committed bytes | v1.6 compile us/function | Slab compile us/function |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 4096 | 4096 | 15.691 | 21.107 |
+| 16 | 65536 | 4096 | 6.354 | 9.067 |
+| 64 | 262144 | 8192 | 6.125 | 8.946 |
+| 256 | 1048576 | 32768 | 5.495 | 8.068 |
+| 1024 | 4194304 | 131072 | 5.392 | 8.686 |
+| 4096 | 16777216 | 524288 | 5.391 | 9.318 |
+
+At 4096 constants, committed storage falls from 16 MiB to 512 KiB (96.875%).
+This includes the larger fused translations; native text itself grows relative
+to scalar-only v1.6. Replacement transiently needs one extra page. Full pages
+have zero reclaimable free bytes here; removals create holes counted separately.
+Cleanup and lookup samples remain in the CSVs. Slabs trade compilation work
+for storage; they do not improve every workload or bound total RSS.
+
+The initial implementation scanned every translation while copying a page and
+added excessive compilation cost at 4096 functions. The retained initial/ samples
+led to a member list per slab; copying and pin checks now visit just that page
+while candidate selection can still scan translations. This avoids the large
+repeated membership scans without a general-purpose allocation framework.
+Large/pinned/full-budget translations retain isolated allocation.

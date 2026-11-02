@@ -690,6 +690,44 @@ static void test_memory_failures(void)
     rc_integer_program_destroy(p); CHECK(live_maps == 0 && live_allocations == 0);
 }
 
+static rc_handle constant_handle(struct rc_runtime *r, uint64_t value)
+{
+    struct rc_builder *b = NULL; struct rc_integer_program *p = NULL; rc_handle h;
+    CHECK(rc_builder_create(1,0,&b,NULL) == RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_CONSTANT,.immediate=value},NULL) == RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_RETURN},NULL) == RC_OK);
+    CHECK(rc_builder_finalize(b,&p,NULL) == RC_OK);
+    CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+    rc_integer_program_destroy(p); rc_builder_destroy(b);
+    return h;
+}
+static void test_slab_failures(void)
+{
+    for (unsigned mode = 0; mode < 6; ++mode) {
+        struct rc_runtime_config c = rc_runtime_default_config(); c.policy = RC_POLICY_FIXED;
+        c.hot_threshold = 2; c.executable_budget = 3*(size_t)sysconf(_SC_PAGESIZE);
+        struct rc_runtime *r = NULL; CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+        rc_handle a = constant_handle(r,11), b = constant_handle(r,22); uint64_t value;
+        for (unsigned n = 0; n < 2; ++n)
+            CHECK(rc_runtime_call_integer(r,a,NULL,0,&value,NULL) == RC_OK && value == 11);
+        CHECK(rc_runtime_call_integer(r,b,NULL,0,&value,NULL) == RC_OK && value == 22);
+        malloc_calls = 0; fail_at = mode < 2 ? mode+1 : 0;
+        fail_map = mode == 2; fail_protect = mode == 3 || mode == 4; fail_release = mode >= 4;
+        CHECK(rc_runtime_call_integer(r,b,NULL,0,&value,NULL) == RC_OK && value == 22);
+        struct rc_runtime_stats stats; CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK);
+        CHECK(stats.executable_bytes == live_bytes && live_bytes <= c.executable_budget);
+        if (mode >= 4) CHECK(stats.retired_executable_bytes == (size_t)sysconf(_SC_PAGESIZE));
+        if (mode == 5) CHECK(function_stats(r,b).compilations == 1 && stats.release_failures != 0);
+        else CHECK(function_stats(r,b).compilation_failures == 1);
+        fail_at = 0; fail_map = fail_protect = fail_release = false;
+        CHECK(rc_runtime_call_integer(r,a,NULL,0,&value,NULL) == RC_OK && value == 11);
+        CHECK(rc_runtime_clear(r,NULL) == RC_OK);
+        CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK && stats.executable_bytes == 0);
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+        CHECK(live_maps == 0 && live_allocations == 0);
+    }
+}
+
 static void test_cold_failures(void)
 {
     struct rc_integer_program *p = NULL; CHECK(integer_build(&p) == RC_OK);
@@ -730,6 +768,37 @@ static void *blocked_batch(void *context)
     CHECK(rc_runtime_call_integer_batch(w->runtime,w->handle,w->items,3,w->results,3,&w->completed,NULL)==RC_OK);
     return NULL;
 }
+static void test_slab_pins(void)
+{
+    struct rc_runtime_config c = rc_runtime_default_config(); c.policy = RC_POLICY_FIXED;
+    c.hot_threshold = 2; c.executable_budget = 3*(size_t)sysconf(_SC_PAGESIZE);
+    struct rc_runtime *r = NULL; CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+    rc_handle a = constant_handle(r,11), b = constant_handle(r,22); uint64_t result;
+    for (unsigned n = 0; n < 2; ++n) {
+        CHECK(rc_runtime_call_integer(r,a,NULL,0,&result,NULL) == RC_OK);
+        CHECK(rc_runtime_call_integer(r,b,NULL,0,&result,NULL) == RC_OK);
+    }
+    struct rc_runtime_stats stats; CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK);
+    CHECK(stats.executable_mappings == 1);
+    struct batch_worker w = {.runtime=r,.handle=a,.results={91,92,93}};
+    blocked = false; resume_call = false; pthread_t thread;
+    CHECK(pthread_create(&thread,NULL,blocked_batch,&w) == 0);
+    pthread_mutex_lock(&barrier); while (!blocked) pthread_cond_wait(&condition,&barrier);
+    CHECK(w.results[0] == 11 && w.results[1] == 92);
+    CHECK(rc_runtime_invalidate(r,a,NULL) == RC_BUSY);
+    rc_handle other = constant_handle(r,33);
+    for (unsigned n = 0; n < 2; ++n) CHECK(rc_runtime_call_integer(r,other,NULL,0,&result,NULL) == RC_OK && result == 33);
+    /* The pinned shared page cannot be replaced or unmapped. */
+    CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK && stats.executable_mappings == 2);
+    CHECK(rc_runtime_remove(r,b,NULL) == RC_OK);
+    CHECK(rc_runtime_clear(r,NULL) == RC_BUSY);
+    resume_call = true; pthread_cond_broadcast(&condition); pthread_mutex_unlock(&barrier);
+    CHECK(pthread_join(thread,NULL) == 0 && w.completed == 3);
+    for (size_t n = 0; n < 3; ++n) CHECK(w.results[n] == 11);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    CHECK(live_maps == 0 && live_allocations == 0);
+}
+
 static void test_batch_failures(void)
 {
     struct rc_builder *b=NULL; struct rc_integer_program *p=NULL;
@@ -786,7 +855,7 @@ static void test_batch_failures(void)
 
 int main(void)
 {
-    test_cold_failures(); test_batch_failures(); test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
+    test_slab_pins(); test_slab_failures(); test_cold_failures(); test_batch_failures(); test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;

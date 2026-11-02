@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
 #include "trace.h"
 #include "integer.h"
 
@@ -7,15 +7,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 struct trace_slot {
     struct rc_trace trace;
     struct rc_code code;
     rc_trace_function function;
+    size_t generated;
     uint64_t edges, retry_after;
     unsigned failures, short_exits;
     bool recording, disabled;
+};
+
+struct executable_slab {
+    struct executable_slab *next;
+    struct translation *members;
+    struct rc_code code;
+    size_t references, occupied;
 };
 
 struct translation {
@@ -25,6 +34,9 @@ struct translation {
     struct rc_integer_program *integer;
     rc_integer_function integer_function;
     rc_integer_batch_function batch_function;
+    struct executable_slab *slab;
+    struct translation *slab_next;
+    size_t batch_offset;
     struct rc_code code;
     size_t references, pins, generated;
     uint64_t invocations, retry_after;
@@ -50,6 +62,7 @@ struct rc_runtime {
     struct rc_runtime_config config;
     struct rc_runtime_stats stats;
     struct function *functions;
+    struct executable_slab *slabs;
     struct translation *translations, *oldest; /* MRU first, including entries without code. */
     struct lookup_bucket *buckets;
     size_t bucket_count;
@@ -357,6 +370,38 @@ static void touch(struct rc_runtime *r, struct translation *t)
     r->translations = t;
 }
 
+static size_t aligned_code(size_t size) { return (size+15)/16*16; }
+
+static enum rc_status release_slab(struct rc_runtime *r, struct executable_slab *s,
+                                    struct rc_error *error)
+{
+    size_t size = s->code.size;
+    struct rc_error cleanup;
+    enum rc_status status = rc_code_free(&s->code,&cleanup);
+    if (status != RC_OK) {
+        r->stats.last_cache_error = cleanup; add(&r->stats.release_failures,1);
+        if (error != NULL) *error = cleanup;
+        return status;
+    }
+    struct executable_slab **entry = &r->slabs;
+    while (*entry != s) entry = &(*entry)->next;
+    *entry = s->next;
+    r->stats.executable_bytes -= size;
+    r->stats.metadata_bytes -= sizeof(*s);
+    free(s);
+    return RC_OK;
+}
+
+static enum rc_status release_retired(struct rc_runtime *r, struct rc_error *error)
+{
+    enum rc_status status = RC_OK;
+    for (struct executable_slab *s = r->slabs, *next; s != NULL; s = next) {
+        next = s->next;
+        if (s->references == 0 && release_slab(r,s,error) != RC_OK) status = RC_SYSTEM;
+    }
+    return status;
+}
+
 static enum rc_status release_mapping(struct rc_runtime *r, struct translation *t,
                                        struct rc_error *error)
 {
@@ -368,7 +413,24 @@ static enum rc_status release_mapping(struct rc_runtime *r, struct translation *
     t->integer_function = NULL;
     t->batch_function = NULL;
     struct rc_error release_error;
-    enum rc_status status = rc_code_free(&t->code, &release_error);
+    enum rc_status status;
+    if (t->slab != NULL) {
+        struct executable_slab *s = t->slab;
+        if (s->references == 1) {
+            status = release_slab(r,s,&release_error);
+            if (status != RC_OK) {
+                if (error != NULL) *error = release_error;
+                return status;
+            }
+        } else {
+            struct translation **entry = &s->members;
+            while (*entry != t) entry = &(*entry)->slab_next;
+            *entry = t->slab_next;
+            --s->references; s->occupied -= aligned_code(t->generated);
+        }
+        t->slab = NULL; t->slab_next = NULL; t->code = (struct rc_code){0};
+        status = RC_OK;
+    } else status = rc_code_free(&t->code, &release_error);
     if (status != RC_OK) {
         r->stats.last_cache_error = release_error;
         if (error != NULL)
@@ -406,6 +468,8 @@ static bool has_mapping(const struct translation *t)
 
 static enum rc_status make_room(struct rc_runtime *r, size_t needed, struct rc_error *error)
 {
+    enum rc_status cleanup = release_retired(r,error);
+    if (cleanup != RC_OK) return cleanup;
     if (needed > r->config.executable_budget)
         return rc_fail(error, RC_CAPACITY, 0, 0);
     while (needed > r->config.executable_budget - r->stats.executable_bytes) {
@@ -481,6 +545,93 @@ static bool should_compile_cold_batch(struct rc_runtime *r, struct function *f, 
     return true;
 }
 
+/* A published page is immutable. Adding code copies an unpinned page's live
+ * position-independent entries into a fresh RW page, then seals and publishes
+ * the replacement. The old page remains owned if its release fails. */
+static bool pack_integer(struct rc_runtime *r, struct translation *t,
+                           struct rc_integer_plan *plan, enum rc_status *status,
+                           struct rc_error *error)
+{
+    size_t needed = aligned_code(plan->length);
+    if (needed > r->page_size || r->config.executable_budget-r->stats.executable_bytes < r->page_size)
+        return false;
+    struct translation *source = NULL;
+    for (struct translation *candidate = r->translations; candidate != NULL; candidate = candidate->next) {
+        if (candidate == t || candidate->integer_function == NULL || candidate->pins != 0) continue;
+        size_t used = candidate->slab != NULL ? candidate->slab->occupied : aligned_code(candidate->generated);
+        size_t size = candidate->slab != NULL ? candidate->slab->code.size : candidate->code.size;
+        if (size != r->page_size || used > r->page_size-needed) continue;
+        bool pinned = false;
+        if (candidate->slab != NULL)
+            for (struct translation *other = candidate->slab->members; other != NULL; other = other->slab_next)
+                if (other->pins != 0) pinned = true;
+        if (!pinned) { source = candidate; break; }
+    }
+    if (source == NULL) return false;
+    struct executable_slab *old = source->slab;
+    if (r->stats.metadata_bytes > SIZE_MAX-2*sizeof(struct executable_slab)) {
+        *status = rc_fail(error,RC_CAPACITY,0,0); return true;
+    }
+    struct executable_slab *s = malloc(sizeof(*s));
+    struct executable_slab *retired = old == NULL ? malloc(sizeof(*retired)) : NULL;
+    if (s == NULL || (old == NULL && retired == NULL)) {
+        free(s); free(retired); *status = rc_fail(error,RC_MEMORY,0,0); return true;
+    }
+    void *mapping = mmap(NULL,r->page_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    if (mapping == MAP_FAILED) {
+        int saved = errno;
+        free(s); free(retired); *status = rc_fail(error,RC_SYSTEM,0,saved); return true;
+    }
+    *s = (struct executable_slab){.next = r->slabs,.code = {mapping,r->page_size,NULL}};
+    r->slabs = s; r->stats.metadata_bytes += sizeof(*s);
+    r->stats.executable_bytes += r->page_size;
+    if (r->stats.executable_bytes > r->stats.peak_executable_bytes)
+        r->stats.peak_executable_bytes = r->stats.executable_bytes;
+    size_t offset = 0;
+    struct translation *members = old != NULL ? old->members : source;
+    for (struct translation *other = members; other != NULL; other = old != NULL ? other->slab_next : NULL) {
+        memcpy((uint8_t *)mapping+offset,other->code.mapping,other->generated);
+        offset += aligned_code(other->generated);
+    }
+    rc_integer_write_prepared(plan,(uint8_t *)mapping+offset);
+    if (mprotect(mapping,r->page_size,PROT_READ|PROT_EXEC) != 0) {
+        int saved = errno;
+        free(retired);
+        *status = rc_fail(error,RC_SYSTEM,0,saved);
+        (void)release_slab(r,s,error);
+        return true;
+    }
+    if (old == NULL) {
+        *retired = (struct executable_slab){.next = r->slabs,.code = source->code};
+        r->slabs = retired; r->stats.metadata_bytes += sizeof(*retired);
+        old = retired;
+    }
+    /* No fallible step remains before publication. All candidate pins were
+     * checked under this same mutex; aliases share the translation's pin. */
+    size_t used = 0;
+    for (struct translation *other = members, *next; other != NULL; other = next) {
+        next = retired == NULL ? other->slab_next : NULL;
+        void *member_entry = (uint8_t *)mapping+used;
+        other->code = (struct rc_code){member_entry,0,NULL}; other->slab = s;
+        other->slab_next = s->members; s->members = other;
+        memcpy(&other->integer_function,&member_entry,sizeof(other->integer_function));
+        member_entry = (uint8_t *)member_entry+other->batch_offset;
+        memcpy(&other->batch_function,&member_entry,sizeof(other->batch_function));
+        used += aligned_code(other->generated); ++s->references;
+    }
+    void *entry = (uint8_t *)mapping+used;
+    t->code = (struct rc_code){entry,0,NULL}; t->slab = s;
+    t->slab_next = s->members; s->members = t;
+    memcpy(&t->integer_function,&entry,sizeof(t->integer_function));
+    entry = (uint8_t *)entry+plan->batch;
+    memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+    ++s->references; s->occupied = used+needed;
+    old->references = 0; old->occupied = 0; old->members = NULL;
+    (void)release_slab(r,old,NULL);
+    *status = RC_OK;
+    return true;
+}
+
 static void compile_translation(struct rc_runtime *r, struct function *f, bool cold)
 {
     struct translation *t = f->translation;
@@ -509,6 +660,7 @@ static void compile_translation(struct rc_runtime *r, struct function *f, bool c
             if (status == RC_OK) emitted = integer_plan.length;
         } else status = rc_emit(&prepared,NULL,0,&emitted,&error);
     }
+    bool packed = false;
     if (status == RC_OK) {
         if (emitted > SIZE_MAX - (r->page_size - 1))
             status = rc_fail(&error, RC_MEMORY, 0, 0);
@@ -518,7 +670,9 @@ static void compile_translation(struct rc_runtime *r, struct function *f, bool c
                 ? rc_fail(&error,RC_CAPACITY,0,0) : make_room(r,mapped,&error);
         }
     }
-    if (status == RC_OK) {
+    if (status == RC_OK && t->integer != NULL)
+        packed = pack_integer(r,t,&integer_plan,&status,&error);
+    if (status == RC_OK && !packed) {
         bool allocated;
         status = t->integer != NULL
             ? rc_integer_map_prepared(&integer_plan,mapped,&t->code,&t->integer_function,&allocated,&error)
@@ -543,6 +697,7 @@ static void compile_translation(struct rc_runtime *r, struct function *f, bool c
     if (cost == 0)
         add(&f->stats.timing_failures, 1);
     if (status == RC_OK) {
+        if (t->integer != NULL) t->batch_offset = integer_plan.batch;
         t->generated = emitted;
         f->stats.generated_size = emitted;
         f->stats.last_compile_error = (struct rc_error){0};
@@ -607,6 +762,7 @@ static void compile_trace(struct trace_call *call, struct trace_slot *slot)
     }
     add(&call->stats.compilation_ns,elapsed(start,now_ns()));
     if (status == RC_OK) {
+        slot->generated = emitted;
         add(&call->stats.compilations,1);
         add(&r->stats.compilations,1);
         call->stats.generated_size = emitted;
@@ -1177,6 +1333,28 @@ enum rc_status rc_runtime_get_stats(struct rc_runtime *r,
         return rc_fail(error, RC_ARGUMENT, 0, 0);
     pthread_mutex_lock(&r->mutex);
     *out = r->stats;
+    for (struct executable_slab *s = r->slabs; s != NULL; s = s->next) {
+        ++out->executable_mappings;
+        out->occupied_bytes += s->occupied;
+        if (s->references == 0) out->retired_executable_bytes += s->code.size;
+        else out->slab_free_bytes += s->code.size-s->occupied;
+    }
+    for (struct translation *t = r->translations; t != NULL; t = t->next) {
+        bool callable = t->integer_function != NULL || t->code.function != NULL;
+        if (callable) out->generated_bytes += t->generated;
+        if (t->code.mapping != NULL && t->slab == NULL) {
+            ++out->executable_mappings;
+            if (callable) out->occupied_bytes += t->generated;
+            else out->retired_executable_bytes += t->code.size;
+        }
+        for (size_t i = 0; i < t->trace_count; ++i) {
+            struct trace_slot *slot = &t->traces[i];
+            if (slot->code.mapping == NULL) continue;
+            ++out->executable_mappings;
+            if (slot->function == NULL) out->retired_executable_bytes += slot->code.size;
+            else { out->generated_bytes += slot->generated; out->occupied_bytes += slot->generated; }
+        }
+    }
     pthread_mutex_unlock(&r->mutex);
     return rc_fail(error, RC_OK, 0, 0);
 }
@@ -1198,7 +1376,7 @@ enum rc_status rc_runtime_invalidate(struct rc_runtime *r, rc_handle handle,
 
 static enum rc_status clear_locked(struct rc_runtime *r, struct rc_error *error)
 {
-    enum rc_status status = RC_OK;
+    enum rc_status status = release_retired(r,error);
     for (struct translation *t = r->translations; t != NULL; t = t->next) {
         struct rc_error current = {0};
         enum rc_status released = release_mapping(r, t, &current);
