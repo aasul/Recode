@@ -3,8 +3,9 @@
 ## Baseline and method
 
 The baseline is merged main 9f49d55296614cadeaadd7338b60bfac642a53fb,
-which identifies as 1.5.0. There is no v1.5 tag; GitHub's latest published release
-was v1.0.0 when checked. No release was created for this work.
+which identifies as 1.5.0. At the initial check there was no v1.5 tag and the latest published release
+was v1.0.0. A v1.5.0 tag/release appeared during this work and identifies this
+same baseline; the final comparison uses it. No release was created for this work.
 
 The profiling harness uses the comparison suite's six programs and independent C
 references. It checks every output after timing, forms inputs before timing, and
@@ -283,3 +284,162 @@ functions and identical persistent program/metadata ledgers; it is not an RSS
 measurement or a seven-sample claim of lifecycle improvement. Native text is
 unchanged from PR 2. No new quality finding was confirmed by the post-commit fork
 scan/next. Its incomplete C coverage/import heuristics remain a limitation.
+
+## Final v1.5 versus v1.6 candidate
+
+Baseline: v1.5.0, 9f49d55296614cadeaadd7338b60bfac642a53fb.
+Candidate implementation/package: eeb68033b0cdaeeae53dce69e21ea59fb202ff29.
+Both were rebuilt from independent immutable archives. The C harness is identical
+for both; later release-branch commits add results/documentation only. LLVM
+23.1.4 and MIR dc2c763f1c8bc746102ce87933d866335f9e6c06 remain optional adapters.
+Intel N150, GCC 16.2.1 -O3 -DNDEBUG, Linux 7.3.0-4-cachyos, glibc 2.44.
+
+Scalar/cold/lifecycle and bulk studies use seven alternating library processes
+and alternating engine order, CPU 0, with no overlapping local builds/tests.
+Inputs, checksums and exact cold invocation accounting use the existing checked
+comparison harness. Bulk forms inputs outside timing and stores every output.
+Scalar includes input formation and checksum work. Pure bulk items have NULL
+views; the private profile instead supplies views even for pure programs. These
+are distinct public-call contexts, not interchangeable overhead estimates.
+All observations and environmental records are in
+[results/final](../benchmarks/profiling/results/final/). Frequency and background
+activity remain uncontrolled. Summary quartiles use inclusive interpolation;
+seven samples do not establish a universal ordering of close results.
+
+Public scalar FIXED at 100000 calls, median ns/evaluation; cold compilation is
+one managed compilation in that fresh process, us. The repeated 100-compilation
+stage probe above warms compiler paths and is a different experiment.
+
+| Program | Scalar v1.5/v1.6 ns | Compilation v1.5/v1.6 us | Kernel v1.5/v1.6 ns |
+| --- | ---: | ---: | ---: |
+| arithmetic | 59.943/58.927 | 19.791/16.458 | 4.290/3.886 |
+| bitwise | 60.841/59.718 | 17.701/16.443 | 4.718/4.292 |
+| conditional | 65.069/65.542 | 22.667/18.447 | 5.132/4.567 |
+| branches | 72.068/70.179 | 21.181/22.123 | 16.887/15.368 |
+| loop8 | 69.220/65.649 | 19.351/18.695 | 18.598/10.172 |
+| records | 66.695/66.175 | 18.581/20.000 | 7.786/6.948 |
+
+Scalar changes are small, including a conditional regression. Compilation improves
+in four cells and regresses about 4% for branches and 8% for records. Neither
+regression exceeds the provisional 15% investigation threshold here; raw ranges
+remain visible. The loop kernel improves about 45%; other kernel gains are
+smaller. Interpretation is unchanged by the compiler optimization and should not
+be credited with noisy timing differences.
+
+Warm public bulk, 128 records, median ns/record. These compare the same preformed
+inputs/output writes across engines; C is the suite's independent reference, not
+an assertion of the best possible handwritten C. External bounds-failure sentinels
+are not Recode's error protocol; these measurements use valid views only.
+
+| Program | v1.5 FIXED | v1.6 FIXED | Change | C | LLVM | MIR |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| arithmetic | 19.040 | 14.599 | -23.3% | 4.317 | 3.599 | 4.638 |
+| bitwise | 20.186 | 13.728 | -32.0% | 4.964 | 3.700 | 4.591 |
+| conditional | 19.780 | 14.063 | -28.9% | 4.676 | 3.601 | 5.532 |
+| branches | 30.980 | 24.552 | -20.7% | 5.278 | 15.565 | 14.436 |
+| loop8 | 30.920 | 20.971 | -32.2% | 6.060 | 4.128 | 11.425 |
+| records | 23.128 | 20.576 | -11.0% | 7.836 | 4.051 | 7.394 |
+
+All six 128-record batch medians improve, by about 11..32%. Recode remains slower
+than the external native adapters here. Arithmetic spans 17.606..20.901 ns/record
+before and 12.442..15.678 after. This is not a comparison against the older
+published v1.5 point estimate, which came from another collection.
+
+Arithmetic batching across all requested sizes, median ns/record:
+
+| Items | v1.5 | v1.6 |
+| --- | ---: | ---: |
+| 1 | 73.249 | 75.754 |
+| 8 | 25.966 | 21.641 |
+| 32 | 22.277 | 14.849 |
+| 128 | 19.040 | 14.599 |
+| 1024 | 17.539 | 11.110 |
+| 4096 | 17.331 | 11.971 |
+| 65536 | 18.230 | 11.574 |
+
+One-item arithmetic batches regress about 3%. A 128-item arithmetic batch takes
+about 1869 ns at its median, about 68.5 million records/s. At 1024 items it takes
+about 11377 ns, about 90.0 million records/s. These are derived from public batch
+times, not kernel throughput. All other workload/size cells and per-process RSS
+are retained, including cold batches and ADAPTIVE fallback/promotion counts.
+
+Cold arithmetic end-to-end median us for exactly N calls (setup through calls,
+cleanup excluded), final candidate:
+
+| N | FIXED | INTERPRET | ADAPTIVE | LLVM | MIR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 34.452 | 42.048 | 36.830 | 6749.017 | 649.872 |
+| 10 | 49.381 | 30.222 | 62.809 | 6519.904 | 635.053 |
+| 100 | 56.493 | 38.939 | 74.277 | 6455.732 | 625.408 |
+| 1000 | 109.969 | 112.124 | 114.647 | 6377.847 | 634.600 |
+| 10000 | 693.724 | 886.624 | 702.298 | 6488.705 | 740.957 |
+| 100000 | 6067.881 | 8678.087 | 6083.812 | 7368.880 | 1593.095 |
+
+The one-call FIXED case has no cold compilation. ADAPTIVE can remain interpreted;
+there is no universal payback threshold. Sixty-four short-lived FIXED contexts
+regress from 762.510 to 786.917 us in this collection, about 3%. Cleanup and total
+cost remain in the raw lifecycle data. Warm gains do not justify compiling every
+short-lived function.
+
+Arithmetic scalar-process VmHWM medians are 2096/2100 KiB for v1.5/v1.6 FIXED.
+These OS RSS values include process/compiler/runtime overhead, unlike Recode's
+executable ledger. Large-batch caller arrays can dominate RSS. Both versions
+still require a 4096-byte mapping per tiny function. The 4096-function pressure
+study retains the same 65536-byte executable peak, 1999200 metadata bytes and
+688128 program bytes. Pressure ledgers are not pressure RSS measurements.
+
+Final disassembly retains arithmetic 81 -> 27 bytes, 16 -> 8 instructions and
+4/5 -> 0/0 explicit stack loads/stores. The first five fixtures eliminate all
+explicit stack traffic. Records is 275 -> 248 bytes and 60 -> 61 instructions,
+with stack loads/stores 4/9 -> 4/3. Fewer instructions are not the acceptance test:
+both actual execution and error/ABI behavior are measured. GNU as independently
+assembles the arithmetic sequence to exactly the emitted 27 bytes; both SHA-256
+values are e829d5318170b3790ac9979f9a87b87ba08b781c9ece4fb89bcd424943e60661.
+Its input is retained in final/verification/arithmetic.s.
+
+Final reproduction uses the same commands, without overlapping builds and timing:
+
+```sh
+COMPARISON_LLVM=ON COMPARISON_MIR=ON MIR_INCLUDE_DIR=/tmp/recode-mir \
+MIR_LIBRARY=/tmp/recode-mir-build/libmir_static.a \
+MIR_REVISION=dc2c763f1c8bc746102ce87933d866335f9e6c06 BENCH_ROUNDS=7 \
+  sh benchmarks/competitors/compare-revisions.sh v1.5.0 eeb6803 /tmp/recode-final
+sh benchmarks/profiling/compare.sh v1.5.0 eeb6803 /tmp/recode-final-profile
+```
+
+For each round 1..7, alternate before/after order and run collect.py on each
+comparison directory with --bulk-only --rounds 1 --order-offset ROUND_MINUS_ONE
+--cpu 0 --revision EXACT_LIBRARY_SHA --harness-revision eeb6803. The collector
+uses all seven sizes and alternates engine order. The final environment manifest
+retains each invocation's metadata and exact dependency revisions.
+
+### Thread study and regressions
+
+The batch diagnostic uses CPUs 0..3, seven alternating library processes and
+three internal rounds per process. Each thread checks 32768 records in batches
+of 128 on a shared runtime. Times include thread creation/join and output checks;
+21 cells per configuration are clustered in seven processes. A repeat was run
+because the initial multi-thread ordering was unfavorable and noisy. Both raw
+collections are retained; none was discarded.
+
+| Threads | Initial v1.5/v1.6 ns/record | Repeat v1.5/v1.6 ns/record |
+| --- | ---: | ---: |
+| 1 | 22.283/14.984 | 22.072/16.323 |
+| 2 | 12.278/13.378 | 14.606/13.054 |
+| 4 | 10.783/11.365 | 11.803/11.117 |
+
+The initial two/four-thread medians regress about 9%/5%; their ordering reverses
+in the repeat. No stable multi-thread improvement is established. Lock counts
+remain two per batch. Shorter work outside the mutex can shift contention and
+handoff costs, but this experiment does not isolate that cause. Strong single-thread
+gains do not imply proportional multi-core scaling. The separate scalar scaling
+collector uses CPUs 0..3 and seven rounds per library but runs all baseline rounds
+before all candidate rounds; it is supporting evidence with that order limitation.
+The scalar/cold study's additional concurrent rows are pinned to CPU 0, so they
+measure same-core contention rather than multi-core scaling.
+
+The retained trade-offs include one-item arithmetic batching, conditional scalar
+latency, branch/record compilation, short-lived context cost, noisy concurrent
+medians, page-rounding overhead and a remaining LLVM/MIR warm-throughput gap.
+The integrated changes have practical batch/kernel benefits without a general
+claim that every workload or execution context improves.

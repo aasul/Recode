@@ -1,0 +1,36 @@
+Test project /tmp/recode-v16-verification/gcc-sanitize
+    Start 1: batch
+1/4 Test #1: batch ............................***Failed    0.16 sec
+==2553==LeakSanitizer has encountered a fatal error.
+==2553==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
+==2553==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)
+
+    Start 4: memory
+2/4 Test #4: memory ...........................***Failed    0.09 sec
+==2564==LeakSanitizer has encountered a fatal error.
+==2564==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
+==2564==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)
+
+    Start 5: integer
+3/4 Test #5: integer ..........................***Failed    0.95 sec
+==2571==LeakSanitizer has encountered a fatal error.
+==2571==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
+==2571==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)
+
+    Start 9: adaptive_failures
+4/4 Test #9: adaptive_failures ................***Failed    0.05 sec
+==2580==LeakSanitizer has encountered a fatal error.
+==2580==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
+==2580==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)
+
+
+0% tests passed, 4 tests failed out of 4
+
+Total Test time (real) =   1.25 sec
+
+The following tests FAILED:
+	  1 - batch (Failed)
+	  4 - memory (Failed)
+	  5 - integer (Failed)
+	  9 - adaptive_failures (Failed)
+Errors while running CTest

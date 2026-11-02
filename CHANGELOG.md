@@ -1,6 +1,18 @@
 # Changelog
 
-## 1.5.0 preparation (unreleased)
+## 1.6.0 preparation (unreleased)
+
+- Assign integer values to bounded caller-saved register homes with deterministic spills.
+- Remove dead pure writes within blocks while retaining every potentially failing load.
+- Use compact full-value constants and reuse commutative operand destinations.
+- Group unsampled native batch records without changing sample positions or prefix errors.
+- Reuse validated integer layouts through executable publication and avoid straight-line CFG allocations.
+- Add immutable seven-round profiling, disassembly, compile-operation and runtime-cost evidence.
+- Expand operand-alias, register-pressure, backedge, differential and batch-sampling regressions.
+- Prepare SONAME 1.6 and compatible-major package discovery; preserve the 31 public functions.
+- Retain regressions and the limits of C analysis, sanitizer instrumentation and native-entry overhead.
+
+## 1.5.0
 
 - Add fail-fast integer batch execution with borrowed per-item views and checked result prefixes.
 - Amortize lookup, locking and native pinning while preserving concurrent cache ownership.

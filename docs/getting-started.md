@@ -1,6 +1,6 @@
 # Getting started
 
-This is the 1.5 release-preparation candidate. Publication and tagging still need
+This is the 1.6 release-preparation candidate. Publication and tagging still need
 maintainer approval. Use Linux x86-64, GCC or Clang with C11, CMake 3.16+, libc and
 POSIX threads. Native execution requires anonymous mappings that can transition
 from RW to RX. Interpretation works when executable mappings are denied.
@@ -10,7 +10,7 @@ Obtain the reviewed source archive, or clone and select the candidate branch:
 ```sh
 git clone https://github.com/aasul/Recode.git
 cd Recode
-git checkout release/v1.5.0
+git checkout release/v1.6.0
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
@@ -30,7 +30,7 @@ cmake --build build-consumer --parallel 2
 ./build-consumer/data-rules
 ```
 
-Your external CMake project needs `find_package(Recode 1.5 CONFIG REQUIRED)` and
+Your external CMake project needs `find_package(Recode 1.6 CONFIG REQUIRED)` and
 `target_link_libraries(your_target PRIVATE Recode::recode)`. Do not add Recode's
 source directory to include paths. The target supplies C11, public includes and
 Threads::Threads. See [embedding.md](embedding.md) for deployment/loader paths.

@@ -7,7 +7,7 @@ A separate accumulator pipeline translates the documented x86 instruction subset
 and supports guarded loop tracing. Recode does not load or optimize arbitrary
 binaries and is not a sandbox.
 
-This branch prepares v1.5.0 for maintainer review. It is not an official release.
+This branch prepares v1.6.0 for maintainer review. It is not an official release.
 Start with the [getting-started guide](docs/getting-started.md),
 [public API policy](docs/public-api.md) and [release checklist](docs/release-checklist.md).
 
@@ -34,12 +34,12 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 1.5 provides static/shared installation and the `Recode::recode` CMake
+Version 1.6 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
 for platform, instruction and security limits. The [public API policy](docs/public-api.md)
 defines 1.x source compatibility and patch-level binary compatibility. Consumers
-rebuild across minor releases; the v1.5 SONAME is 1.5.
+rebuild across minor releases; the v1.6 SONAME is 1.6.
 
 ## Integer programs
 
@@ -136,6 +136,17 @@ compilation remains available through the existing policies. Traces share cache
 ownership, execution pins and the executable budget. See [docs/tracing.md](docs/tracing.md)
 for configuration, native state reconstruction, limits and measured regressions.
 
+## v1.6 performance work
+
+The integer backend assigns frequently used values to caller-saved registers,
+removes dead pure writes within blocks and emits smaller integer kernels. Batch
+execution groups unsampled native records while preserving sample positions and
+prefix-error semantics. Compilation reuses a validated native layout and avoids
+heap CFG facts for straight-line programs. Public signatures and policy defaults
+remain unchanged. See [v1.6 measurements](docs/performance-1.6.md) and
+[candidate verification](docs/release-verification-1.6.md) for actual gains,
+regressions, reproduction commands and remaining limitations.
+
 ## Performance measurements
 
 v0.7 removes unused dispatch clock reads, merges trace feedback under the existing
@@ -195,7 +206,7 @@ fall back to interpretation and retain compilation diagnostics in statistics.
 
 See the [release verification](docs/release-verification.md),
 [migration guide](docs/migration.md), [troubleshooting](docs/troubleshooting.md),
-[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.5.md).
+[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.6.md).
 
 ## Contributing
 

@@ -1,27 +1,24 @@
-# v1.5 release checklist
+# v1.6 release checklist
 
-The candidate requires maintainer review. Do not merge, tag or publish without
-explicit authorization. The v1.0.0 tag is the immutable baseline.
+The candidate requires maintainer review. No merge, tag or release publication
+is part of this assignment. The immutable baseline is v1.5.0 at 9f49d55.
 
-- [x] Implement benchmark, measured emitter optimization and integer batching as stacked PRs.
-- [x] Preserve existing scalar signatures, enum values, ownership and default policy settings.
-- [x] Document batch preflight, alias, prefix failure, lifetime, statistics and tier boundaries.
-- [x] Keep LLVM/MIR optional and retain raw favorable and unfavorable measurements.
-- [x] Preserve isolated RW-to-RX mapping publication and executable accounting.
-- [x] Pass batch-stage GCC/Clang, ASan/UBSan, TSan and installed static/shared checks.
-- [x] Verify final 1.5.0 headers/package, 31 exports and SONAME 1.5 from a clean archive.
-- [x] Run final clean-archive GCC/Clang Release, shared and ASan/UBSan matrix plus supported TSan.
-- [x] Rebuild unchanged v1.0 external consumer sources against installed 1.5.
-- [x] Complete final reproducible v1.0 versus v1.5 measurements and optional fuzz smoke.
-- [x] Record final post-commit C-support quality review and compiler diagnostics.
-- [x] Publish and check all four PRs with correct stack bases and passing CI.
-- [x] Keep MIT licensing and unsupported platform/sandbox limits explicit.
+- [x] Publish profiling, register allocation, batch and compilation milestones as stacked PRs.
+- [x] Preserve scalar/batch contracts, policies, pins, W^X publication and executable ledgers.
+- [x] Retain seven-round raw measurements and optional real LLVM ORC/MIR adapters.
+- [x] Keep native error offsets, fail-fast completion and failed/later outputs unchanged.
+- [x] Expand alias, pressure, backedge, sampling, differential and failure regressions.
+- [x] Prepare 1.6.0 metadata with API 1, ABI 1.6, SONAME 1.6 and same-major discovery.
+- [x] Complete final clean-archive compiler/sanitizer/static/shared/TSan matrix.
+- [x] Rebuild unmodified v1.0 and v1.5 consumer sources against 1.6 static/shared installs.
+- [x] Complete final immutable baseline/candidate performance and optional fuzz smoke.
+- [x] Record post-commit quality review, all five PRs and observed CI results.
 
-Maintainer release actions, intentionally pending:
+Maintainer actions after development:
 
-- [ ] Review/merge benchmark, runtime, batch and release PRs in that order, retargeting later bases to main.
-- [ ] Rerun final verification on merged main and the intended release archive.
-- [ ] Explicitly authorize the v1.5.0 tag and GitHub release publication.
+- [ ] Review and merge the five PRs in their intended order, adjusting bases as needed.
+- [ ] Independently verify merged main and the intended release archive.
+- [ ] Separately authorize tagging and release publication.
 
-A completed development checklist is not maintainer release approval. Historical
-v1.0 evidence remains in release-verification.md; current candidate evidence in release-verification-1.5.md identifies exact source revisions and any unresolved blockers.
+Evidence and limitations belong in [release-verification-1.6.md](release-verification-1.6.md).
+Completing development checks does not replace maintainer release approval.
