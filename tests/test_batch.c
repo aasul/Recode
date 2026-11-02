@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "recode_integer.h"
+#include "internal.h"
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -176,6 +177,52 @@ static void test_guard_page(void)
     rc_integer_program_destroy(p); CHECK(munmap(mapping,2*page)==0);
 }
 
+static void test_sampling(void)
+{
+    const uint64_t bases[] = {0,1,7,8,15,16,17,UINT64_MAX-100,UINT64_MAX-1,UINT64_MAX};
+    const uint64_t periods[] = {1,2,3,7,16,17,UINT64_MAX};
+    for (size_t b = 0; b < sizeof(bases)/sizeof(*bases); ++b)
+        for (size_t p = 0; p < sizeof(periods)/sizeof(*periods); ++p)
+            for (uint64_t samples = 0; samples < 10; ++samples) {
+                size_t expected = 0;
+                while (expected < 256 && samples >= 8 && rc_saturating_add(bases[b],expected)%periods[p] != 0)
+                    ++expected;
+                CHECK(rc_unsampled_run(bases[b],samples,256,periods[p]) == expected);
+            }
+    enum { COUNT=257 };
+    uint8_t data[8] = {0}; struct rc_memory_view view = {data,sizeof(data)};
+    uint64_t args[COUNT][2] = {{0}}, out[COUNT]; struct rc_integer_batch_item items[COUNT];
+    for (size_t n = 0; n < COUNT; ++n) items[n] = (struct rc_integer_batch_item){args[n],2,&view};
+    const size_t faults[] = {0,7,8,15,16,17,127,128,255,256};
+    for (size_t p = 0; p < sizeof(periods)/sizeof(*periods); ++p) {
+        struct rc_runtime_config c = rc_runtime_default_config();
+        c.policy = RC_POLICY_FIXED; c.hot_threshold = 2; c.sample_period = periods[p];
+        struct rc_runtime *r = NULL; rc_handle h; size_t done;
+        struct rc_integer_program *programmed = program(true,0);
+        CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+        CHECK(rc_runtime_register_integer(r,programmed,&h,NULL) == RC_OK); rc_integer_program_destroy(programmed);
+        for (unsigned warm = 0; warm < 2; ++warm)
+            CHECK(rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,NULL) == RC_OK && done == COUNT);
+        for (size_t f = 0; f < sizeof(faults)/sizeof(*faults); ++f) {
+            size_t fault = faults[f]; args[fault][0] = 1;
+            for (size_t n = 0; n < COUNT; ++n) out[n] = 91;
+            struct rc_function_stats before,after; struct rc_error error;
+            CHECK(rc_runtime_function_stats(r,h,&before,NULL) == RC_OK);
+            CHECK(rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,&error) == RC_BOUNDS);
+            CHECK(done == fault && error.offset == 1 && error.system_errno == 0);
+            uint64_t samples = 0;
+            for (size_t n = 0; n <= fault; ++n)
+                if (before.compiled_samples+samples < 8 || (before.invocations+1+n)%periods[p] == 0) ++samples;
+            CHECK(rc_runtime_function_stats(r,h,&after,NULL) == RC_OK);
+            CHECK(after.invocations-before.invocations == fault+1 && after.jitted-before.jitted == fault+1);
+            CHECK(after.compiled_samples-before.compiled_samples == samples);
+            for (size_t n = 0; n < COUNT; ++n) CHECK(out[n] == (n < fault ? 0u : 91u));
+            args[fault][0] = 0;
+        }
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+}
+
 struct worker { struct rc_runtime *r; rc_handle h; unsigned id; bool memory; atomic_bool *start; };
 static void *work(void *context)
 {
@@ -220,6 +267,6 @@ static void test_concurrency(bool memory)
 }
 int main(void)
 {
-    alarm(60); test_inputs(); test_results(); test_bounds(); test_guard_page(); test_concurrency(false); test_concurrency(true);
+    alarm(60); test_inputs(); test_results(); test_bounds(); test_guard_page(); test_sampling(); test_concurrency(false); test_concurrency(true);
     puts("batch preflight, aliases, partial faults, independent results, policies and concurrent cache pressure passed"); return 0;
 }

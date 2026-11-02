@@ -13,7 +13,7 @@ for label in before after; do
     mkdir "$output/$label-source"
     git archive "$revision" | tar -x -C "$output/$label-source"
     cmake -S "$output/$label-source" -B "$output/$label-build" -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_TESTING=OFF -DRECODE_BUILD_TOOLS=OFF > "$output/$label-build.log" 2>&1
+        -DBUILD_TESTING=OFF -DRECODE_BUILD_TOOLS=ON > "$output/$label-build.log" 2>&1
     cmake --build "$output/$label-build" --parallel 2 >> "$output/$label-build.log" 2>&1
     "${CC:-cc}" -O3 -DNDEBUG -std=c11 -Wall -Wextra -Werror \
         -I"$output/$label-source/src" -I"$output/$label-source/include" -I"$output/$label-build/generated" \

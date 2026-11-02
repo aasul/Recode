@@ -1040,9 +1040,31 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *r, rc_handle han
     uint64_t samples = 0, nanoseconds = 0, timing_failures = 0;
     size_t attempted = 0;
     struct rc_error execution = {0};
+    size_t arity = t->integer->arguments;
     for (size_t n = 0; n < count; ++n) {
+        size_t run = native != NULL ? rc_unsampled_run(rc_saturating_add(base,n),
+            rc_saturating_add(prior_samples,samples),count-n,r->config.sample_period) : 0;
+        if (run != 0) {
+            size_t end = n+run;
+            for (; n < end; ++n) {
+                uint64_t a = arity > 0 ? items[n].arguments[0] : 0;
+                uint64_t b = arity > 1 ? items[n].arguments[1] : 0, value;
+                ++attempted;
+                if (memory_native != NULL) {
+                    struct rc_memory_view memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
+                    struct rc_integer_result output;
+                    status = memory_native(a,b,memory.data,memory.length,&output);
+                    if (status != RC_OK) { execution = (struct rc_error){status,output.offset,0}; break; }
+                    value = output.value;
+                } else value = native(a,b);
+                results[n] = value;
+            }
+            *completed = n;
+            if (status != RC_OK || n == count) break;
+        }
         struct rc_memory_view memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
-        bool sample = rc_saturating_add(prior_samples,samples) < 8 ||
+        /* A native run stops exactly at a required sample. */
+        bool sample = native != NULL || rc_saturating_add(prior_samples,samples) < 8 ||
             rc_saturating_add(base,n) % r->config.sample_period == 0;
         uint64_t start = sample ? now_ns() : 0, value;
         ++attempted;

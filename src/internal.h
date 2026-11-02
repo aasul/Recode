@@ -47,6 +47,20 @@ static inline uint64_t rc_saturating_add(uint64_t a, uint64_t b)
     return b > UINT64_MAX - a ? UINT64_MAX : a + b;
 }
 
+/* Number of consecutive native records before the next required sample.
+ * period is nonzero by runtime validation. A non-multiple at a saturated
+ * UINT64_MAX invocation counter never samples. */
+static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+                                       size_t remaining, uint64_t period)
+{
+    if (samples < 8) return 0;
+    uint64_t remainder = invocation % period;
+    if (remainder == 0) return 0;
+    uint64_t distance = period - remainder;
+    if (invocation == UINT64_MAX || distance > UINT64_MAX-invocation) return remaining;
+    return distance < remaining ? (size_t)distance : remaining;
+}
+
 static inline uint64_t rc_extend(uint32_t value)
 {
     return (value & UINT32_C(0x80000000)) != 0
