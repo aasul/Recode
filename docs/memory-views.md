@@ -60,3 +60,9 @@ ABI sentinels, call-scoped buffers and 12,000 concurrent calls racing cache pres
 checks interpretation and bounds errors after failed compilation, and retries cleanup.
 The existing allocation sweeps and accumulator/integer regression tests remain enabled.
 Generated instructions are not sanitizer-instrumented; guard pages test actual loads.
+
+[Batch execution](batch-execution.md) accepts an independent optional view per item.
+All descriptors and buffers remain readable until the batch returns. Structural
+errors reject the entire request before execution; a bounds fault retains earlier
+results and reports its record through completed and its instruction through
+error.offset. Output storage cannot overlap any input view or descriptor.

@@ -690,9 +690,77 @@ static void test_memory_failures(void)
     rc_integer_program_destroy(p); CHECK(live_maps == 0 && live_allocations == 0);
 }
 
+struct batch_worker {
+    struct rc_runtime *runtime;
+    rc_handle handle;
+    struct rc_integer_batch_item items[3];
+    uint64_t results[3];
+    size_t completed;
+};
+static void *blocked_batch(void *context)
+{
+    struct batch_worker *w=context;
+    block_clock=true; skip_clocks=2; /* Stop before the second sampled item. */
+    CHECK(rc_runtime_call_integer_batch(w->runtime,w->handle,w->items,3,w->results,3,&w->completed,NULL)==RC_OK);
+    return NULL;
+}
+static void test_batch_failures(void)
+{
+    struct rc_builder *b=NULL; struct rc_integer_program *p=NULL;
+    CHECK(rc_builder_create(1,1,&b,NULL)==RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_ARGUMENT},NULL)==RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_LOAD_U64},NULL)==RC_OK);
+    CHECK(rc_builder_append(b,(struct rc_integer_insn){.op=RC_INT_RETURN},NULL)==RC_OK);
+    CHECK(rc_builder_finalize(b,&p,NULL)==RC_OK); rc_builder_destroy(b);
+    uint8_t data[8]={1,2,3,4,5,6,7,8}; struct rc_memory_view view={data,8}; uint64_t arg=0;
+    struct rc_integer_batch_item items[2]={{&arg,1,&view},{&arg,1,&view}};
+    for(unsigned mode=0;mode<3;++mode) {
+        struct rc_runtime *r=create(RC_POLICY_FIXED); rc_handle h;
+        CHECK(rc_runtime_register_integer(r,p,&h,NULL)==RC_OK); uint64_t results[2]; size_t completed;
+        CHECK(rc_runtime_call_integer_batch(r,h,items,2,results,2,&completed,NULL)==RC_OK && completed==2);
+        fail_map=mode==0; fail_protect=mode!=0; fail_release=mode==2;
+        CHECK(rc_runtime_call_integer_batch(r,h,items,2,results,2,&completed,NULL)==RC_OK && completed==2);
+        CHECK(results[0]==UINT64_C(0x0807060504030201) && results[1]==results[0]);
+        CHECK(function_stats(r,h).compilation_failures==1 && function_stats(r,h).jitted==0);
+        accounted(r);
+        if(mode==2) CHECK(rc_runtime_destroy(&r,NULL)==RC_SYSTEM && r!=NULL);
+        fail_map=false; fail_protect=false; fail_release=false;
+        for(unsigned n=0;n<32;++n) CHECK(rc_runtime_call_integer_batch(r,h,items,2,results,2,&completed,NULL)==RC_OK);
+        CHECK(function_stats(r,h).jitted!=0); CHECK(rc_runtime_destroy(&r,NULL)==RC_OK);
+    }
+    struct rc_runtime *r=create(RC_POLICY_FIXED); rc_handle h;
+    CHECK(rc_runtime_register_integer(r,p,&h,NULL)==RC_OK); uint64_t result;
+    CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&result,NULL)==RC_OK);
+    CHECK(rc_runtime_call_integer_view(r,h,&arg,1,&view,&result,NULL)==RC_OK);
+    struct batch_worker w={.runtime=r,.handle=h,.results={91,92,93}};
+    for(size_t n=0;n<3;++n) w.items[n]=(struct rc_integer_batch_item){&arg,1,&view};
+    blocked=false; resume_call=false; pthread_t thread;
+    CHECK(pthread_create(&thread,NULL,blocked_batch,&w)==0);
+    pthread_mutex_lock(&barrier); while(!blocked) pthread_cond_wait(&condition,&barrier);
+    CHECK(w.completed==1 && w.results[0]==result && w.results[1]==92 && w.results[2]==93);
+    CHECK(rc_runtime_remove(r,h,NULL)==RC_BUSY);
+    CHECK(rc_runtime_invalidate(r,h,NULL)==RC_BUSY);
+    CHECK(rc_runtime_clear(r,NULL)==RC_BUSY);
+    CHECK(rc_runtime_destroy(&r,NULL)==RC_BUSY && r!=NULL);
+    struct rc_runtime_stats stats;
+    CHECK(rc_runtime_get_stats(r,&stats,NULL)==RC_OK && stats.active_calls==1);
+    const uint8_t other_bytes[]={0xb8,77,0,0,0,0xc3}; rc_handle other;
+    CHECK(rc_runtime_register(r,other_bytes,sizeof(other_bytes),&other,NULL)==RC_OK);
+    uint64_t other_result;
+    CHECK(rc_runtime_call(r,other,0,&other_result,NULL)==RC_OK && other_result==77);
+    CHECK(rc_runtime_call(r,other,0,&other_result,NULL)==RC_OK && other_result==77);
+    CHECK(function_stats(r,other).last_compile_error.status==RC_CAPACITY);
+    CHECK(rc_runtime_remove(r,other,NULL)==RC_OK);
+    resume_call=true; pthread_cond_broadcast(&condition); pthread_mutex_unlock(&barrier);
+    CHECK(pthread_join(thread,NULL)==0 && w.completed==3);
+    for(size_t n=0;n<3;++n) CHECK(w.results[n]==result);
+    CHECK(rc_runtime_destroy(&r,NULL)==RC_OK); rc_integer_program_destroy(p);
+    CHECK(live_maps==0 && live_allocations==0);
+}
+
 int main(void)
 {
-    test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
+    test_batch_failures(); test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
     return 0;

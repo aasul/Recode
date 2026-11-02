@@ -16,6 +16,7 @@
         rc_program_free;
         rc_runtime_call;
         rc_runtime_call_integer;
+        rc_runtime_call_integer_batch;
         rc_runtime_call_integer_view;
         rc_runtime_clear;
         rc_runtime_create;

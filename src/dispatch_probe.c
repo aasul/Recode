@@ -23,6 +23,35 @@ static void require(enum rc_status status)
 {
     if (status != RC_OK) { fprintf(stderr,"%s\n",rc_status_string(status)); exit(1); }
 }
+#ifdef RECODE_BATCH_PROBE
+static void measure_batch(const struct rc_integer_program *p, bool check)
+{
+    const size_t count=10000;
+    struct rc_integer_batch_item *items=malloc(count*sizeof(*items));
+    uint64_t *results=malloc(count*sizeof(*results)), args[2]={256,7};
+    if(items==NULL || results==NULL) exit(1);
+    for(size_t n=0;n<count;++n) items[n]=(struct rc_integer_batch_item){args,2,NULL};
+    for(enum rc_policy policy=RC_POLICY_INTERPRET;policy<=RC_POLICY_ADAPTIVE;++policy) {
+        struct rc_runtime_config c=rc_runtime_default_config(); c.policy=policy; c.hot_threshold=2;
+        struct rc_runtime *r=NULL; rc_handle h; size_t completed;
+        require(rc_runtime_create(&c,&r,NULL)); require(rc_runtime_register_integer(r,p,&h,NULL));
+        for(unsigned warm=0;warm<2;++warm)
+            require(rc_runtime_call_integer_batch(r,h,items,128,results,128,&completed,NULL));
+        clocks=0; locks=0; allocations=0;
+        require(rc_runtime_call_integer_batch(r,h,items,count,results,count,&completed,NULL));
+        if(completed!=count) exit(1);
+        if(check && policy!=RC_POLICY_ADAPTIVE && (clocks!=1250 || locks!=2 || allocations!=0)) {
+            fprintf(stderr,"batch dispatch overhead regression\n"); exit(1);
+        }
+        printf("batch-probe,policy,%d,items,%zu,clocks,%" PRIu64 ",locks,%" PRIu64 ",allocations,%" PRIu64 "\n",
+               (int)policy,count,clocks,locks,allocations);
+        for(size_t n=0;n<count;++n) if(results[n]!=263) exit(1);
+        require(rc_runtime_destroy(&r,NULL));
+    }
+    free(results); free(items);
+}
+#endif
+
 int main(int argc, char **argv)
 {
     bool check = argc == 1;
@@ -63,6 +92,9 @@ int main(int argc, char **argv)
             }
             require(rc_runtime_destroy(&r,NULL));
         }
+#ifdef RECODE_BATCH_PROBE
+    measure_batch(p,check);
+#endif
     rc_integer_program_destroy(p);
     return 0;
 }
