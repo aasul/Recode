@@ -7,10 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/mman.h>
 
 /* Single-thread diagnostic executable. Wrappers measure the static library's
  * operations; use the unwrapped benchmarks for latency comparisons. */
-static uint64_t clocks, locks, allocations;
+static uint64_t clocks, locks, allocations, mappings, publications, unmaps;
 int __real_clock_gettime(clockid_t id, struct timespec *t);
 int __real_pthread_mutex_lock(pthread_mutex_t *mutex);
 void *__real_malloc(size_t size);
@@ -19,9 +20,38 @@ int __wrap_clock_gettime(clockid_t id, struct timespec *t) { ++clocks; return __
 int __wrap_pthread_mutex_lock(pthread_mutex_t *mutex) { ++locks; return __real_pthread_mutex_lock(mutex); }
 void *__wrap_malloc(size_t size) { ++allocations; return __real_malloc(size); }
 void *__wrap_calloc(size_t count, size_t size) { ++allocations; return __real_calloc(count,size); }
+void *__real_mmap(void *address, size_t size, int protection, int flags, int fd, off_t offset);
+int __real_mprotect(void *address, size_t size, int protection);
+int __real_munmap(void *address, size_t size);
+void *__wrap_mmap(void *address, size_t size, int protection, int flags, int fd, off_t offset)
+{
+    ++mappings; return __real_mmap(address,size,protection,flags,fd,offset);
+}
+int __wrap_mprotect(void *address, size_t size, int protection)
+{
+    ++publications; return __real_mprotect(address,size,protection);
+}
+int __wrap_munmap(void *address, size_t size)
+{
+    ++unmaps; return __real_munmap(address,size);
+}
 static void require(enum rc_status status)
 {
     if (status != RC_OK) { fprintf(stderr,"%s\n",rc_status_string(status)); exit(1); }
+}
+static void measure_compilation(const struct rc_integer_program *p, bool check)
+{
+    struct rc_runtime_config c = rc_runtime_default_config(); c.policy = RC_POLICY_FIXED; c.hot_threshold = 2;
+    struct rc_runtime *r = NULL; rc_handle h; uint64_t args[2] = {256,7}, value;
+    require(rc_runtime_create(&c,&r,NULL)); require(rc_runtime_register_integer(r,p,&h,NULL));
+    require(rc_runtime_call_integer(r,h,args,2,&value,NULL));
+    clocks = locks = allocations = mappings = publications = unmaps = 0;
+    require(rc_runtime_call_integer(r,h,args,2,&value,NULL));
+    if (value != 263 || (check && (allocations != 0 || mappings != 1 || publications != 1 || unmaps != 0))) exit(1);
+    printf("compile-probe,clocks,%" PRIu64 ",locks,%" PRIu64 ",allocations,%" PRIu64
+           ",mmap,%" PRIu64 ",mprotect,%" PRIu64 ",munmap,%" PRIu64 "\n",
+           clocks,locks,allocations,mappings,publications,unmaps);
+    require(rc_runtime_destroy(&r,NULL));
 }
 #ifdef RECODE_BATCH_PROBE
 static void measure_batch(const struct rc_integer_program *p, bool check)
@@ -63,6 +93,7 @@ int main(int argc, char **argv)
     require(rc_builder_create(2,2,&builder,NULL));
     for (size_t n = 0; n < 4; ++n) require(rc_builder_append(builder,insns[n],NULL));
     require(rc_builder_finalize(builder,&p,NULL)); rc_builder_destroy(builder);
+    measure_compilation(p,check);
     for (unsigned integer = 0; integer < 2; ++integer)
         for (enum rc_policy policy = RC_POLICY_INTERPRET; policy <= RC_POLICY_TRACE; ++policy) {
             if (integer && policy == RC_POLICY_TRACE) continue;

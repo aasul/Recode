@@ -11,11 +11,6 @@
  * No calls or callee-saved registers occur in generated code. */
 _Static_assert(offsetof(struct rc_integer_result,value) == 0, "native result offset");
 _Static_assert(offsetof(struct rc_integer_result,offset) == 8, "native fault offset");
-struct allocation {
-    int registers[RC_INTEGER_MAX_REGISTERS];
-    bool skip[RC_INTEGER_MAX_INSTRUCTIONS];
-    uint32_t frame;
-};
 struct output { uint8_t *bytes; size_t count; };
 static void byte(struct output *o, uint8_t value)
 {
@@ -27,15 +22,7 @@ static void word(struct output *o, uint32_t value)
     for (unsigned n = 0; n < 32; n += 8) byte(o,(uint8_t)(value >> n));
 }
 static bool binary(enum rc_integer_op op) { return op >= RC_INT_ADD && op <= RC_INT_SLE; }
-static uint64_t reads(struct rc_integer_insn i)
-{
-    uint64_t mask = 0;
-    if (binary(i.op) || rc_integer_load(i.op) || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
-        mask = UINT64_C(1) << i.left;
-    if (binary(i.op)) mask |= UINT64_C(1) << i.right;
-    return mask;
-}
-static void allocate(const struct rc_integer_program *p, struct allocation *a)
+static void allocate(const struct rc_integer_program *p, struct rc_integer_allocation *a)
 {
     a->frame = 0;
     bool targets[RC_INTEGER_MAX_INSTRUCTIONS], arguments[2] = {false,false};
@@ -56,10 +43,10 @@ static void allocate(const struct rc_integer_program *p, struct allocation *a)
         a->skip[n] = writes && !rc_integer_load(i.op) && !(live & (UINT64_C(1) << i.dst));
         if (!a->skip[n]) {
             if (writes) live &= ~(UINT64_C(1) << i.dst);
-            live |= reads(i);
+            live |= rc_integer_reads(i);
             if (i.op == RC_INT_ARGUMENT) arguments[i.immediate] = true;
             if (writes) ++weights[i.dst];
-            if (reads(i) != 0) ++weights[i.left];
+            if (rc_integer_reads(i) != 0) ++weights[i.left];
             if (binary(i.op)) ++weights[i.right];
         }
         if (targets[n]) live = UINT64_MAX;
@@ -96,7 +83,7 @@ static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
     byte(o,0x24);
     if (compact) byte(o,(uint8_t)(reg * 8)); else word(o,reg * 8);
 }
-static int source(struct output *o, const struct allocation *a, uint32_t reg, int scratch)
+static int source(struct output *o, const struct rc_integer_allocation *a, uint32_t reg, int scratch)
 {
     if (a->registers[reg] >= 0) return a->registers[reg];
     stack(o,0x8b,scratch,reg); return scratch;
@@ -150,7 +137,7 @@ static void operation(struct output *o, enum rc_integer_op op, int dst, int righ
     }
     }
 }
-static size_t emit_body(const struct rc_integer_program *p, const struct allocation *a,
+static size_t emit_body(const struct rc_integer_program *p, const struct rc_integer_allocation *a,
                         struct output *o, size_t *offsets, size_t failure)
 {
     byte(o,0xf3); byte(o,0x0f); byte(o,0x1e); byte(o,0xfa);
@@ -215,40 +202,51 @@ static size_t emit_body(const struct rc_integer_program *p, const struct allocat
     return failure_offset;
 }
 
+enum rc_status rc_integer_prepare(const struct rc_integer_program *p,
+                                   struct rc_integer_plan *plan, struct rc_error *error)
+{
+    if (plan == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+    enum rc_status status = rc_integer_validate(p,error);
+    if (status != RC_OK) return status;
+    plan->program = p;
+    allocate(p,&plan->allocation);
+    struct output query = {0};
+    plan->failure = emit_body(p,&plan->allocation,&query,plan->offsets,0);
+    plan->length = query.count;
+    return rc_fail(error,RC_OK,0,0);
+}
+
 enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *bytes,
                                 size_t capacity, size_t *length, struct rc_error *error)
 {
     if (p == NULL || length == NULL || (bytes == NULL && capacity != 0))
         return rc_fail(error,RC_ARGUMENT,0,0);
-    enum rc_status status = rc_integer_validate(p,error);
+    struct rc_integer_plan plan;
+    enum rc_status status = rc_integer_prepare(p,&plan,error);
     if (status != RC_OK) return status;
-    struct allocation a; allocate(p,&a);
-    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS];
-    struct output query = {0};
-    size_t failure = emit_body(p,&a,&query,offsets,0);
-    *length = query.count;
+    *length = plan.length;
     if (bytes == NULL) return rc_fail(error,RC_OK,0,0);
-    if (capacity < query.count) return rc_fail(error,RC_CAPACITY,0,0);
+    if (capacity < plan.length) return rc_fail(error,RC_CAPACITY,0,0);
     struct output output = {bytes,0};
-    (void)emit_body(p,&a,&output,offsets,failure);
+    (void)emit_body(p,&plan.allocation,&output,plan.offsets,plan.failure);
     return rc_fail(error,RC_OK,0,0);
 }
 
-enum rc_status rc_integer_map(const struct rc_integer_program *p, size_t mapped,
+enum rc_status rc_integer_map_prepared(struct rc_integer_plan *plan, size_t mapped,
                                struct rc_code *code, rc_integer_function *function,
                                bool *allocated, struct rc_error *error)
 {
     *allocated = false;
     *function = NULL;
+    if (mapped < plan->length) return rc_fail(error,RC_CAPACITY,0,0);
     void *mapping = mmap(NULL, mapped, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mapping == MAP_FAILED) return rc_fail(error, RC_SYSTEM, 0, errno);
     *allocated = true;
     *code = (struct rc_code){mapping, mapped, NULL};
-    size_t emitted;
-    enum rc_status status = rc_integer_emit(p, mapping, mapped, &emitted, error);
-    if (status == RC_OK && mprotect(mapping, mapped, PROT_READ | PROT_EXEC) != 0)
-        status = rc_fail(error, RC_SYSTEM, 0, errno);
-    if (status != RC_OK) {
+    struct output output = {mapping,0};
+    (void)emit_body(plan->program,&plan->allocation,&output,plan->offsets,plan->failure);
+    if (mprotect(mapping, mapped, PROT_READ | PROT_EXEC) != 0) {
+        enum rc_status status = rc_fail(error,RC_SYSTEM,0,errno);
         struct rc_error cleanup;
         if (rc_code_free(code, &cleanup) != RC_OK) {
             if (error != NULL) *error = cleanup;
@@ -259,4 +257,15 @@ enum rc_status rc_integer_map(const struct rc_integer_program *p, size_t mapped,
     _Static_assert(sizeof(*function) == sizeof(mapping), "System V function pointer size");
     memcpy(function, &mapping, sizeof(*function));
     return rc_fail(error, RC_OK, 0, 0);
+}
+
+enum rc_status rc_integer_map(const struct rc_integer_program *p, size_t mapped,
+                               struct rc_code *code, rc_integer_function *function,
+                               bool *allocated, struct rc_error *error)
+{
+    *allocated = false;
+    *function = NULL;
+    struct rc_integer_plan plan;
+    enum rc_status status = rc_integer_prepare(p,&plan,error);
+    return status == RC_OK ? rc_integer_map_prepared(&plan,mapped,code,function,allocated,error) : status;
 }

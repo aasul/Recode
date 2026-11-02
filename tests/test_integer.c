@@ -228,6 +228,27 @@ static void test_validation(void)
     CHECK(rc_builder_finalize(NULL,&p,NULL) == RC_ARGUMENT);
     CHECK(rc_integer_interpret(NULL,NULL,0,0,&(uint64_t){0},NULL) == RC_ARGUMENT);
 }
+static void test_prepared_mapping(void)
+{
+    const struct rc_integer_insn insns[] = {{.op=RC_INT_ARGUMENT},
+        {.op=RC_INT_CONSTANT,.dst=1,.immediate=17},
+        {.op=RC_INT_ADD,.right=1},{.op=RC_INT_RETURN}};
+    struct rc_integer_program *p = build(insns,4,2,1);
+    struct rc_integer_plan plan;
+    CHECK(rc_integer_prepare(p,NULL,NULL) == RC_ARGUMENT);
+    CHECK(rc_integer_prepare(NULL,&plan,NULL) == RC_ARGUMENT);
+    CHECK(rc_integer_prepare(p,&plan,NULL) == RC_OK);
+    uint8_t bytes[256]; size_t length;
+    CHECK(rc_integer_emit(p,bytes,sizeof(bytes),&length,NULL) == RC_OK && length == plan.length);
+    struct rc_code code = {0}; rc_integer_function fn; bool allocated;
+    CHECK(rc_integer_map_prepared(&plan,length-1,&code,&fn,&allocated,NULL) == RC_CAPACITY);
+    CHECK(!allocated && fn == NULL && code.mapping == NULL);
+    CHECK(rc_integer_map_prepared(&plan,length,&code,&fn,&allocated,NULL) == RC_OK && allocated);
+    CHECK(memcmp(bytes,code.mapping,length) == 0);
+    uint64_t args[] = {UINT64_MAX,0}; verify(p,args,16,fn);
+    CHECK(rc_code_free(&code,NULL) == RC_OK); rc_integer_program_destroy(p);
+}
+
 static void test_emitter_validation(void)
 {
     struct rc_integer_insn insns[] = {{.op=RC_INT_CONSTANT},{.op=RC_INT_RETURN}};
@@ -433,7 +454,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
-    test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_forwarding(); test_aliasing(); test_random(); test_pressure_loop(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
+    test_prepared_mapping(); test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_forwarding(); test_aliasing(); test_random(); test_pressure_loop(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
     puts("integer builder, operations, independent differential, ABI, policies, ownership and concurrency passed");
     return 0;
 }

@@ -473,9 +473,13 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
     if (status == RC_OK && t->integer == NULL && r->config.optimize)
         status = rc_optimize(&prepared, &error);
     size_t emitted = 0, mapped = 0;
-    if (status == RC_OK)
-        status = t->integer != NULL ? rc_integer_emit(t->integer,NULL,0,&emitted,&error)
-            : rc_emit(&prepared, NULL, 0, &emitted, &error);
+    struct rc_integer_plan integer_plan;
+    if (status == RC_OK) {
+        if (t->integer != NULL) {
+            status = rc_integer_prepare(t->integer,&integer_plan,&error);
+            if (status == RC_OK) emitted = integer_plan.length;
+        } else status = rc_emit(&prepared,NULL,0,&emitted,&error);
+    }
     if (status == RC_OK) {
         if (emitted > SIZE_MAX - (r->page_size - 1))
             status = rc_fail(&error, RC_MEMORY, 0, 0);
@@ -487,7 +491,7 @@ static void compile_translation(struct rc_runtime *r, struct function *f)
     if (status == RC_OK) {
         bool allocated;
         status = t->integer != NULL
-            ? rc_integer_map(t->integer,mapped,&t->code,&t->integer_function,&allocated,&error)
+            ? rc_integer_map_prepared(&integer_plan,mapped,&t->code,&t->integer_function,&allocated,&error)
             : rc_map_program(&prepared, mapped, &t->code, &allocated, &error);
         size_t peak = r->stats.executable_bytes + (allocated ? mapped : 0);
         if (peak > r->stats.peak_executable_bytes)
