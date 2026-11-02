@@ -88,3 +88,22 @@ environment and disassembly. The harness is private tooling, not an installed AP
 The existing optional LLVM/MIR collector retains cold, lifecycle, concurrent and
 bulk comparisons; `BENCH_ROUNDS` now defaults to seven for compare-revisions.sh.
 Normal library builds still require neither external compiler.
+
+Baseline arithmetic across the seven process samples spans 4.270..7.882 ns/kernel,
+55.369..68.083 ns/scalar and 20.230..26.519 ns/batch record at size 128. Retain
+this variation when judging close improvements. The same baseline was rebuilt
+independently and passed all 14 CTests. Its installed LLVM/MIR comparison suite
+passed all 79 tests. Seven-round scalar/cold/concurrent and bulk measurements are
+retained under baseline/scalar and baseline/bulk, with their own schemas.
+
+The post-commit analyzer used the required fork at
+5179f6ba61dca2050813a1aa7e2f71ba7e4ce765 in the existing isolated environment.
+A full scan and next completed; jscpd failed, so duplication coverage is missing.
+A second objective scan excluded only generated build trees and the tool venv.
+C coupling/coverage heuristics report unused executables and untested declarations;
+the profile is exercised against all six independent references, not a unit test
+of a benchmark. The security candidate at competitors/main.c:36 is a false
+positive: sscanf converts a bounded fgets buffer using %ld into a long, with no
+string destination. No confirmed source defect was identified. Scores are not
+correctness evidence. Historical generated-file findings from the first scan are
+not release source findings. No project source was excluded from review.
