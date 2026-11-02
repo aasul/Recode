@@ -175,3 +175,53 @@ not just compilation; final runtime compilation statistics are measured separate
 The repeated validation and layout overhead remains a compilation target for PR 4.
 The post-commit fork scan/next and Clang static analysis identified no confirmed
 new defect; known incomplete import/coverage heuristics remain as above.
+
+## Batch sampling fast path
+
+PR 3 groups native records between the existing sample positions. It computes
+the next sample once per run, omits clock/modulo/saturating-counter decisions for
+that run, reuses the validated arity and writes completed at run boundaries.
+Sampled records retain the original timing path. Memory entries still stop at
+the first failing load; no later arguments/data are fetched by the execution
+loop. Preflight, alias restrictions, lookup/tier selection, interpreter fallback,
+mutex boundaries and the full-batch native pin are unchanged. There is no new
+public interface, extra allocation, executable code or global execution lock.
+
+Native-loop fusion was considered against this C-loop prototype. A fused body
+would need separate batch register ownership, callee-saved loop state, memory
+failure exits and returns at every existing sample boundary. This work retains
+per-record native entry rather than introduce that additional native ABI. No
+fused-body prototype was integrated or measured, so no performance claim about
+fusion or SIMD follows. The simpler measured improvement does not remove all
+validation, descriptor or native-entry overhead.
+
+Immutable comparison: bc84cd2 versus 19cade9, seven alternating processes.
+Median public batch ns/record, before/after:
+
+| Program | 1 record | 128 records | 65536 records |
+| --- | ---: | ---: | ---: |
+| arithmetic | 78.651/77.350 | 19.847/15.276 | 20.164/15.929 |
+| bitwise | 71.985/78.231 | 20.877/15.572 | 20.196/19.389 |
+| conditional | 74.556/75.117 | 20.155/15.782 | 21.025/17.708 |
+| branches | 86.283/88.798 | 31.060/27.779 | 35.092/29.608 |
+| loop8 | 83.390/84.789 | 26.260/23.323 | 28.325/25.028 |
+| records | 71.099/78.296 | 22.666/19.028 | 22.052/26.205 |
+
+At 128 records the arithmetic and bitwise medians improve about 23% and 25%
+relative to the register-allocation milestone; branch-heavy and loop gains are
+smaller. These are public API results. Seven raw samples per cell, all intermediate
+sizes and scalar/kernel cells remain in profiling/results/batch. The separate
+three-round thread diagnostic uses CPUs 0..3 and runs before then after; its order
+is not alternating, so it is supporting evidence rather than a controlled claim
+of scaling improvements.
+
+GCC Release passed 14 CTests. Six affected GCC ASan/UBSan suites passed, and five
+Release/sanitizer suites passed again after eliminating a redundant sampled-path
+modulo. Linker wrapping still observes exactly 1250 clock reads and two locks per
+10000-record warm FIXED batch, with no allocations. New tests check sample counts
+for periods 1, 2, 3, 7, 16, 17 and UINT64_MAX, first-eight sampling, saturated
+invocation arithmetic, and faults at record 0/7/8/15/16/17/127/128/255/256.
+Successful prefixes, untouched failed/later slots and attempted/jitted counts are
+asserted. Existing guard pages, validation, ownership, cache pressure, concurrent
+registration/invalidation/clearing and mapping failure tests remain enabled.
+Clang analysis and post-commit fork scan/next found no confirmed new defect.
