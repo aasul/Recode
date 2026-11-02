@@ -1,4 +1,4 @@
-# Public API and compatibility policy (v1.0 candidate)
+# Public API and compatibility policy (v1.5 candidate)
 
 The supported installed interfaces are recode.h, recode_integer.h and generated
 recode_version.h. Functions in src headers, native entry conventions, optimizer
@@ -24,7 +24,7 @@ be handled by a default/error path. Fixes of undocumented or erroneous behavior
 are permitted, with migration notes when observable.
 
 SONAME is librecode.so.<major>.<minor>, preventing silent substitution by a
-layout-changing minor release. The first stable ABI has SONAME 1.0. RECODE_ABI_MAJOR/MINOR identify matching
+layout-changing minor release. The first stable ABI has SONAME 1.0; this minor release has SONAME 1.5. RECODE_ABI_MAJOR/MINOR identify matching
 header ABI;
 RECODE_API_VERSION remains 1 because existing source contracts are preserved.
 rc_version_string() identifies the linked implementation. Experimental 0.x CMake

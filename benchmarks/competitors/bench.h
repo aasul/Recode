@@ -16,6 +16,9 @@ struct metrics {
     int64_t code_bytes, executable_bytes;
     uint64_t interpreted, jitted, evictions;
 };
+#if RECODE_VERSION_MAJOR > 1 || (RECODE_VERSION_MAJOR == 1 && RECODE_VERSION_MINOR >= 5)
+#define BENCH_HAS_BATCH 1
+#endif
 struct engine;
 uint64_t bench_now(void);
 void require(enum rc_status status);
@@ -25,6 +28,8 @@ struct workload workload(unsigned kind);
 struct engine *engine_open(const char *mode, struct metrics *m);
 void engine_build(struct engine *e, const struct workload *w, struct metrics *m);
 uint64_t engine_call(struct engine *e, const struct input *in);
+void engine_prepare_bulk(struct engine *e, const struct input *inputs, size_t count);
+void engine_bulk(struct engine *e, const struct input *inputs, size_t count, uint64_t *results);
 void engine_stats(struct engine *e, struct metrics *m);
 void engine_close(struct engine *e);
 #ifdef HAVE_LLVM

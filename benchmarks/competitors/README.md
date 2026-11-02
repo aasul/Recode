@@ -47,9 +47,11 @@ Recode itself retains its 3.16 minimum.
 
 Each measurement cell runs in a fresh process. Three rounds alternate engine
 order. Counts are 1, 10, 100, 1,000, 10,000 and 100,000. The first call is measured
-separately, then the cold loop runs without additional warmup. end_to_end_ns covers
-initialization, construction, finalization, registration, the first call and the
-cold loop. Explicit LLVM/MIR compilation occurs before the first call; Recode
+separately inside the cold phase, then the remaining N-1 calls run without warmup.
+end_to_end_ns covers initialization, construction, finalization, registration and
+exactly N evaluations. The extra clock recording first_ns is included in cold_ns.
+The final study records cold_compile_ns and cold_interpreted/cold_jitted before
+warmup; final compile_ns and tier totals can include later warmup compilation. Explicit LLVM/MIR compilation occurs before the first call; Recode
 compiles according to the selected policy during execution. Recode FIXED uses a
 threshold of two but every new handle still starts interpreted. compile_ns is
 Recode's sampled compiler interval or the adapter's explicit optimization,
@@ -58,7 +60,9 @@ Recode validate_ns also includes copying to its immutable finalized program.
 
 The steady phase follows 1,024 checked warmup calls. It must not be confused with
 the cold loop. Statistics include the first, cold, verification and steady phases.
-Short adaptive programs can remain interpreted. Multithreaded warm time includes
+LLVM/MIR tier counts are derived from the known native calls in the harness;
+Recode counts come from its runtime snapshots. Cache eviction counts are Recode-only,
+not a claim about competitor allocation/cache management. Short adaptive programs can remain interpreted. Multithreaded warm time includes
 thread creation/join and reports total wall time for calls*threads invocations;
 inputs/checksums are per thread. This measures shared-handle contention, not just
 kernel scaling. No unstable timing threshold gates CI.
@@ -89,3 +93,54 @@ exact v1.0.0 tag, 35028f5bc2167e6662e67802099c7d6c5d4dcce2. Build that revision
 from `git archive` and compile this unchanged comparison consumer against its
 installed package to reproduce the baseline. Reports explain missing metrics,
 regressions and practical limits; these results do not establish general superiority.
+
+The context lifecycle experiment (`compare --lifecycle fixed`,
+`compare-llvm --lifecycle llvm`, `compare-mir --lifecycle mir`) constructs 64
+genuinely distinct arithmetic functions, checks two calls each, and destroys each
+engine context. It separates aggregate initialization, build/finalization,
+registration, compilation and cleanup. This deliberately compares complete
+context lifetimes: it is not per-function unloading in a retained LLVM/MIR engine,
+and process-global compiler caches can survive context destruction. Direct C has
+no dynamic compilation adapter and is excluded from this experiment. Recode's
+retained-runtime lifecycle executable remains a separate registration experiment.
+
+For a final alternating comparison with the same consumer against immutable
+source archives, including context lifetimes and pressure:
+
+```sh
+COMPARISON_LLVM=ON COMPARISON_MIR=ON MIR_INCLUDE_DIR=/path/to/mir \
+MIR_LIBRARY=/path/to/libmir_static.a MIR_REVISION=your-tested-revision \
+  sh benchmarks/competitors/compare-revisions.sh v1.0.0 release/v1.5.0 /tmp/final-study
+```
+
+The script builds both revisions before measurement and alternates revision order
+for three rounds, as well as engine order. Each collector run has one round with
+an explicit order offset; retain all three outer samples. Build trees/logs stay
+outside the repository. Copy only raw CSV, environment and revision records into
+version control. Use BENCH_CPU to choose an allowed latency CPU.
+
+The original results/v10 cold phase used N loop calls plus a separate first call.
+Those raw results and the original baseline report are retained as historical
+measurements. Their warm results are still meaningful, but their cold count must
+be read as N+1. The final alternating study corrects this to exactly N and verifies
+managed cold invocation counts before warmup. Do not compare cold totals across
+the two harness conventions as if they had identical evaluation counts.
+
+`collect.py BUILD OUTPUT --bulk-only --revision LIBRARY_SHA --harness-revision HARNESS_SHA`
+compares the same six workload specifications on preformed input arrays. Recode
+uses its actual batch API; LLVM/MIR/C loop over native/reference entries with the
+same inputs and output writes. All paths check independent C results. Input and
+backend descriptor preparation is outside warm timing and separately reported,
+while end_to_end_ns includes it and the first request. Warmup/request counts match
+the batch example's methodology. This mode requires Recode 1.5 headers/library for
+Recode paths; the consumer remains buildable against 1.0 for scalar comparisons.
+Each mode runs in a fresh process, with peak RSS including caller arrays. Recode's
+per-item descriptor/view arrays are real application overhead, not executable code.
+
+Compiler comparisons use valid read-only views. LLVM/MIR bounds checks return a
+UINT64_MAX sentinel on failure rather than Recode's status/offset protocol; invalid
+views are therefore excluded from cross-engine timing. Recode's precise error
+semantics are checked separately. Native entry ABI and public dispatch differ by
+engine; this compares the supported invocation paths, not identical instruction
+counts. The C reference is the optimized implementation in workloads.c, not a
+claim that no better handwritten C implementation exists.

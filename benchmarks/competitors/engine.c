@@ -11,6 +11,10 @@ struct engine {
     void *external;
     entry_fn native;
     unsigned kind;
+#ifdef BENCH_HAS_BATCH
+    struct rc_integer_batch_item *items;
+    struct rc_memory_view *views;
+#endif
 };
 void require(enum rc_status status)
 {
@@ -76,6 +80,35 @@ uint64_t engine_call(struct engine *e, const struct input *in)
     require(rc_runtime_call_integer_view(e->runtime,e->handle,in->args,2,&view,&value,NULL));
     return value;
 }
+void engine_prepare_bulk(struct engine *e, const struct input *in, size_t count)
+{
+#ifdef BENCH_HAS_BATCH
+    if (e->runtime == NULL) return;
+    e->items=malloc(count*sizeof(*e->items));
+    if (e->kind == 5) e->views=malloc(count*sizeof(*e->views));
+    if (e->items == NULL || (e->kind == 5 && e->views == NULL)) exit(1);
+    for (size_t n=0; n<count; ++n) {
+        if (e->views != NULL) e->views[n]=(struct rc_memory_view){in[n].data,sizeof(in[n].data)};
+        e->items[n]=(struct rc_integer_batch_item){in[n].args,2,e->views != NULL ? &e->views[n] : NULL};
+    }
+#else
+    (void)e; (void)in; (void)count;
+#endif
+}
+void engine_bulk(struct engine *e, const struct input *in, size_t count, uint64_t *results)
+{
+    if (e->runtime != NULL) {
+#ifdef BENCH_HAS_BATCH
+        size_t completed;
+        require(rc_runtime_call_integer_batch(e->runtime,e->handle,e->items,count,results,count,&completed,NULL));
+        if (completed != count) exit(1);
+        return;
+#else
+        fprintf(stderr,"batch execution unavailable in this library version\n"); exit(2);
+#endif
+    }
+    for (size_t n=0; n<count; ++n) results[n]=engine_call(e,&in[n]);
+}
 void engine_stats(struct engine *e, struct metrics *m)
 {
     if (e->runtime == NULL) return;
@@ -95,6 +128,9 @@ void engine_close(struct engine *e)
 #endif
 #ifdef HAVE_MIR
     if (e->mode == 5) mir_close(e->external);
+#endif
+#ifdef BENCH_HAS_BATCH
+    free(e->views); free(e->items);
 #endif
     free(e);
 }

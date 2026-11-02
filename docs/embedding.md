@@ -22,7 +22,7 @@ A separate application needs only:
 ```cmake
 cmake_minimum_required(VERSION 3.16)
 project(application LANGUAGES C)
-find_package(Recode 1.0 CONFIG REQUIRED)
+find_package(Recode 1.5 CONFIG REQUIRED)
 add_executable(application main.c)
 target_link_libraries(application PRIVATE Recode::recode)
 ```
@@ -93,7 +93,8 @@ incompatible source-contract revisions. Version 1 preserves documented source
 compatibility across compatible minor releases, but consumers must rebuild with
 matching headers/library for each major/minor. Binary compatibility is limited
 to patch releases in one major/minor line. CMake accepts same-major source version
-requests; SONAME 1.0 identifies the first stable binary line. See the exact
+requests; SONAME 1.5 identifies the current minor binary line; 1.0 binaries still require
+their original library. See the exact
 [public API policy](public-api.md) and [migration guide](migration.md).
 
 For repeated record processing, the [batch API](batch-execution.md) amortizes

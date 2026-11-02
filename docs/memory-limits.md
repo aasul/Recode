@@ -28,3 +28,9 @@ functions have no execution timeout. Direct interpreters accept instruction
 budgets; a process supervisor can terminate a worker containing native execution.
 Do not attempt to cancel a thread inside the runtime: locks and pins would remain
 owned. Join all callers and stop new entry before runtime destruction.
+
+A batch borrows application arrays and views and makes no per-item heap allocation.
+Those arrays are outside the executable budget. Native code remains pinned until
+the batch finishes; this can delay eviction or removal and make another compilation
+fall back for lack of unpinned capacity. Cap batch sizes when bounded response time
+matters, while retaining the rule that managed execution itself has no deadline.

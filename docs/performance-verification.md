@@ -1,3 +1,6 @@
+Current v1.0 versus v1.5 results are in [performance-1.5.md](performance-1.5.md).
+The historical v0.7 study follows.
+
 # v0.7 performance verification
 
 This milestone removes unused policy clock reads, batches trace side-exit

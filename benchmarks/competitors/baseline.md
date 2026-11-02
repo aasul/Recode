@@ -1,5 +1,11 @@
 # v1.5 comparison baseline
 
+Methodology correction: this initial cold phase executes a first call plus N
+loop calls. The displayed counts below refer to the loop, so cold totals contain
+N+1 evaluations. The final release study uses exactly N and explicit cold tier
+counters. Initial raw data are retained; do not infer exact one-call or crossover
+cost from this earlier cold convention. Warm timing is a separate phase.
+
 The exact v1.0.0 source is 35028f5bc2167e6662e67802099c7d6c5d4dcce2, also remote main
 at the start of this assignment. All 13 GCC Release CTests passed before changes.
 The independent comparison has 37 passing checks, including actual LLVM ORC and
