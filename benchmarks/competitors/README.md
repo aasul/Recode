@@ -125,3 +125,22 @@ measurements. Their warm results are still meaningful, but their cold count must
 be read as N+1. The final alternating study corrects this to exactly N and verifies
 managed cold invocation counts before warmup. Do not compare cold totals across
 the two harness conventions as if they had identical evaluation counts.
+
+`collect.py BUILD OUTPUT --bulk-only --revision LIBRARY_SHA --harness-revision HARNESS_SHA`
+compares the same six workload specifications on preformed input arrays. Recode
+uses its actual batch API; LLVM/MIR/C loop over native/reference entries with the
+same inputs and output writes. All paths check independent C results. Input and
+backend descriptor preparation is outside warm timing and separately reported,
+while end_to_end_ns includes it and the first request. Warmup/request counts match
+the batch example's methodology. This mode requires Recode 1.5 headers/library for
+Recode paths; the consumer remains buildable against 1.0 for scalar comparisons.
+Each mode runs in a fresh process, with peak RSS including caller arrays. Recode's
+per-item descriptor/view arrays are real application overhead, not executable code.
+
+Compiler comparisons use valid read-only views. LLVM/MIR bounds checks return a
+UINT64_MAX sentinel on failure rather than Recode's status/offset protocol; invalid
+views are therefore excluded from cross-engine timing. Recode's precise error
+semantics are checked separately. Native entry ABI and public dispatch differ by
+engine; this compares the supported invocation paths, not identical instruction
+counts. The C reference is the optimized implementation in workloads.c, not a
+claim that no better handwritten C implementation exists.

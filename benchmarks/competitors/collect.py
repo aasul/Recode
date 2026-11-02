@@ -14,8 +14,10 @@ p.add_argument('--rounds', type=int, default=3)
 p.add_argument('--cpu', type=int)
 p.add_argument('--scaling-only', action='store_true')
 p.add_argument('--lifecycle-only', action='store_true')
+p.add_argument('--bulk-only', action='store_true')
 p.add_argument('--order-offset', type=int, default=0)
 p.add_argument('--revision', required=True)
+p.add_argument('--harness-revision', default='unspecified')
 p.add_argument('--mir-revision', default='unavailable')
 a = p.parse_args()
 if a.rounds < 1 or a.order_offset < 0:
@@ -23,7 +25,7 @@ if a.rounds < 1 or a.order_offset < 0:
 a.output.mkdir(parents=True, exist_ok=False)
 if a.cpu is not None:
     os.sched_setaffinity(0, {a.cpu})
-environment = {'revision': a.revision, 'mir_revision': a.mir_revision,
+environment = {'revision': a.revision, 'harness_revision': a.harness_revision, 'mir_revision': a.mir_revision,
                'platform': platform.platform(), 'affinity': sorted(os.sched_getaffinity(0)),
                'rounds': a.rounds, 'order_offset': a.order_offset, 'frequency': 'uncontrolled',
                'commands': {}}
@@ -41,6 +43,19 @@ with (a.output / 'raw.csv').open('w') as output:
     writer = None
     for round_number in range(a.order_offset, a.order_offset + a.rounds):
         order = engines if round_number % 2 == 0 else engines[::-1]
+        if a.bulk_only:
+            for kind in range(6):
+                for count in (1, 8, 32, 128, 1024, 4096, 65536):
+                    for engine, binary in order:
+                        result = subprocess.check_output([str((a.build / binary).resolve()), '--bulk',
+                                                          engine, str(kind), str(count)], text=True)
+                        row = next(csv.DictReader(result.splitlines()))
+                        if writer is None:
+                            writer = csv.DictWriter(output, ['round', *row], lineterminator='\n')
+                            writer.writeheader()
+                        writer.writerow({'round': round_number + 1, **row})
+                        output.flush()
+            continue
         if a.lifecycle_only:
             for engine, binary in order:
                 if engine == 'c':

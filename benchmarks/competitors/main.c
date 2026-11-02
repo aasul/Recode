@@ -70,8 +70,42 @@ static int lifecycle(const char *mode)
            measured_executable?sum.executable_bytes:-1,peak_rss(),sum.interpreted,sum.jitted,checksum);
     return 0;
 }
+static int bulk(const char *mode, unsigned kind, size_t count)
+{
+    uint64_t total=bench_now(); struct metrics m={0}; struct engine *e=engine_open(mode,&m);
+    struct workload w=workload(kind); engine_build(e,&w,&m);
+    uint64_t start=bench_now(); struct input *in=malloc(count*sizeof(*in));
+    uint64_t *results=malloc(count*sizeof(*results)); if (in == NULL || results == NULL) exit(1);
+    for (size_t n=0; n<count; ++n) inputs(n,&in[n]);
+    engine_prepare_bulk(e,in,count); uint64_t prepare_ns=bench_now()-start;
+    start=bench_now(); engine_bulk(e,in,count,results);
+    uint64_t cold_ns=bench_now()-start, end_to_end=bench_now()-total;
+    for (size_t n=0; n<count; ++n) if (results[n] != reference(kind,&in[n])) exit(1);
+    size_t warm=0;
+    for (; warm<8 || warm*count<128; ++warm) engine_bulk(e,in,count,results);
+    size_t repeats=32768/count; if (repeats<8) repeats=8;
+    start=bench_now();
+    for (size_t repeat=0; repeat<repeats; ++repeat) engine_bulk(e,in,count,results);
+    uint64_t warm_ns=bench_now()-start;
+    for (size_t n=0; n<count; ++n) if (results[n] != reference(kind,&in[n])) exit(1);
+    engine_stats(e,&m);
+    if (strcmp(mode,"llvm") == 0 || strcmp(mode,"mir") == 0) m.jitted=count*(1+warm+repeats);
+    start=bench_now(); engine_close(e); free(results); free(in);
+    uint64_t cleanup_ns=bench_now()-start;
+    puts("engine,workload,items,repeats,init_ns,build_ns,validate_ns,register_ns,prepare_ns,compile_ns,cold_ns,end_to_end_ns,warm_ns,warm_ns_per_item,cleanup_ns,code_bytes,executable_bytes,peak_rss_kib,interpreted,jitted");
+    printf("%s,%s,%zu,%zu,%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%" PRIu64 ",%.3f,%" PRIu64 ",%" PRId64 ",%" PRId64 ",%ld,%" PRIu64 ",%" PRIu64 "\n",
+           mode,w.name,count,repeats,m.init_ns,m.build_ns,m.validate_ns,m.register_ns,prepare_ns,m.compile_ns,cold_ns,end_to_end,warm_ns,
+           (double)warm_ns/(double)(count*repeats),cleanup_ns,m.code_bytes,m.executable_bytes,peak_rss(),m.interpreted,m.jitted);
+    return 0;
+}
 int main(int argc, char **argv)
 {
+    if (argc == 5 && strcmp(argv[1],"--bulk") == 0) {
+        unsigned kind=0;
+        if (strcmp(argv[3],"0") != 0) kind=(unsigned)number(argv[3],5);
+        return bulk(argv[2],kind,number(argv[4],65536));
+    }
     if (argc == 3 && strcmp(argv[1],"--lifecycle") == 0) return lifecycle(argv[2]);
     if (argc != 5) { fprintf(stderr,"usage: compare mode workload[0..5] calls threads\n"); return 1; }
     /* Accept the zero-based workload separately from positive counts. */
