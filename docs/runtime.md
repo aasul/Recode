@@ -133,7 +133,7 @@ evidence must still pass the cost check before recompilation.
 
 ## Cache ownership and budgeting
 
-One translation owns its immutable IR, optional mapping, reference count and
+One translation owns its immutable IR, optional native entry, reference count and
 execution pins. Entries are ordered by native use, most recently used first.
 Insertion and native lookup move an entry to the front. Eviction scans for the
 least recently used unpinned mapping. Translation records and IR remain while
@@ -203,3 +203,20 @@ validation and compilation add real overhead; direct native calls remain much ch
 estimates are sensitive to CPU frequency, scheduling, timer cost, changing inputs,
 and callers' future behavior. See [runtime-verification.md](runtime-verification.md)
 for measured regressions, failure tests and sanitizer coverage.
+
+## v1.7 batches and executable storage
+
+Descriptor and [contiguous-record](contiguous-records.md) calls share tier
+selection, attempted-item accounting and pins. Native unsampled runs enter one
+private loop; required sample positions still use the scalar entry. Default
+first-batch behavior is retained. The opt-in [cold policy](cold-batch.md) can
+compile earlier using the current request's estimated savings and measured
+compilation costs, with interpreter fallback and existing cooldowns.
+
+Small integer entries can share [immutable page snapshots](code-slabs.md).
+A slab owns the mapping while translations own entries. Replacement copies only
+unpinned pages into new RW memory and seals RX before publication. No active page
+is writable. Removing a member retains pages owned by other members; the final
+release or retired-page cleanup can fail and remain charged for retry. A spare
+page is needed for replacement. Added runtime statistics distinguish text,
+aligned occupied bytes, reclaimable slab space, mappings and retired bytes.

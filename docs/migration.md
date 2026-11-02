@@ -1,4 +1,27 @@
-# Migrating v1.0 or v1.5 to v1.6
+# Migrating v1.0, v1.5 or v1.6 to v1.7
+
+Rebuild unchanged supported source with matching 1.7.0 headers and library.
+SONAME is librecode.so.1.7 and RECODE_ABI_MINOR is 7; API version remains 1.
+No existing function, field or enum value is removed or renumbered. The new
+configuration flag and storage-statistics fields are trailing additions under
+the minor-release ABI policy. Cross-minor binary substitution is not promised.
+Same-major CMake discovery continues to accept older 1.x source consumers.
+
+The descriptor batch contract and default first-batch interpretation remain.
+Native batches now fuse consecutive unsampled items. Set cold_batch_compile
+explicitly to permit cost-based cold compilation and cached-alias reuse.
+The new rc_runtime_call_integer_records API directly traverses fixed-stride
+records; it requires disjoint output/layout/record spans and validates offsets
+before execution. No conversion is required for existing descriptor callers.
+
+Small integer translations may share immutable RX page snapshots. Executable
+budget accounting includes the transient spare page, retired snapshots and
+failed rollback mappings. Removing one entry does not free a shared page still
+owned by others. See [slab lifetimes](code-slabs.md) and [measurements](performance-1.7.md)
+for compilation and memory trade-offs. No new CPU extension is required.
+
+## Earlier migration: v1.0 or v1.5 to v1.6
+
 
 Rebuild with matching 1.6.0 headers and library. The new SONAME is
 librecode.so.1.6 and RECODE_ABI_MINOR is 6; RECODE_API_VERSION remains 1.

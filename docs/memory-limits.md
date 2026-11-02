@@ -34,3 +34,17 @@ Those arrays are outside the executable budget. Native code remains pinned until
 the batch finishes; this can delay eviction or removal and make another compilation
 fall back for lack of unpinned capacity. Cap batch sizes when bounded response time
 matters, while retaining the rule that managed execution itself has no deadline.
+
+Version 1.7 [integer slabs](code-slabs.md) share immutable pages. Their snapshot
+replacement transiently requires a new page while retaining the source mapping;
+both are charged until successful release. Pinned pages are not replaced.
+Retired or failed rollback mappings stay in the ledger and are retried during
+clear/capacity acquisition/destruction. A removed translation does not subtract
+pages still owned by other entries. See the added generated/occupied/free/mapping
+statistics and their definitions in that guide.
+
+Prepared scalar/batch offsets use bounded compiler stack storage proportional
+to the 4096-instruction limit, approximately 70 KiB per preparation. This is not
+charged to the persistent ledgers. Record batches retain no descriptor arrays
+or per-record allocations. Callers still own their record/output buffers and
+must cap request sizes and thread stack/resource use for their environment.
