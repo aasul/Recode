@@ -56,7 +56,7 @@ For independent records, [batch execution](docs/batch-execution.md) reuses one
 handle lookup and execution pin across a request. The [batch-rules consumer](examples/batch-rules)
 checks bounded filtering against C and builds through the installed package.
 Warm FIXED batches can reduce dispatch cost; one-item and cold/adaptive cases can
-regress. See [batch measurements](docs/batch-verification.md) and the optional
+regress. See [batch measurements](docs/batch-verification.md) and [final v1.5 study](docs/performance-1.5.md) and the optional
 [LLVM ORC/MIR comparison suite](benchmarks/competitors/README.md). These compilers
 are not dependencies of the Recode library.
 

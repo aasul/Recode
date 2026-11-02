@@ -1,3 +1,6 @@
+Current v1.5 candidate results are in [release-verification-1.5.md](release-verification-1.5.md).
+The historical v1.0 record follows.
+
 # v1.0 release verification
 
 The v0.8, v0.9 and v1.0 preparation changes are merged into main. The

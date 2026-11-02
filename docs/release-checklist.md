@@ -9,11 +9,11 @@ explicit authorization. The v1.0.0 tag is the immutable baseline.
 - [x] Keep LLVM/MIR optional and retain raw favorable and unfavorable measurements.
 - [x] Preserve isolated RW-to-RX mapping publication and executable accounting.
 - [x] Pass batch-stage GCC/Clang, ASan/UBSan, TSan and installed static/shared checks.
-- [ ] Verify final 1.5.0 headers/package, 31 exports and SONAME 1.5 from a clean archive.
-- [ ] Run final clean-archive GCC/Clang Release, shared and ASan/UBSan matrix plus supported TSan.
-- [ ] Rebuild unchanged v1.0 external consumer sources against installed 1.5.
-- [ ] Complete final reproducible v1.0 versus v1.5 measurements and optional fuzz smoke.
-- [ ] Record final post-commit C-support quality review and compiler diagnostics.
+- [x] Verify final 1.5.0 headers/package, 31 exports and SONAME 1.5 from a clean archive.
+- [x] Run final clean-archive GCC/Clang Release, shared and ASan/UBSan matrix plus supported TSan.
+- [x] Rebuild unchanged v1.0 external consumer sources against installed 1.5.
+- [x] Complete final reproducible v1.0 versus v1.5 measurements and optional fuzz smoke.
+- [x] Record final post-commit C-support quality review and compiler diagnostics.
 - [ ] Publish and check all four PRs with correct stack bases and passing CI.
 - [x] Keep MIT licensing and unsupported platform/sandbox limits explicit.
 
@@ -24,5 +24,4 @@ Maintainer release actions, intentionally pending:
 - [ ] Explicitly authorize the v1.5.0 tag and GitHub release publication.
 
 A completed development checklist is not maintainer release approval. Historical
-v1.0 evidence remains in release-verification.md; current candidate evidence will
-identify exact source revisions and any unresolved blockers.
+v1.0 evidence remains in release-verification.md; current candidate evidence in release-verification-1.5.md identifies exact source revisions and any unresolved blockers.

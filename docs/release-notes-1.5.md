@@ -40,3 +40,7 @@ rollback and concurrent cache pressure. These checks are evidence, not a securit
 proof. Persistent metadata/application memory and total RSS remain outside the
 executable-byte budget. Optional C analysis is incomplete; limitations are retained
 in the verification reports.
+
+Exact candidate checks and remaining maintainer actions are recorded in
+[verification](release-verification-1.5.md), with the complete
+[v1.0/v1.5 technical comparison](performance-1.5.md).

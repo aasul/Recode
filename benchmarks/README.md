@@ -68,3 +68,9 @@ retains total initialization/execution and compilation median/min/max alongside
 call-loop latency. Build that consumer in Release, then run `data-rules --bench`.
 Final v1.0 preparation measurements and source-archive checks are documented in
 [release-verification.md](../docs/release-verification.md).
+
+The [v1.5 study](../docs/performance-1.5.md) adds independent LLVM ORC/MIR
+comparisons, exact cold counts, process RSS and common bulk workloads. Use
+`recode_batch_bench` for the installed example's native kernel/C reference and
+`recode_batch_bench --threads` for shared-handle batch/scalar contention. See
+[batch methodology](../docs/batch-execution.md) and committed raw results.
