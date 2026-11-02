@@ -16,6 +16,33 @@ static inline bool rc_integer_load(enum rc_integer_op op)
 {
     return op >= RC_INT_LOAD_U8 && op <= RC_INT_LOAD_U64;
 }
+/* A prepared layout borrows immutable program storage through publication.
+ * Only rc_integer_prepare initializes it; it is not an untrusted descriptor. */
+struct rc_integer_allocation {
+    int registers[RC_INTEGER_MAX_REGISTERS];
+    bool skip[RC_INTEGER_MAX_INSTRUCTIONS];
+    uint32_t frame;
+};
+struct rc_integer_plan {
+    const struct rc_integer_program *program;
+    struct rc_integer_allocation allocation;
+    size_t offsets[RC_INTEGER_MAX_INSTRUCTIONS];
+    size_t failure, length;
+};
+static inline uint64_t rc_integer_reads(struct rc_integer_insn i)
+{
+    bool binary = i.op >= RC_INT_ADD && i.op <= RC_INT_SLE;
+    uint64_t mask = 0;
+    if (binary || rc_integer_load(i.op) || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
+        mask = UINT64_C(1) << i.left;
+    if (binary) mask |= UINT64_C(1) << i.right;
+    return mask;
+}
+enum rc_status rc_integer_prepare(const struct rc_integer_program *program,
+                                   struct rc_integer_plan *plan, struct rc_error *error);
+enum rc_status rc_integer_map_prepared(struct rc_integer_plan *plan, size_t mapped,
+                                        struct rc_code *code, rc_integer_function *function,
+                                        bool *allocated, struct rc_error *error);
 enum rc_status rc_integer_validate(const struct rc_integer_program *program, struct rc_error *error);
 enum rc_status rc_integer_copy(const struct rc_integer_program *program,
                                 struct rc_integer_program **out, struct rc_error *error);

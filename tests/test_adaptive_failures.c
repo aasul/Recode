@@ -555,8 +555,10 @@ static enum rc_status integer_build(struct rc_integer_program **p)
     enum rc_status status = rc_builder_create(2,2,&b,NULL);
     const struct rc_integer_insn insns[] = {{.op=RC_INT_ARGUMENT},
         {.op=RC_INT_ARGUMENT,.dst=1,.immediate=1},
-        {.op=RC_INT_ADD,.right=1},{.op=RC_INT_RETURN}};
-    for (size_t n = 0; status == RC_OK && n < 4; ++n)
+        {.op=RC_INT_ADD,.right=1},{.op=RC_INT_BRANCH,.target=5},
+        {.op=RC_INT_RETURN},{.op=RC_INT_RETURN}};
+    /* CFG validation retains a heap allocation for this failure sweep. */
+    for (size_t n = 0; status == RC_OK && n < 6; ++n)
         status = rc_builder_append(b,insns[n],NULL);
     if (status == RC_OK) status = rc_builder_finalize(b,p,NULL);
     rc_builder_destroy(b);
@@ -637,21 +639,19 @@ static void test_integer_failures(void)
         CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).jitted == 0);
         accounted(r); CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
     }
-    bool retained = false;
+    /* Preparation must fail before mmap, so allocation failures cannot leave
+     * a mapping whose rollback would itself fail. System-call sweeps above
+     * retain the mprotect/munmap rollback-failure coverage. */
     for (size_t n = 1; n <= allocations; ++n) {
         r = create(RC_POLICY_FIXED);
         CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK); integer_call(r,h);
-        malloc_calls = 0; fail_at = n; fail_release = true; integer_call(r,h); fail_at = 0;
-        if (live_maps != 0) {
-            retained = true;
-            CHECK(function_stats(r,h).last_compile_error.system_errno == EINVAL);
-            CHECK(function_stats(r,h).jitted == 0);
-            CHECK(rc_runtime_destroy(&r,NULL) == RC_SYSTEM && r != NULL);
-        }
+        malloc_calls = 0; map_calls = 0; fail_at = n; fail_release = true;
+        integer_call(r,h); fail_at = 0;
+        CHECK(map_calls == 0 && live_maps == 0);
+        CHECK(function_stats(r,h).compilation_failures == 1 && function_stats(r,h).jitted == 0);
         accounted(r); fail_release = false;
         CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
     }
-    CHECK(retained);
     rc_integer_program_destroy(p);
     CHECK(live_allocations == 0 && live_maps == 0);
 }

@@ -225,3 +225,36 @@ Successful prefixes, untouched failed/later slots and attempted/jitted counts ar
 asserted. Existing guard pages, validation, ownership, cache pressure, concurrent
 registration/invalidation/clearing and mapping failure tests remain enabled.
 Clang analysis and post-commit fork scan/next found no confirmed new defect.
+
+## Compilation pipeline
+
+PR 4 prepares one validated layout per managed integer compilation and reuses it
+for publication. The private plan borrows the runtime's immutable owned program
+while the runtime mutex protects translation lifetime. It contains bounded scratch
+allocation/offset arrays, not persistent metadata or executable caller pointers.
+Standalone private emitter/map entry points still validate their program inputs.
+The prepared mapping path checks capacity before mmap and emits the exact planned
+layout into RW storage before mprotect makes it RX. Publication failure keeps the
+existing rollback/retained-mapping accounting. No shared executable arena, RWX
+mapping, metadata cache or policy/tier change is introduced.
+
+A straight-line program with one final return needs only a definition bitset,
+not a heap-allocated CFG fixed point. Structural fields, fallthrough, memory flags
+and register reads remain checked. Any branch or early return uses the existing
+reachability/must-definition analysis. Preparation and publication share the same
+register-read facts. The 37152-byte maximum plan is temporary C stack storage;
+it replaces the emitter's existing bounded arrays, with no persistent-memory
+increase. Page-isolated native mappings still round tiny functions to 4096 bytes.
+An arena would require a separate W^X/lifetime/eviction design and was not added.
+
+New tests compare standalone emitted bytes with prepared published bytes, check
+undersized prepared-map rejection before allocation and execute through ABI
+sentinels. The simple compilation probe asserts zero heap allocations, one mmap
+and one mprotect. CFG allocation sweeps retain their real allocation failure path;
+all such failures now assert zero mapping attempts. System-call rollback failure
+coverage remains. GCC Release and GCC ASan/UBSan each passed all 14 CTests.
+Clang's emitter analyzer reports no warning. Its CFG fact warning also reproduces
+on immutable v1.5: the diagnostic stops unrolling the complete initialization
+loop before following an arbitrary validated edge. Every target is in range and
+all p->count facts are initialized first; this is not a confirmed defect. No
+extra initialization or suppressed diagnostic was added to improve tool output.

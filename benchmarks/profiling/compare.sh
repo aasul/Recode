@@ -19,6 +19,13 @@ for label in before after; do
         -I"$output/$label-source/src" -I"$output/$label-source/include" -I"$output/$label-build/generated" \
         -I"$root/benchmarks/competitors" "$root/src/integer_profile.c" "$root/benchmarks/competitors/workloads.c" \
         "$output/$label-build/librecode.a" -pthread -o "$output/$label-profile"
+    "${CC:-cc}" -O3 -DNDEBUG -std=c11 -DRECODE_BATCH_PROBE \
+        -I"$output/$label-source/include" -I"$output/$label-build/generated" \
+        "$root/src/dispatch_probe.c" "$output/$label-build/librecode.a" -pthread \
+        -Wl,--wrap=clock_gettime -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=malloc -Wl,--wrap=calloc \
+        -Wl,--wrap=mmap -Wl,--wrap=mprotect -Wl,--wrap=munmap -o "$output/$label-probe"
+    "$output/$label-probe" --measure > "$output/$label-probe.csv"
+
 done
 python3 "$root/benchmarks/profiling/collect.py" "$output/before-profile" "$output/after-profile" \
     "$output/results" --before-revision "$before" --after-revision "$after" --rounds "${BENCH_ROUNDS:-7}"

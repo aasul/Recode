@@ -66,6 +66,23 @@ int main(int argc, char **argv)
         config.policy = RC_POLICY_FIXED; config.hot_threshold = 2;
         struct rc_runtime *r = NULL; rc_handle h;
         require(rc_runtime_create(&config,&r,NULL)); require(rc_runtime_register_integer(r,p,&h,NULL));
+        uint64_t compilation = 0;
+        for (unsigned n = 0; n < 100; ++n) {
+            struct rc_runtime *fresh = NULL; rc_handle handle;
+            require(rc_runtime_create(&config,&fresh,NULL));
+            require(rc_runtime_register_integer(fresh,p,&handle,NULL));
+            struct input in; inputs(n,&in); struct rc_memory_view view = {in.data,sizeof(in.data)};
+            uint64_t value;
+            for (unsigned call = 0; call < 2; ++call) {
+                require(rc_runtime_call_integer_view(fresh,handle,in.args,2,&view,&value,NULL));
+                if (value != reference(kind,&in)) return 1;
+            }
+            struct rc_function_stats stats; require(rc_runtime_function_stats(fresh,handle,&stats,NULL));
+            if (stats.compilations != 1) return 1;
+            compilation += stats.compilation_ns;
+            require(rc_runtime_destroy(&fresh,NULL));
+        }
+        row(w.name,"managed_compile",100,compilation,length,0);
         for (size_t c = 0; c < sizeof(counts)/sizeof(*counts); ++c) {
             size_t count = counts[c], repeats = 131072/count;
             struct input *in = malloc(count*sizeof(*in));

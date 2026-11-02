@@ -69,7 +69,8 @@ if(RECODE_BUILD_TOOLS)
         target_link_libraries(recode_dispatch_probe PRIVATE recode)
         target_compile_definitions(recode_dispatch_probe PRIVATE RECODE_BATCH_PROBE)
         target_link_options(recode_dispatch_probe PRIVATE -Wl,--wrap=clock_gettime
-            -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=malloc -Wl,--wrap=calloc)
+            -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=malloc -Wl,--wrap=calloc
+            -Wl,--wrap=mmap -Wl,--wrap=mprotect -Wl,--wrap=munmap)
     endif()
     add_executable(recode_integer_profile src/integer_profile.c benchmarks/competitors/workloads.c)
     target_include_directories(recode_integer_profile PRIVATE src benchmarks/competitors)

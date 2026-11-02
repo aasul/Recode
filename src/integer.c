@@ -70,11 +70,10 @@ enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc
         return rc_fail(error, RC_INVALID_IR, 0, 0);
     if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
     struct facts { uint64_t defined; bool reachable; };
-    struct facts *facts = malloc(p->count * sizeof(*facts));
-    if (facts == NULL) return rc_fail(error, RC_MEMORY, 0, 0);
+    struct facts *facts = NULL;
     enum rc_status status = RC_OK;
     size_t offset = 0;
-    bool memory = false;
+    bool memory = false, control = false;
     for (size_t n = 0; n < p->count; ++n) {
         struct rc_integer_insn i = p->insns[n];
         offset = n;
@@ -87,9 +86,22 @@ enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc
             status = RC_MISSING_RET; goto done;
         }
         memory |= rc_integer_load(i.op);
-        facts[n] = (struct facts){UINT64_MAX, false};
+        control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
     }
     if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
+    if (!control) {
+        uint64_t defined = 0;
+        for (size_t n = 0; n < p->count; ++n) {
+            struct rc_integer_insn i = p->insns[n];
+            uint64_t used = rc_integer_reads(i);
+            if ((used & defined) != used) { offset = n; status = RC_UNINITIALIZED; goto done; }
+            if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+        }
+        goto done;
+    }
+    facts = malloc(p->count * sizeof(*facts));
+    if (facts == NULL) { status = RC_MEMORY; offset = 0; goto done; }
+    for (size_t n = 0; n < p->count; ++n) facts[n] = (struct facts){UINT64_MAX,false};
     facts[0] = (struct facts){0, true};
     bool changed;
     do {
@@ -117,11 +129,7 @@ enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc
         offset = n;
         if (!facts[n].reachable) { status = RC_TRAILING; goto done; }
         struct rc_integer_insn i = p->insns[n];
-        bool binary = i.op >= RC_INT_ADD && i.op <= RC_INT_SLE;
-        uint64_t reads = 0;
-        if (rc_integer_load(i.op) || binary || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
-            reads |= UINT64_C(1) << i.left;
-        if (binary) reads |= UINT64_C(1) << i.right;
+        uint64_t reads = rc_integer_reads(i);
         if ((reads & facts[n].defined) != reads) { status = RC_UNINITIALIZED; goto done; }
     }
 done:
