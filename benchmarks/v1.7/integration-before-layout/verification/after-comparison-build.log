@@ -1,0 +1,265 @@
+-- The C compiler identification is GNU 16.2.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/recode-v17-comparison/after-library
+[  5%] Building C object CMakeFiles/recode.dir/src/decoder.c.o
+[  5%] Building C object CMakeFiles/recode.dir/src/ir.c.o
+[  8%] Building C object CMakeFiles/recode.dir/src/optimizer.c.o
+[ 11%] Building C object CMakeFiles/recode.dir/src/codegen.c.o
+[ 13%] Building C object CMakeFiles/recode.dir/src/runtime.c.o
+[ 16%] Building C object CMakeFiles/recode.dir/src/interpreter.c.o
+[ 19%] Building C object CMakeFiles/recode.dir/src/adaptive.c.o
+[ 22%] Building C object CMakeFiles/recode.dir/src/trace.c.o
+[ 25%] Building C object CMakeFiles/recode.dir/src/integer.c.o
+[ 27%] Building C object CMakeFiles/recode.dir/src/integer_codegen.c.o
+[ 30%] Linking C static library librecode.a
+[ 30%] Built target recode
+[ 36%] Building C object CMakeFiles/recode_dispatch_probe.dir/src/dispatch_probe.c.o
+[ 36%] Building C object CMakeFiles/recode_record_bench.dir/src/record_bench.c.o
+[ 38%] Linking C executable recode_dispatch_probe
+[ 41%] Building C object CMakeFiles/recode_record_bench.dir/benchmarks/competitors/workloads.c.o
+[ 41%] Built target recode_dispatch_probe
+[ 44%] Building C object CMakeFiles/recode_storage_bench.dir/src/storage_bench.c.o
+[ 47%] Linking C executable recode_storage_bench
+[ 50%] Linking C executable recode_record_bench
+[ 50%] Built target recode_storage_bench
+[ 50%] Built target recode_record_bench
+[ 52%] Building C object CMakeFiles/recode_cold_bench.dir/src/cold_bench.c.o
+[ 55%] Building C object CMakeFiles/recode_integer_profile.dir/src/integer_profile.c.o
+[ 58%] Building C object CMakeFiles/recode_cold_bench.dir/benchmarks/competitors/workloads.c.o
+[ 61%] Building C object CMakeFiles/recode_integer_profile.dir/benchmarks/competitors/workloads.c.o
+[ 63%] Linking C executable recode_cold_bench
+[ 63%] Built target recode_cold_bench
+[ 66%] Building C object CMakeFiles/recode_batch_bench.dir/src/batch_bench.c.o
+[ 69%] Linking C executable recode_integer_profile
+[ 69%] Built target recode_integer_profile
+[ 72%] Building C object CMakeFiles/recode_integer_bench.dir/src/integer_bench.c.o
+[ 75%] Linking C executable recode_batch_bench
+[ 75%] Built target recode_batch_bench
+[ 77%] Building C object CMakeFiles/recode_demo.dir/src/demo.c.o
+[ 80%] Linking C executable recode_demo
+[ 80%] Built target recode_demo
+[ 83%] Building C object CMakeFiles/recode_trace_bench.dir/src/trace_bench.c.o
+[ 86%] Linking C executable recode_integer_bench
+[ 86%] Built target recode_integer_bench
+[ 88%] Building C object CMakeFiles/recode_runtime_bench.dir/src/runtime_bench.c.o
+[ 91%] Linking C executable recode_trace_bench
+[ 91%] Built target recode_trace_bench
+[ 94%] Building C object CMakeFiles/recode_bench.dir/src/bench.c.o
+[ 97%] Linking C executable recode_runtime_bench
+[ 97%] Built target recode_runtime_bench
+[100%] Linking C executable recode_bench
+[100%] Built target recode_bench
+-- Install configuration: "Release"
+-- Installing: /tmp/recode-v17-comparison/after-prefix/lib/librecode.a
+-- Installing: /tmp/recode-v17-comparison/after-prefix/include/recode.h
+-- Installing: /tmp/recode-v17-comparison/after-prefix/include/recode_integer.h
+-- Installing: /tmp/recode-v17-comparison/after-prefix/include/recode_version.h
+-- Installing: /tmp/recode-v17-comparison/after-prefix/share/licenses/Recode/LICENSE
+-- Installing: /tmp/recode-v17-comparison/after-prefix/lib/cmake/Recode/RecodeTargets.cmake
+-- Installing: /tmp/recode-v17-comparison/after-prefix/lib/cmake/Recode/RecodeTargets-release.cmake
+-- Installing: /tmp/recode-v17-comparison/after-prefix/lib/cmake/Recode/RecodeConfig.cmake
+-- Installing: /tmp/recode-v17-comparison/after-prefix/lib/cmake/Recode/RecodeConfigVersion.cmake
+-- The C compiler identification is GNU 16.2.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/recode-v17-comparison/after-comparison
+[ 12%] Building C object CMakeFiles/compare-llvm.dir/main.c.o
+[ 12%] Building C object CMakeFiles/compare.dir/main.c.o
+[ 25%] Building C object CMakeFiles/compare.dir/workloads.c.o
+[ 25%] Building C object CMakeFiles/compare-llvm.dir/workloads.c.o
+[ 37%] Building C object CMakeFiles/compare.dir/engine.c.o
+[ 37%] Building C object CMakeFiles/compare-llvm.dir/engine.c.o
+[ 50%] Building C object CMakeFiles/compare-llvm.dir/llvm.c.o
+[ 50%] Linking C executable compare
+[ 50%] Built target compare
+[ 56%] Building C object CMakeFiles/compare-mir.dir/main.c.o
+[ 62%] Linking C executable compare-llvm
+[ 68%] Building C object CMakeFiles/compare-mir.dir/workloads.c.o
+[ 75%] Building C object CMakeFiles/compare-mir.dir/engine.c.o
+[ 81%] Building C object CMakeFiles/compare-mir.dir/mir.c.o
+[ 81%] Built target compare-llvm
+[ 87%] Building C object CMakeFiles/lifecycle.dir/lifecycle.c.o
+[ 93%] Linking C executable compare-mir
+[100%] Linking C executable lifecycle
+[100%] Built target compare-mir
+[100%] Built target lifecycle
+Test project /tmp/recode-v17-comparison/after-comparison
+      Start  1: c-0
+ 1/79 Test  #1: c-0 ..............................   Passed    0.00 sec
+      Start  2: interpret-0
+ 2/79 Test  #2: interpret-0 ......................   Passed    0.00 sec
+      Start  3: fixed-0
+ 3/79 Test  #3: fixed-0 ..........................   Passed    0.00 sec
+      Start  4: adaptive-0
+ 4/79 Test  #4: adaptive-0 .......................   Passed    0.00 sec
+      Start  5: llvm-0
+ 5/79 Test  #5: llvm-0 ...........................   Passed    0.01 sec
+      Start  6: mir-0
+ 6/79 Test  #6: mir-0 ............................   Passed    0.00 sec
+      Start  7: c-1
+ 7/79 Test  #7: c-1 ..............................   Passed    0.00 sec
+      Start  8: interpret-1
+ 8/79 Test  #8: interpret-1 ......................   Passed    0.00 sec
+      Start  9: fixed-1
+ 9/79 Test  #9: fixed-1 ..........................   Passed    0.00 sec
+      Start 10: adaptive-1
+10/79 Test #10: adaptive-1 .......................   Passed    0.00 sec
+      Start 11: llvm-1
+11/79 Test #11: llvm-1 ...........................   Passed    0.02 sec
+      Start 12: mir-1
+12/79 Test #12: mir-1 ............................   Passed    0.00 sec
+      Start 13: c-2
+13/79 Test #13: c-2 ..............................   Passed    0.00 sec
+      Start 14: interpret-2
+14/79 Test #14: interpret-2 ......................   Passed    0.00 sec
+      Start 15: fixed-2
+15/79 Test #15: fixed-2 ..........................   Passed    0.00 sec
+      Start 16: adaptive-2
+16/79 Test #16: adaptive-2 .......................   Passed    0.00 sec
+      Start 17: llvm-2
+17/79 Test #17: llvm-2 ...........................   Passed    0.02 sec
+      Start 18: mir-2
+18/79 Test #18: mir-2 ............................   Passed    0.00 sec
+      Start 19: c-3
+19/79 Test #19: c-3 ..............................   Passed    0.00 sec
+      Start 20: interpret-3
+20/79 Test #20: interpret-3 ......................   Passed    0.00 sec
+      Start 21: fixed-3
+21/79 Test #21: fixed-3 ..........................   Passed    0.00 sec
+      Start 22: adaptive-3
+22/79 Test #22: adaptive-3 .......................   Passed    0.00 sec
+      Start 23: llvm-3
+23/79 Test #23: llvm-3 ...........................   Passed    0.02 sec
+      Start 24: mir-3
+24/79 Test #24: mir-3 ............................   Passed    0.00 sec
+      Start 25: c-4
+25/79 Test #25: c-4 ..............................   Passed    0.00 sec
+      Start 26: interpret-4
+26/79 Test #26: interpret-4 ......................   Passed    0.00 sec
+      Start 27: fixed-4
+27/79 Test #27: fixed-4 ..........................   Passed    0.00 sec
+      Start 28: adaptive-4
+28/79 Test #28: adaptive-4 .......................   Passed    0.00 sec
+      Start 29: llvm-4
+29/79 Test #29: llvm-4 ...........................   Passed    0.02 sec
+      Start 30: mir-4
+30/79 Test #30: mir-4 ............................   Passed    0.00 sec
+      Start 31: c-5
+31/79 Test #31: c-5 ..............................   Passed    0.00 sec
+      Start 32: interpret-5
+32/79 Test #32: interpret-5 ......................   Passed    0.00 sec
+      Start 33: fixed-5
+33/79 Test #33: fixed-5 ..........................   Passed    0.00 sec
+      Start 34: adaptive-5
+34/79 Test #34: adaptive-5 .......................   Passed    0.00 sec
+      Start 35: llvm-5
+35/79 Test #35: llvm-5 ...........................   Passed    0.02 sec
+      Start 36: mir-5
+36/79 Test #36: mir-5 ............................   Passed    0.00 sec
+      Start 37: bulk-c-0
+37/79 Test #37: bulk-c-0 .........................   Passed    0.00 sec
+      Start 38: bulk-interpret-0
+38/79 Test #38: bulk-interpret-0 .................   Passed    0.00 sec
+      Start 39: bulk-fixed-0
+39/79 Test #39: bulk-fixed-0 .....................   Passed    0.00 sec
+      Start 40: bulk-adaptive-0
+40/79 Test #40: bulk-adaptive-0 ..................   Passed    0.00 sec
+      Start 41: bulk-llvm-0
+41/79 Test #41: bulk-llvm-0 ......................   Passed    0.01 sec
+      Start 42: bulk-mir-0
+42/79 Test #42: bulk-mir-0 .......................   Passed    0.00 sec
+      Start 43: bulk-c-1
+43/79 Test #43: bulk-c-1 .........................   Passed    0.00 sec
+      Start 44: bulk-interpret-1
+44/79 Test #44: bulk-interpret-1 .................   Passed    0.00 sec
+      Start 45: bulk-fixed-1
+45/79 Test #45: bulk-fixed-1 .....................   Passed    0.00 sec
+      Start 46: bulk-adaptive-1
+46/79 Test #46: bulk-adaptive-1 ..................   Passed    0.00 sec
+      Start 47: bulk-llvm-1
+47/79 Test #47: bulk-llvm-1 ......................   Passed    0.02 sec
+      Start 48: bulk-mir-1
+48/79 Test #48: bulk-mir-1 .......................   Passed    0.00 sec
+      Start 49: bulk-c-2
+49/79 Test #49: bulk-c-2 .........................   Passed    0.00 sec
+      Start 50: bulk-interpret-2
+50/79 Test #50: bulk-interpret-2 .................   Passed    0.00 sec
+      Start 51: bulk-fixed-2
+51/79 Test #51: bulk-fixed-2 .....................   Passed    0.00 sec
+      Start 52: bulk-adaptive-2
+52/79 Test #52: bulk-adaptive-2 ..................   Passed    0.00 sec
+      Start 53: bulk-llvm-2
+53/79 Test #53: bulk-llvm-2 ......................   Passed    0.02 sec
+      Start 54: bulk-mir-2
+54/79 Test #54: bulk-mir-2 .......................   Passed    0.00 sec
+      Start 55: bulk-c-3
+55/79 Test #55: bulk-c-3 .........................   Passed    0.00 sec
+      Start 56: bulk-interpret-3
+56/79 Test #56: bulk-interpret-3 .................   Passed    0.01 sec
+      Start 57: bulk-fixed-3
+57/79 Test #57: bulk-fixed-3 .....................   Passed    0.00 sec
+      Start 58: bulk-adaptive-3
+58/79 Test #58: bulk-adaptive-3 ..................   Passed    0.00 sec
+      Start 59: bulk-llvm-3
+59/79 Test #59: bulk-llvm-3 ......................   Passed    0.02 sec
+      Start 60: bulk-mir-3
+60/79 Test #60: bulk-mir-3 .......................   Passed    0.00 sec
+      Start 61: bulk-c-4
+61/79 Test #61: bulk-c-4 .........................   Passed    0.00 sec
+      Start 62: bulk-interpret-4
+62/79 Test #62: bulk-interpret-4 .................   Passed    0.01 sec
+      Start 63: bulk-fixed-4
+63/79 Test #63: bulk-fixed-4 .....................   Passed    0.00 sec
+      Start 64: bulk-adaptive-4
+64/79 Test #64: bulk-adaptive-4 ..................   Passed    0.00 sec
+      Start 65: bulk-llvm-4
+65/79 Test #65: bulk-llvm-4 ......................   Passed    0.02 sec
+      Start 66: bulk-mir-4
+66/79 Test #66: bulk-mir-4 .......................   Passed    0.00 sec
+      Start 67: bulk-c-5
+67/79 Test #67: bulk-c-5 .........................   Passed    0.00 sec
+      Start 68: bulk-interpret-5
+68/79 Test #68: bulk-interpret-5 .................   Passed    0.00 sec
+      Start 69: bulk-fixed-5
+69/79 Test #69: bulk-fixed-5 .....................   Passed    0.00 sec
+      Start 70: bulk-adaptive-5
+70/79 Test #70: bulk-adaptive-5 ..................   Passed    0.00 sec
+      Start 71: bulk-llvm-5
+71/79 Test #71: bulk-llvm-5 ......................   Passed    0.02 sec
+      Start 72: bulk-mir-5
+72/79 Test #72: bulk-mir-5 .......................   Passed    0.00 sec
+      Start 73: cold-one-fixed
+73/79 Test #73: cold-one-fixed ...................   Passed    0.00 sec
+      Start 74: cold-one-interpret
+74/79 Test #74: cold-one-interpret ...............   Passed    0.00 sec
+      Start 75: cold-one-adaptive
+75/79 Test #75: cold-one-adaptive ................   Passed    0.00 sec
+      Start 76: recode-context-lifecycle
+76/79 Test #76: recode-context-lifecycle .........   Passed    0.00 sec
+      Start 77: llvm-context-lifecycle
+77/79 Test #77: llvm-context-lifecycle ...........   Passed    0.15 sec
+      Start 78: mir-context-lifecycle
+78/79 Test #78: mir-context-lifecycle ............   Passed    0.01 sec
+      Start 79: registration-disposal
+79/79 Test #79: registration-disposal ............   Passed    0.03 sec
+
+100% tests passed out of 79
+
+Total Test time (real) =   0.48 sec

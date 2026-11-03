@@ -1,0 +1,935 @@
+[1/3] Processing file /home/aasim/Projects/recode/src/adaptive.c.
+[2/3] Processing file /home/aasim/Projects/recode/src/integer_codegen.c.
+[3/3] Processing file /home/aasim/Projects/recode/src/integer.c.
+/home/aasim/Projects/recode/src/adaptive.c:1:9: warning: declaration uses identifier '_GNU_SOURCE', which is a reserved identifier [bugprone-reserved-identifier]
+    1 | #define _GNU_SOURCE
+      |         ^~~~~~~~~~~
+      |         GNU_SOURCE
+/home/aasim/Projects/recode/src/adaptive.c:104:30: warning: performing an implicit widening conversion to type 'size_t' (aka 'unsigned long') of a multiplication performed in type 'int' [bugprone-implicit-widening-of-multiplication-result]
+  104 |         .executable_budget = 4 * 1024 * 1024, .policy = RC_POLICY_ADAPTIVE,
+      |                              ^
+/home/aasim/Projects/recode/src/adaptive.c:104:30: note: make conversion explicit to silence this warning
+    7 |         .executable_budget = 4 * 1024 * 1024, .policy = RC_POLICY_ADAPTIVE,
+      |                              ^~~~~~~~~~~~~~~
+      |                              (size_t)(      )
+/home/aasim/Projects/recode/src/adaptive.c:104:30: note: perform multiplication in a wider type
+  104 |         .executable_budget = 4 * 1024 * 1024, .policy = RC_POLICY_ADAPTIVE,
+      |                              ^~~~~~~~
+      |                              (long)
+/home/aasim/Projects/recode/src/adaptive.c:215:53: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  215 |         for (size_t j = 0; j < count; ++j) found |= headers[j] == insn.immediate;
+      |                                                  ~~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:288:22: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  288 |                 else memcpy(insns,decoded.insns,program_bytes);
+      |                      ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:288:22: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  288 |                 else memcpy(insns,decoded.insns,program_bytes);
+      |                      ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:305:13: warning: Call to function 'memset' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memset_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  305 |             memset(t->traces,0,trace_bytes);
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:305:13: note: Call to function 'memset' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memset_s' in case of C11
+  305 |             memset(t->traces,0,trace_bytes);
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:387:12: warning: Dereference of null pointer (loaded from variable 'entry') [clang-analyzer-core.NullDereference]
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |            ^
+/home/aasim/Projects/recode/src/adaptive.c:1531:9: note: Assuming 'runtime' is not equal to NULL
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |         ^~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1531:9: note: 'runtime' is not equal to NULL
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |         ^~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1531:9: note: Left side of '||' is false
+/home/aasim/Projects/recode/src/adaptive.c:1531:28: note: Assuming the condition is false
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |                            ^~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1531:5: note: Taking false branch
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1535:9: note: Assuming field 'active_calls' is equal to 0
+ 1535 |     if (r->stats.active_calls != 0) {
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1535:5: note: Taking false branch
+ 1535 |     if (r->stats.active_calls != 0) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1539:29: note: Calling 'clear_locked'
+ 1539 |     enum rc_status status = clear_locked(r, error);
+      |                             ^~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1443:51: note: Assuming 't' is not equal to NULL
+ 1443 |     for (struct translation *t = r->translations; t != NULL; t = t->next) {
+      |                                                   ^~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1443:5: note: Loop condition is true.  Entering loop body
+ 1443 |     for (struct translation *t = r->translations; t != NULL; t = t->next) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1445:35: note: Calling 'release_mapping'
+ 1445 |         enum rc_status released = release_mapping(r, t, &current);
+      |                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:408:9: note: Assuming field 'pins' is equal to 0
+  408 |     if (t->pins != 0)
+      |         ^~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:408:5: note: Taking false branch
+  408 |     if (t->pins != 0)
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:417:9: note: Assuming field 'slab' is not equal to NULL
+  417 |     if (t->slab != NULL) {
+      |         ^~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:417:5: note: Taking true branch
+  417 |     if (t->slab != NULL) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:419:13: note: Assuming field 'references' is equal to 1
+  419 |         if (s->references == 1) {
+      |             ^~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:419:9: note: Taking true branch
+  419 |         if (s->references == 1) {
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:420:22: note: Calling 'release_slab'
+  420 |             status = release_slab(r,s,&release_error);
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:381:9: note: Assuming 'status' is equal to RC_OK
+  381 |     if (status != RC_OK) {
+      |         ^~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:381:5: note: Taking false branch
+  381 |     if (status != RC_OK) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:387:5: note: Loop condition is true.  Entering loop body
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:387:25: note: Null pointer value stored to 'entry'
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:387:12: note: Dereference of null pointer (loaded from variable 'entry')
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |            ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:593:9: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  593 |         memcpy((uint8_t *)mapping+offset,other->code.mapping,other->generated);
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:593:9: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  593 |         memcpy((uint8_t *)mapping+offset,other->code.mapping,other->generated);
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:617:9: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  617 |         memcpy(&other->integer_function,&member_entry,sizeof(other->integer_function));
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:617:9: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  617 |         memcpy(&other->integer_function,&member_entry,sizeof(other->integer_function));
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:617:16: warning: multilevel pointer conversion from 'rc_integer_function *' (aka 'unsigned long (**)(unsigned long, unsigned long)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  617 |         memcpy(&other->integer_function,&member_entry,sizeof(other->integer_function));
+      |                ^
+/home/aasim/Projects/recode/src/adaptive.c:617:41: warning: multilevel pointer conversion from 'void **' to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  617 |         memcpy(&other->integer_function,&member_entry,sizeof(other->integer_function));
+      |                                         ^
+/home/aasim/Projects/recode/src/adaptive.c:619:9: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  619 |         memcpy(&other->batch_function,&member_entry,sizeof(other->batch_function));
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:619:9: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  619 |         memcpy(&other->batch_function,&member_entry,sizeof(other->batch_function));
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:619:16: warning: multilevel pointer conversion from 'rc_integer_batch_function *' (aka 'enum rc_status (**)(struct rc_integer_batch_context *)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  619 |         memcpy(&other->batch_function,&member_entry,sizeof(other->batch_function));
+      |                ^
+/home/aasim/Projects/recode/src/adaptive.c:619:39: warning: multilevel pointer conversion from 'void **' to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  619 |         memcpy(&other->batch_function,&member_entry,sizeof(other->batch_function));
+      |                                       ^
+/home/aasim/Projects/recode/src/adaptive.c:625:5: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  625 |     memcpy(&t->integer_function,&entry,sizeof(t->integer_function));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:625:5: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  625 |     memcpy(&t->integer_function,&entry,sizeof(t->integer_function));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:625:12: warning: multilevel pointer conversion from 'rc_integer_function *' (aka 'unsigned long (**)(unsigned long, unsigned long)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  625 |     memcpy(&t->integer_function,&entry,sizeof(t->integer_function));
+      |            ^
+/home/aasim/Projects/recode/src/adaptive.c:625:33: warning: multilevel pointer conversion from 'void **' to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  625 |     memcpy(&t->integer_function,&entry,sizeof(t->integer_function));
+      |                                 ^
+/home/aasim/Projects/recode/src/adaptive.c:627:5: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  627 |     memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:627:5: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  627 |     memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:627:12: warning: multilevel pointer conversion from 'rc_integer_batch_function *' (aka 'enum rc_status (**)(struct rc_integer_batch_context *)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  627 |     memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |            ^
+/home/aasim/Projects/recode/src/adaptive.c:627:31: warning: multilevel pointer conversion from 'void **' to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  627 |     memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |                               ^
+/home/aasim/Projects/recode/src/adaptive.c:651:13: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  651 |             memcpy(prepared.insns, t->program.insns, prepared.count * sizeof(*prepared.insns));
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:651:13: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  651 |             memcpy(prepared.insns, t->program.insns, prepared.count * sizeof(*prepared.insns));
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:682:13: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  682 |             memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:682:13: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  682 |             memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:682:20: warning: multilevel pointer conversion from 'rc_integer_batch_function *' (aka 'enum rc_status (**)(struct rc_integer_batch_context *)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  682 |             memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |                    ^
+/home/aasim/Projects/recode/src/adaptive.c:682:39: warning: multilevel pointer conversion from 'void **' to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  682 |             memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
+      |                                       ^
+/home/aasim/Projects/recode/src/adaptive.c:834:17: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  834 |                 memcpy(compact,slot->trace.ops,used);
+      |                 ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:834:17: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  834 |                 memcpy(compact,slot->trace.ops,used);
+      |                 ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1008:9: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+ 1008 |         memcpy(&entry,&integer_native,sizeof(entry));
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1008:9: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+ 1008 |         memcpy(&entry,&integer_native,sizeof(entry));
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1008:16: warning: multilevel pointer conversion from 'rc_integer_view_function *' (aka 'enum rc_status (**)(unsigned long, unsigned long, const void *, unsigned long, struct rc_integer_result *)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+ 1008 |         memcpy(&entry,&integer_native,sizeof(entry));
+      |                ^
+/home/aasim/Projects/recode/src/adaptive.c:1008:23: warning: multilevel pointer conversion from 'rc_integer_function *' (aka 'unsigned long (**)(unsigned long, unsigned long)') to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+ 1008 |         memcpy(&entry,&integer_native,sizeof(entry));
+      |                       ^
+/home/aasim/Projects/recode/src/adaptive.c:1166:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+ 1166 |         malformed |= !valid_span(i->arguments,bytes);
+      |                   ~~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1173:26: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+ 1173 |             malformed |= !valid_span(i->view->data,i->view->length);
+      |                       ~~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1183:61: warning: 2 adjacent parameters of 'runtime_integer_batch' of similar type are easily swapped by mistake [bugprone-easily-swappable-parameters]
+ 1183 |                                               size_t count, uint64_t *results,
+      |                                                             ^~~~~~~~~~~~~~~~~~
+ 1184 |                                               size_t *completed, struct rc_error *error)
+      |                                               ~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1183:71: note: the first parameter in the range is 'results'
+ 1183 |                                               size_t count, uint64_t *results,
+      |                                                                       ^~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1184:55: note: the last parameter in the range is 'completed'
+ 1184 |                                               size_t *completed, struct rc_error *error)
+      |                                                       ^~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1183:61: note: after resolving type aliases, the common type of 'uint64_t *' and 'size_t *' is 'unsigned long *'
+ 1183 |                                               size_t count, uint64_t *results,
+      |                                                             ^
+/home/aasim/Projects/recode/src/adaptive.c:1225:33: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+ 1225 |         if (t->integer->memory) memcpy(&memory_native,&native,sizeof(memory_native));
+      |                                 ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1225:33: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+ 1225 |         if (t->integer->memory) memcpy(&memory_native,&native,sizeof(memory_native));
+      |                                 ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1225:40: warning: multilevel pointer conversion from 'rc_integer_view_function *' (aka 'enum rc_status (**)(unsigned long, unsigned long, const void *, unsigned long, struct rc_integer_result *)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+ 1225 |         if (t->integer->memory) memcpy(&memory_native,&native,sizeof(memory_native));
+      |                                        ^
+/home/aasim/Projects/recode/src/adaptive.c:1225:55: warning: multilevel pointer conversion from 'rc_integer_function *' (aka 'unsigned long (**)(unsigned long, unsigned long)') to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+ 1225 |         if (t->integer->memory) memcpy(&memory_native,&native,sizeof(memory_native));
+      |                                                       ^
+/home/aasim/Projects/recode/src/adaptive.c:1263:17: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+ 1263 |                 memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+      |                 ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1263:17: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+ 1263 |                 memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+      |                 ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1263:51: warning: Addition of a null pointer (from variable 'record') and a probably nonzero integer value may result in undefined behavior [clang-analyzer-core.NullPointerArithm]
+ 1263 |                 memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+      |                                             ~~~~~~^
+/home/aasim/Projects/recode/src/adaptive.c:1187:9: note: Assuming 'r' is not equal to NULL
+ 1187 |     if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+      |         ^~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1187:9: note: 'r' is not equal to NULL
+ 1187 |     if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:1187:5: note: Taking false branch
+ 1187 |     if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1190:9: note: Assuming 'f' is not equal to NULL
+ 1190 |     if (f == NULL) {
+      |         ^~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1190:5: note: Taking false branch
+ 1190 |     if (f == NULL) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1195:18: note: Assuming field 'integer' is not equal to NULL
+ 1195 |     bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+      |                  ^~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1195:18: note: Left side of '&&' is true
+/home/aasim/Projects/recode/src/adaptive.c:1195:41: note: Assuming 'records' is not equal to NULL
+ 1195 |     bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+      |                                         ^~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1195:41: note: Left side of '||' is false
+/home/aasim/Projects/recode/src/adaptive.c:1195:60: note: Assuming field 'argument_count' is equal to field 'arguments'
+ 1195 |     bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+      |                                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1196:24: note: 'records' is not equal to NULL
+ 1196 |     for (size_t n = 0; records == NULL && valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
+      |                        ^~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1196:40: note: Left side of '&&' is false
+ 1196 |     for (size_t n = 0; records == NULL && valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
+      |                                        ^
+/home/aasim/Projects/recode/src/adaptive.c:1197:10: note: 'valid' is true
+ 1197 |     if (!valid || count == 0) {
+      |          ^~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1197:9: note: Left side of '||' is false
+ 1197 |     if (!valid || count == 0) {
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:1197:19: note: Assuming 'count' is not equal to 0
+ 1197 |     if (!valid || count == 0) {
+      |                   ^~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1197:5: note: Taking false branch
+ 1197 |     if (!valid || count == 0) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1201:9: note: Assuming field 'active' is not equal to SIZE_MAX
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |         ^~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1201:9: note: Left side of '||' is false
+/home/aasim/Projects/recode/src/adaptive.c:1201:34: note: Assuming field 'pins' is not equal to SIZE_MAX
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |                                  ^~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1201:9: note: Left side of '||' is false
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:1201:57: note: Assuming field 'active_calls' is not equal to SIZE_MAX
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |                                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1201:5: note: Taking false branch
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1211:25: note: Assuming field 'interpreted' is equal to 0
+ 1211 |     bool allow_native = f->stats.interpreted != 0 || r->config.cold_batch_compile;
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1211:25: note: Left side of '||' is false
+/home/aasim/Projects/recode/src/adaptive.c:1212:9: note: Assuming 'allow_native' is false
+ 1212 |     if (allow_native && t->integer_function != NULL) {
+      |         ^~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1212:22: note: Left side of '&&' is false
+ 1212 |     if (allow_native && t->integer_function != NULL) {
+      |                      ^
+/home/aasim/Projects/recode/src/adaptive.c:1216:13: note: Assuming field 'policy' is not equal to RC_POLICY_ADAPTIVE
+ 1216 |         if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1216:9: note: Taking false branch
+ 1216 |         if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:1217:13: note: Assuming field 'integer_function' is not equal to NULL
+ 1217 |         if (t->integer_function == NULL && (should_compile_cold_batch(r,f,count) || should_compile(r,f,tick)))
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1217:41: note: Left side of '&&' is false
+ 1217 |         if (t->integer_function == NULL && (should_compile_cold_batch(r,f,count) || should_compile(r,f,tick)))
+      |                                         ^
+/home/aasim/Projects/recode/src/adaptive.c:1220:34: note: 'allow_native' is false
+ 1220 |     rc_integer_function native = allow_native ? t->integer_function : NULL;
+      |                                  ^~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1220:34: note: '?' condition is false
+/home/aasim/Projects/recode/src/adaptive.c:1221:46: note: 'native' is equal to NULL
+ 1221 |     rc_integer_batch_function batch_native = native != NULL ? t->batch_function : NULL;
+      |                                              ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1221:46: note: '?' condition is false
+/home/aasim/Projects/recode/src/adaptive.c:1223:9: note: 'native' is equal to NULL
+ 1223 |     if (native != NULL) {
+      |         ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1223:5: note: Taking false branch
+ 1223 |     if (native != NULL) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1227:9: note: 'tick' is equal to 0
+ 1227 |     if (tick != 0) {
+      |         ^~~~
+/home/aasim/Projects/recode/src/adaptive.c:1227:5: note: Taking false branch
+ 1227 |     if (tick != 0) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1234:30: note: 'native' is equal to NULL
+ 1234 |     uint64_t prior_samples = native != NULL ? f->stats.compiled_samples : f->stats.interpreted_samples;
+      |                              ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1234:30: note: '?' condition is false
+/home/aasim/Projects/recode/src/adaptive.c:1240:24: note: 'n' is < 'count'
+ 1240 |     for (size_t n = 0; n < count; ++n) {
+      |                        ^
+/home/aasim/Projects/recode/src/adaptive.c:1240:5: note: Loop condition is true.  Entering loop body
+ 1240 |     for (size_t n = 0; n < count; ++n) {
+      |     ^
+/home/aasim/Projects/recode/src/adaptive.c:1241:22: note: 'native' is equal to NULL
+ 1241 |         size_t run = native != NULL ? rc_unsampled_run(rc_saturating_add(base,n),
+      |                      ^~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1241:22: note: '?' condition is false
+/home/aasim/Projects/recode/src/adaptive.c:1243:13: note: 'run' is equal to 0
+ 1243 |         if (run != 0) {
+      |             ^~~
+/home/aasim/Projects/recode/src/adaptive.c:1243:9: note: Taking false branch
+ 1243 |         if (run != 0) {
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:1259:13: note: 'records' is not equal to NULL
+ 1259 |         if (records != NULL) {
+      |             ^~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1259:9: note: Taking true branch
+ 1259 |         if (records != NULL) {
+      |         ^
+/home/aasim/Projects/recode/src/adaptive.c:1260:37: note: Assuming field 'records' is equal to NULL
+ 1260 |             const uint8_t *record = records->records != NULL
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1260:37: note: '?' condition is false
+/home/aasim/Projects/recode/src/adaptive.c:1260:13: note: 'record' initialized to a null pointer value
+ 1260 |             const uint8_t *record = records->records != NULL
+      |             ^~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1262:34: note: Assuming 'arg' is < 'arity'
+ 1262 |             for (size_t arg = 0; arg < arity; ++arg)
+      |                                  ^~~~~~~~~~~
+/home/aasim/Projects/recode/src/adaptive.c:1262:13: note: Loop condition is true.  Entering loop body
+ 1262 |             for (size_t arg = 0; arg < arity; ++arg)
+      |             ^
+/home/aasim/Projects/recode/src/adaptive.c:1263:51: note: Addition of a null pointer (from variable 'record') and a probably nonzero integer value may result in undefined behavior
+ 1263 |                 memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+      |                                             ~~~~~~^
+/home/aasim/Projects/recode/src/adaptive.c:1361:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+ 1361 |         malformed |= records->argument_offsets[n] > records->record_size ||
+      |                   ~~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1362 |             sizeof(uint64_t) > records->record_size-records->argument_offsets[n];
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:53:13: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+   53 |             memcpy(insns, b->program.insns, b->program.count * sizeof(*insns));
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/integer.c:53:13: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+   53 |             memcpy(insns, b->program.insns, b->program.count * sizeof(*insns));
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/integer.c:89:20: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                 ~~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:119:49: warning: The left operand of '&' is a garbage value [clang-analyzer-core.UndefinedBinaryOperatorResult]
+  119 |                 uint64_t merged = next->defined & defined;
+      |                                                 ^
+/home/aasim/Projects/recode/src/integer.c:156:9: note: Assuming 'b' is not equal to NULL
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |         ^~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:156:9: note: 'b' is not equal to NULL
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:156:9: note: Left side of '||' is false
+/home/aasim/Projects/recode/src/integer.c:156:22: note: Assuming 'out' is not equal to NULL
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |                      ^~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:156:9: note: Left side of '||' is false
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:156:37: note: Assuming the condition is false
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |                                     ^~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:156:5: note: Taking false branch
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:158:29: note: Calling 'rc_integer_validate'
+  158 |     enum rc_status status = rc_integer_validate(&b->program, error);
+      |                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:67:9: note: 'p' is not equal to NULL
+   67 |     if (p == NULL) return rc_fail(error, RC_ARGUMENT, 0, 0);
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:67:5: note: Taking false branch
+   67 |     if (p == NULL) return rc_fail(error, RC_ARGUMENT, 0, 0);
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:68:9: note: Assuming field 'registers' is not equal to 0
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:68:9: note: Left side of '||' is false
+/home/aasim/Projects/recode/src/integer.c:68:30: note: Assuming field 'registers' is <= RC_INTEGER_MAX_REGISTERS
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:68:9: note: Left side of '||' is false
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:68:73: note: Assuming field 'arguments' is <= 2
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |                                                                         ^~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:68:9: note: Left side of '||' is false
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:69:9: note: Assuming field 'count' is <= RC_INTEGER_MAX_INSTRUCTIONS
+   69 |         p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:68:9: note: Left side of '||' is false
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:69:52: note: Assuming field 'count' is not equal to 0
+   69 |         p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+      |                                                    ^~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:69:52: note: Left side of '&&' is true
+/home/aasim/Projects/recode/src/integer.c:69:69: note: Assuming field 'insns' is not equal to NULL
+   69 |         p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+      |                                                                     ^~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:68:5: note: Taking false branch
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:71:12: note: Field 'count' is not equal to 0
+   71 |     if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
+      |            ^
+/home/aasim/Projects/recode/src/integer.c:71:5: note: Taking false branch
+   71 |     if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:77:24: note: 'n' is < field 'count'
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |                        ^
+/home/aasim/Projects/recode/src/integer.c:77:5: note: Loop condition is true.  Entering loop body
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:81:13: note: 'status' is equal to RC_OK
+   81 |         if (status != RC_OK) goto done;
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/integer.c:81:9: note: Taking false branch
+   81 |         if (status != RC_OK) goto done;
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:82:16: note: Field 'op' is equal to RC_INT_JUMP
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                ^
+/home/aasim/Projects/recode/src/integer.c:82:34: note: Left side of '||' is true
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                  ^
+/home/aasim/Projects/recode/src/integer.c:82:63: note: Assuming field 'target' is < field 'count'
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                                               ^~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:82:9: note: Taking false branch
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:85:13: note: Assuming the condition is false
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |             ^~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:85:31: note: Left side of '&&' is false
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |                               ^
+/home/aasim/Projects/recode/src/integer.c:89:22: note: Field 'op' is equal to RC_INT_JUMP
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                      ^
+/home/aasim/Projects/recode/src/integer.c:89:40: note: Left side of '||' is true
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                                        ^
+/home/aasim/Projects/recode/src/integer.c:77:24: note: 'n' is < field 'count'
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |                        ^
+/home/aasim/Projects/recode/src/integer.c:77:5: note: Loop condition is true.  Entering loop body
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:81:13: note: 'status' is equal to RC_OK
+   81 |         if (status != RC_OK) goto done;
+      |             ^~~~~~
+/home/aasim/Projects/recode/src/integer.c:81:9: note: Taking false branch
+   81 |         if (status != RC_OK) goto done;
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:82:16: note: Field 'op' is equal to RC_INT_JUMP
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                ^
+/home/aasim/Projects/recode/src/integer.c:82:34: note: Left side of '||' is true
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                  ^
+/home/aasim/Projects/recode/src/integer.c:82:63: note: Assuming field 'target' is < field 'count'
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                                               ^~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:82:9: note: Taking false branch
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:85:13: note: Assuming the condition is true
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |             ^~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:85:13: note: Left side of '&&' is true
+/home/aasim/Projects/recode/src/integer.c:85:36: note: Field 'op' is equal to RC_INT_JUMP
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |                                    ^
+/home/aasim/Projects/recode/src/integer.c:85:54: note: Left side of '&&' is false
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |                                                      ^
+/home/aasim/Projects/recode/src/integer.c:89:22: note: Field 'op' is equal to RC_INT_JUMP
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                      ^
+/home/aasim/Projects/recode/src/integer.c:89:40: note: Left side of '||' is true
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                                        ^
+/home/aasim/Projects/recode/src/integer.c:77:5: note: Loop condition is false. Execution continues on line 91
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:91:9: note: Assuming 'memory' is equal to field 'memory'
+   91 |     if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
+      |         ^~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:91:5: note: Taking false branch
+   91 |     if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:92:10: note: 'control' is true
+   92 |     if (!control) {
+      |          ^~~~~~~
+/home/aasim/Projects/recode/src/integer.c:92:5: note: Taking false branch
+   92 |     if (!control) {
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:102:13: note: Uninitialized value stored to field 'defined'
+  102 |     facts = malloc(p->count * sizeof(*facts));
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:103:9: note: Assuming 'facts' is not equal to NULL
+  103 |     if (facts == NULL) { status = RC_MEMORY; offset = 0; goto done; }
+      |         ^~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer.c:103:5: note: Taking false branch
+  103 |     if (facts == NULL) { status = RC_MEMORY; offset = 0; goto done; }
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:104:5: note: Loop condition is true.  Entering loop body
+  104 |     for (size_t n = 0; n < p->count; ++n) facts[n] = (struct facts){UINT64_MAX,false};
+      |     ^
+/home/aasim/Projects/recode/src/integer.c:104:5: note: Loop condition is true.  Entering loop body
+/home/aasim/Projects/recode/src/integer.c:104:5: note: Loop condition is false. Execution continues on line 105
+/home/aasim/Projects/recode/src/integer.c:109:9: note: Loop condition is true.  Entering loop body
+  109 |         for (size_t n = 0; n < p->count; ++n) {
+      |         ^
+/home/aasim/Projects/recode/src/integer.c:110:27: note: Field 'reachable' is true
+  110 |             if (!facts[n].reachable) continue;
+      |                           ^
+/home/aasim/Projects/recode/src/integer.c:110:13: note: Taking false branch
+  110 |             if (!facts[n].reachable) continue;
+      |             ^
+/home/aasim/Projects/recode/src/integer.c:113:19: note: Field 'op' is > RC_INT_SLE
+  113 |             if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+      |                   ^
+/home/aasim/Projects/recode/src/integer.c:113:17: note: Left side of '||' is false
+  113 |             if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+      |                 ^
+/home/aasim/Projects/recode/src/integer.c:113:13: note: Taking false branch
+  113 |             if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+      |             ^
+/home/aasim/Projects/recode/src/integer.c:115:19: note: Field 'op' is equal to RC_INT_JUMP
+  115 |             if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) edges[count++] = i.target;
+      |                   ^
+/home/aasim/Projects/recode/src/integer.c:115:37: note: Left side of '||' is true
+  115 |             if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) edges[count++] = i.target;
+      |                                     ^
+/home/aasim/Projects/recode/src/integer.c:116:19: note: Field 'op' is equal to RC_INT_JUMP
+  116 |             if (i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) edges[count++] = n + 1;
+      |                   ^
+/home/aasim/Projects/recode/src/integer.c:116:37: note: Left side of '&&' is false
+  116 |             if (i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) edges[count++] = n + 1;
+      |                                     ^
+/home/aasim/Projects/recode/src/integer.c:117:13: note: Loop condition is true.  Entering loop body
+  117 |             for (size_t e = 0; e < count; ++e) {
+      |             ^
+/home/aasim/Projects/recode/src/integer.c:119:49: note: The left operand of '&' is a garbage value
+  119 |                 uint64_t merged = next->defined & defined;
+      |                                   ~~~~~~~~~~~~~ ^
+/home/aasim/Projects/recode/src/integer.c:148:5: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  148 |     memcpy(copy->insns, p->insns, p->count * sizeof(*copy->insns));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/integer.c:148:5: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  148 |     memcpy(copy->insns, p->insns, p->count * sizeof(*copy->insns));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/integer.c:218:44: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  218 |         case RC_INT_SHL: value = a << (b & 63); break;
+      |                                          ~ ^~
+/home/aasim/Projects/recode/src/integer.c:219:44: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  219 |         case RC_INT_SHR: value = a >> (b & 63); break;
+      |                                          ~ ^~
+/home/aasim/Projects/recode/src/integer.c:226:55: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  226 |         case RC_INT_SLT: value = (a ^ (UINT64_C(1) << 63)) < (b ^ (UINT64_C(1) << 63)); break;
+      |                                                    ~~ ^~
+/home/aasim/Projects/recode/src/integer.c:226:83: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  226 |         case RC_INT_SLT: value = (a ^ (UINT64_C(1) << 63)) < (b ^ (UINT64_C(1) << 63)); break;
+      |                                                                                ~~ ^~
+/home/aasim/Projects/recode/src/integer.c:227:55: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  227 |         case RC_INT_SLE: value = (a ^ (UINT64_C(1) << 63)) <= (b ^ (UINT64_C(1) << 63)); break;
+      |                                                    ~~ ^~
+/home/aasim/Projects/recode/src/integer.c:227:84: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  227 |         case RC_INT_SLE: value = (a ^ (UINT64_C(1) << 63)) <= (b ^ (UINT64_C(1) << 63)); break;
+      |                                                                                 ~~ ^~
+/home/aasim/Projects/recode/src/integer_codegen.c:1:9: warning: declaration uses identifier '_GNU_SOURCE', which is a reserved identifier [bugprone-reserved-identifier]
+    1 | #define _GNU_SOURCE
+      |         ^~~~~~~~~~~
+      |         GNU_SOURCE
+/home/aasim/Projects/recode/src/integer_codegen.c:44:5: warning: Call to function 'memset' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memset_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+   44 |     memset(targets,0,p->count*sizeof(*targets));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:44:5: note: Call to function 'memset' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memset_s' in case of C11
+   44 |     memset(targets,0,p->count*sizeof(*targets));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:84:37: warning: 2 adjacent parameters of 'regop' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   84 | static void regop(struct output *o, uint8_t opcode, int dst, int src)
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:84:45: note: the first parameter in the range is 'opcode'
+   84 | static void regop(struct output *o, uint8_t opcode, int dst, int src)
+      |                                             ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:84:57: note: the last parameter in the range is 'dst'
+   84 | static void regop(struct output *o, uint8_t opcode, int dst, int src)
+      |                                                         ^~~
+/home/aasim/Projects/recode/src/integer_codegen.c:84:37: note:
+   84 | static void regop(struct output *o, uint8_t opcode, int dst, int src)
+      |                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:84:53: note: 'uint8_t' and 'int' may be implicitly converted: 'uint8_t' (as 'unsigned char') -> 'int', 'int' -> 'uint8_t' (as 'unsigned char')
+   84 | static void regop(struct output *o, uint8_t opcode, int dst, int src)
+      |                                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:86:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   86 |     byte(o,(uint8_t)(0x48 | (src >= 8 ? 4 : 0) | (dst >= 8 ? 1 : 0)));
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:87:38: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   87 |     byte(o,opcode); byte(o,(uint8_t)(0xc0 | ((src & 7) << 3) | (dst & 7)));
+      |                                      ^~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:87:46: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   87 |     byte(o,opcode); byte(o,(uint8_t)(0xc0 | ((src & 7) << 3) | (dst & 7)));
+      |                                              ^~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:87:47: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   87 |     byte(o,opcode); byte(o,(uint8_t)(0xc0 | ((src & 7) << 3) | (dst & 7)));
+      |                                               ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:87:65: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   87 |     byte(o,opcode); byte(o,(uint8_t)(0xc0 | ((src & 7) << 3) | (dst & 7)));
+      |                                                                 ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:93:37: warning: 3 adjacent parameters of 'stack' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:93:45: note: the first parameter in the range is 'opcode'
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                             ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:93:75: note: the last parameter in the range is 'reg'
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                                                           ^~~
+/home/aasim/Projects/recode/src/integer_codegen.c:93:37: note:
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:93:53: note: 'uint8_t' and 'int' may be implicitly converted: 'uint8_t' (as 'unsigned char') -> 'int', 'int' -> 'uint8_t' (as 'unsigned char')
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:93:37: note:
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:93:66: note: 'uint8_t' and 'uint32_t' may be implicitly converted: 'uint8_t' (as 'unsigned char') -> 'uint32_t' (as 'unsigned int'), 'uint32_t' (as 'unsigned int') -> 'uint8_t' (as 'unsigned char')
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                                                  ^
+/home/aasim/Projects/recode/src/integer_codegen.c:93:53: note:
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:93:66: note: 'int' and 'uint32_t' may be implicitly converted: 'int' -> 'uint32_t' (as 'unsigned int'), 'uint32_t' (as 'unsigned int') -> 'int'
+   93 | static void stack(struct output *o, uint8_t opcode, int machine, uint32_t reg)
+      |                                                                  ^
+/home/aasim/Projects/recode/src/integer_codegen.c:96:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   96 |     byte(o,(uint8_t)(0x48 | (machine >= 8 ? 4 : 0)));
+      |                      ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:97:38: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   97 |     byte(o,opcode); byte(o,(uint8_t)((compact ? 0x44 : 0x84) | ((machine & 7) << 3)));
+      |                                      ^~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:97:65: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   97 |     byte(o,opcode); byte(o,(uint8_t)((compact ? 0x44 : 0x84) | ((machine & 7) << 3)));
+      |                                                                 ^~~~~~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:97:66: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   97 |     byte(o,opcode); byte(o,(uint8_t)((compact ? 0x44 : 0x84) | ((machine & 7) << 3)));
+      |                                                                  ^~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:106:40: warning: 2 adjacent parameters of 'constant' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+  106 | static void constant(struct output *o, int dst, uint64_t value)
+      |                                        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:106:44: note: the first parameter in the range is 'dst'
+  106 | static void constant(struct output *o, int dst, uint64_t value)
+      |                                            ^~~
+/home/aasim/Projects/recode/src/integer_codegen.c:106:58: note: the last parameter in the range is 'value'
+  106 | static void constant(struct output *o, int dst, uint64_t value)
+      |                                                          ^~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:106:40: note:
+  106 | static void constant(struct output *o, int dst, uint64_t value)
+      |                                        ^
+/home/aasim/Projects/recode/src/integer_codegen.c:106:49: note: 'int' and 'uint64_t' may be implicitly converted: 'int' -> 'uint64_t' (as 'unsigned long'), 'uint64_t' (as 'unsigned long') -> 'int'
+  106 | static void constant(struct output *o, int dst, uint64_t value)
+      |                                                 ^
+/home/aasim/Projects/recode/src/integer_codegen.c:110:34: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  110 |         byte(o,(uint8_t)(0xb8 + (dst & 7))); word(o,(uint32_t)value);
+      |                                  ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:112:26: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  112 |         byte(o,(uint8_t)(0x48 | (dst >= 8 ? 1 : 0)));
+      |                          ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:113:34: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  113 |         byte(o,(uint8_t)(0xb8 + (dst & 7)));
+      |                                  ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:114:61: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  114 |         word(o,(uint32_t)value); word(o,(uint32_t)(value >> 32));
+      |                                                          ~~ ^~
+/home/aasim/Projects/recode/src/integer_codegen.c:117:37: warning: 2 adjacent parameters of 'frame' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+  117 | static void frame(struct output *o, uint8_t modrm, uint32_t size)
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:117:45: note: the first parameter in the range is 'modrm'
+  117 | static void frame(struct output *o, uint8_t modrm, uint32_t size)
+      |                                             ^~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:117:61: note: the last parameter in the range is 'size'
+  117 | static void frame(struct output *o, uint8_t modrm, uint32_t size)
+      |                                                             ^~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:117:37: note:
+  117 | static void frame(struct output *o, uint8_t modrm, uint32_t size)
+      |                                     ^
+/home/aasim/Projects/recode/src/integer_codegen.c:117:52: note: 'uint8_t' and 'uint32_t' may be implicitly converted: 'uint8_t' (as 'unsigned char') -> 'uint32_t' (as 'unsigned int'), 'uint32_t' (as 'unsigned int') -> 'uint8_t' (as 'unsigned char')
+  117 | static void frame(struct output *o, uint8_t modrm, uint32_t size)
+      |                                                    ^
+/home/aasim/Projects/recode/src/integer_codegen.c:135:26: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  135 |         byte(o,(uint8_t)(0x48 | (dst >= 8 ? 4 : 0) | (right >= 8 ? 1 : 0)));
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:136:54: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  136 |         byte(o,0x0f); byte(o,0xaf); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (right & 7)));
+      |                                                      ^~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:136:62: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  136 |         byte(o,0x0f); byte(o,0xaf); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (right & 7)));
+      |                                                              ^~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:136:63: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  136 |         byte(o,0x0f); byte(o,0xaf); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (right & 7)));
+      |                                                               ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:136:81: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  136 |         byte(o,0x0f); byte(o,0xaf); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (right & 7)));
+      |                                                                                 ^~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:140:26: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  140 |         byte(o,(uint8_t)(0x48 | (dst >= 8 ? 1 : 0))); byte(o,0xd3);
+      |                          ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:141:26: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  141 |         byte(o,(uint8_t)((op == RC_INT_SHL ? 0xe0 : 0xe8) | (dst & 7)));
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:141:62: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  141 |         byte(o,(uint8_t)((op == RC_INT_SHL ? 0xe0 : 0xe8) | (dst & 7)));
+      |                                                              ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:147:40: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  147 |         if (dst >= 4) byte(o,(uint8_t)(0x40 | (dst >= 8 ? 1 : 0)));
+      |                                        ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:148:74: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  148 |         byte(o,0x0f); byte(o,conditions[op-RC_INT_EQ]); byte(o,(uint8_t)(0xc0 | (dst & 7)));
+      |                                                                          ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:148:82: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  148 |         byte(o,0x0f); byte(o,conditions[op-RC_INT_EQ]); byte(o,(uint8_t)(0xc0 | (dst & 7)));
+      |                                                                                  ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:150:54: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  150 |         byte(o,0x0f); byte(o,0xb6); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (dst & 7)));
+      |                                                      ^~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:150:62: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  150 |         byte(o,0x0f); byte(o,0xb6); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (dst & 7)));
+      |                                                              ^~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:150:63: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  150 |         byte(o,0x0f); byte(o,0xb6); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (dst & 7)));
+      |                                                               ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:150:81: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  150 |         byte(o,0x0f); byte(o,0xb6); byte(o,(uint8_t)(0xc0 | ((dst & 7) << 3) | (dst & 7)));
+      |                                                                                 ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:38: warning: 2 adjacent parameters of 'memory' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                      ^~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:46: note: the first parameter in the range is 'opcode'
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                              ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:58: note: the last parameter in the range is 'reg'
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                          ^~~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:38: note:
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                      ^
+/home/aasim/Projects/recode/src/integer_codegen.c:156:54: note: 'uint8_t' and 'int' may be implicitly converted: 'uint8_t' (as 'unsigned char') -> 'int', 'int' -> 'uint8_t' (as 'unsigned char')
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                      ^
+/home/aasim/Projects/recode/src/integer_codegen.c:156:63: warning: 2 adjacent parameters of 'memory' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                               ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:67: note: the first parameter in the range is 'base'
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                                   ^~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:81: note: the last parameter in the range is 'offset'
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                                                 ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:156:63: note:
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                               ^
+/home/aasim/Projects/recode/src/integer_codegen.c:156:73: note: 'int' and 'uint8_t' may be implicitly converted: 'int' -> 'uint8_t' (as 'unsigned char'), 'uint8_t' (as 'unsigned char') -> 'int'
+  156 | static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t offset)
+      |                                                                         ^
+/home/aasim/Projects/recode/src/integer_codegen.c:158:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  158 |     byte(o,(uint8_t)(0x48 | (reg >= 8 ? 4 : 0) | (base >= 8 ? 1 : 0)));
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:159:38: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  159 |     byte(o,opcode); byte(o,(uint8_t)(0x40 | ((reg & 7) << 3) | (base & 7)));
+      |                                      ^~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:159:46: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  159 |     byte(o,opcode); byte(o,(uint8_t)(0x40 | ((reg & 7) << 3) | (base & 7)));
+      |                                              ^~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:159:47: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  159 |     byte(o,opcode); byte(o,(uint8_t)(0x40 | ((reg & 7) << 3) | (base & 7)));
+      |                                               ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:159:65: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  159 |     byte(o,opcode); byte(o,(uint8_t)(0x40 | ((reg & 7) << 3) | (base & 7)));
+      |                                                                 ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:160:10: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  160 |     if ((base & 7) == 4) byte(o,0x24);
+      |          ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:163:39: warning: 2 adjacent parameters of 'indexed' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+  163 | static void indexed(struct output *o, uint8_t opcode, int reg, int base, int index)
+      |                                       ^~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:163:47: note: the first parameter in the range is 'opcode'
+  163 | static void indexed(struct output *o, uint8_t opcode, int reg, int base, int index)
+      |                                               ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:163:59: note: the last parameter in the range is 'reg'
+  163 | static void indexed(struct output *o, uint8_t opcode, int reg, int base, int index)
+      |                                                           ^~~
+/home/aasim/Projects/recode/src/integer_codegen.c:163:39: note:
+  163 | static void indexed(struct output *o, uint8_t opcode, int reg, int base, int index)
+      |                                       ^
+/home/aasim/Projects/recode/src/integer_codegen.c:163:55: note: 'uint8_t' and 'int' may be implicitly converted: 'uint8_t' (as 'unsigned char') -> 'int', 'int' -> 'uint8_t' (as 'unsigned char')
+  163 | static void indexed(struct output *o, uint8_t opcode, int reg, int base, int index)
+      |                                                       ^
+/home/aasim/Projects/recode/src/integer_codegen.c:165:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  165 |     byte(o,(uint8_t)(0x48 | (reg >= 8 ? 4 : 0) | (index >= 8 ? 2 : 0) | (base >= 8 ? 1 : 0)));
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:166:38: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  166 |     byte(o,opcode); byte(o,(uint8_t)(0x44 | ((reg & 7) << 3)));
+      |                                      ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:166:46: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  166 |     byte(o,opcode); byte(o,(uint8_t)(0x44 | ((reg & 7) << 3)));
+      |                                              ^~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:166:47: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  166 |     byte(o,opcode); byte(o,(uint8_t)(0x44 | ((reg & 7) << 3)));
+      |                                               ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:167:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  167 |     byte(o,(uint8_t)(((index & 7) << 3) | (base & 7))); byte(o,0);
+      |                      ^~~~~~~~~~~~~~~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:167:23: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  167 |     byte(o,(uint8_t)(((index & 7) << 3) | (base & 7))); byte(o,0);
+      |                       ^~~~~~~~~~~ ~~
+/home/aasim/Projects/recode/src/integer_codegen.c:167:24: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  167 |     byte(o,(uint8_t)(((index & 7) << 3) | (base & 7))); byte(o,0);
+      |                        ^~~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:167:44: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  167 |     byte(o,(uint8_t)(((index & 7) << 3) | (base & 7))); byte(o,0);
+      |                                            ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:169:39: warning: 2 adjacent parameters of 'advance' of convertible types are easily swapped by mistake [bugprone-easily-swappable-parameters]
+  169 | static void advance(struct output *o, int reg, uint8_t amount)
+      |                                       ^~~~~~~~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:169:43: note: the first parameter in the range is 'reg'
+  169 | static void advance(struct output *o, int reg, uint8_t amount)
+      |                                           ^~~
+/home/aasim/Projects/recode/src/integer_codegen.c:169:56: note: the last parameter in the range is 'amount'
+  169 | static void advance(struct output *o, int reg, uint8_t amount)
+      |                                                        ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:169:39: note:
+  169 | static void advance(struct output *o, int reg, uint8_t amount)
+      |                                       ^
+/home/aasim/Projects/recode/src/integer_codegen.c:169:48: note: 'int' and 'uint8_t' may be implicitly converted: 'int' -> 'uint8_t' (as 'unsigned char'), 'uint8_t' (as 'unsigned char') -> 'int'
+  169 | static void advance(struct output *o, int reg, uint8_t amount)
+      |                                                ^
+/home/aasim/Projects/recode/src/integer_codegen.c:171:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  171 |     byte(o,(uint8_t)(0x48 | (reg >= 8 ? 1 : 0))); byte(o,0x83);
+      |                      ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:172:22: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  172 |     byte(o,(uint8_t)(0xc0 | (reg & 7))); byte(o,amount);
+      |                      ^~~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:172:30: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  172 |     byte(o,(uint8_t)(0xc0 | (reg & 7))); byte(o,amount);
+      |                              ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:179:81: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  179 |     for (int reg = 15; reg >= 12; --reg) { byte(o,0x41); byte(o,(uint8_t)(0x58+(reg & 7))); }
+      |                                                                                 ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:188:85: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  188 |         for (int reg = 12; reg <= 15; ++reg) { byte(o,0x41); byte(o,(uint8_t)(0x50+(reg & 7))); }
+      |                                                                                     ^~~ ~
+/home/aasim/Projects/recode/src/integer_codegen.c:377:5: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  377 |     memcpy(function, &mapping, sizeof(*function));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:377:5: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  377 |     memcpy(function, &mapping, sizeof(*function));
+      |     ^~~~~~
+/home/aasim/Projects/recode/src/integer_codegen.c:377:12: warning: multilevel pointer conversion from 'rc_integer_function *' (aka 'unsigned long (**)(unsigned long, unsigned long)') to 'void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  377 |     memcpy(function, &mapping, sizeof(*function));
+      |            ^
+/home/aasim/Projects/recode/src/integer_codegen.c:377:22: warning: multilevel pointer conversion from 'void **' to 'const void *', please use explicit cast [bugprone-multi-level-implicit-pointer-conversion]
+  377 |     memcpy(function, &mapping, sizeof(*function));
+      |                      ^
+/home/aasim/Projects/recode/src/internal.h:53:39: warning: 3 adjacent parameters of 'rc_unsampled_run' of similar type are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   53 | static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+      |                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   54 |                                        size_t remaining, uint64_t period)
+      |                                        ~~~~~~~~~~~~~~~~
+/home/aasim/Projects/recode/src/internal.h:53:48: note: the first parameter in the range is 'invocation'
+   53 | static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+      |                                                ^~~~~~~~~~
+/home/aasim/Projects/recode/src/internal.h:54:47: note: the last parameter in the range is 'remaining'
+   54 |                                        size_t remaining, uint64_t period)
+      |                                               ^~~~~~~~~
+/home/aasim/Projects/recode/src/internal.h:53:39: note: after resolving type aliases, the common type of 'uint64_t' and 'size_t' is 'unsigned long'
+   53 | static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+      |                                       ^

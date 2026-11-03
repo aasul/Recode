@@ -1,24 +1,29 @@
-# v1.6 release checklist
+# v1.7 release checklist
 
-The candidate requires maintainer review. No merge, tag or release publication
-is part of this assignment. The immutable baseline is v1.5.0 at 9f49d55.
+This is release preparation for maintainer review. The immutable comparison
+baseline is v1.6.0 at 0e4a9cca12a45dd5964ee4e9108455878b3256de.
 
-- [x] Publish profiling, register allocation, batch and compilation milestones as stacked PRs.
-- [x] Preserve scalar/batch contracts, policies, pins, W^X publication and executable ledgers.
-- [x] Retain seven-round raw measurements and optional real LLVM ORC/MIR adapters.
-- [x] Keep native error offsets, fail-fast completion and failed/later outputs unchanged.
-- [x] Expand alias, pressure, backedge, sampling, differential and failure regressions.
-- [x] Prepare 1.6.0 metadata with API 1, ABI 1.6, SONAME 1.6 and same-major discovery.
-- [x] Complete final clean-archive compiler/sanitizer/static/shared/TSan matrix.
-- [x] Rebuild unmodified v1.0 and v1.5 consumer sources against 1.6 static/shared installs.
-- [x] Complete final immutable baseline/candidate performance and optional fuzz smoke.
-- [x] Record post-commit quality review, all five PRs and observed CI results.
+- [x] Publish the four feature milestones as independently reviewable stacked PRs.
+- [x] Preserve source contracts, default policies, exact prefix failures and sample positions.
+- [x] Verify native ABI, operation semantics, relocation, guard pages and register pressure.
+- [x] Exercise concurrent calls, cache pressure, pins, mapping/allocation failures and cleanup retry.
+- [x] Add the installed contiguous-rules consumer for static/shared packages.
+- [x] Prepare 1.7.0 metadata with API 1 and ABI/SONAME 1.7.
+- [x] Retain milestone raw measurements and their regressions/limitations.
+- [x] Complete clean-archive GCC/Clang release/static/shared/ASan/UBSan/TSan verification.
+- [x] Run leak-enabled suites and a bounded fuzz smoke where supported.
+- [x] Rebuild unchanged v1.0, v1.5 and v1.6 consumers against 1.7 installations.
+- [x] Check all shared exports and SONAME, retaining every old public symbol.
+- [x] Finish immutable final comparative measurements, including available LLVM/MIR adapters.
+- [x] Complete post-commit quality review and record all five PRs/CI states.
 
 Maintainer actions after development:
 
-- [ ] Review and merge the five PRs in their intended order, adjusting bases as needed.
-- [ ] Independently verify merged main and the intended release archive.
-- [ ] Separately authorize tagging and release publication.
+- [ ] Review and merge the five PRs in order, adjusting bases if necessary.
+- [ ] Independently verify merged main and its release archive.
+- [ ] Separately authorize tagging and GitHub release publication.
 
-Evidence and limitations belong in [release-verification-1.6.md](release-verification-1.6.md).
-Completing development checks does not replace maintainer release approval.
+Evidence is in [release-verification-1.7.md](release-verification-1.7.md) and
+[performance-1.7.md](performance-1.7.md). The final reporting-head CI and archive
+checksum are recorded in [PR 43](https://github.com/aasul/Recode/pull/43).
+Development verification does not replace maintainer release review.

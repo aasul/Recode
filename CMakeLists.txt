@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(recode VERSION 1.6.0 LANGUAGES C)
+project(recode VERSION 1.7.0 LANGUAGES C)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
    NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$" OR

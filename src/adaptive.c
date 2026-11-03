@@ -33,13 +33,13 @@ struct translation {
     struct rc_program program;
     struct rc_integer_program *integer;
     rc_integer_function integer_function;
+    struct rc_code code;
+    size_t references, pins, generated;
+    uint64_t invocations, retry_after;
     rc_integer_batch_function batch_function;
     struct executable_slab *slab;
     struct translation *slab_next;
     size_t batch_offset;
-    struct rc_code code;
-    size_t references, pins, generated;
-    uint64_t invocations, retry_after;
     struct trace_slot *traces;
     size_t trace_count;
 };

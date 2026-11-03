@@ -1,6 +1,17 @@
 # Changelog
 
-## 1.6.0 preparation (unreleased)
+## 1.7.0 preparation (unreleased)
+
+- Fuse native batch loops while retaining exact sample positions and prefix errors.
+- Add opt-in cold-batch compilation with a bounded cost model and interpreter fallback.
+- Pack small integer translations into immutable executable page snapshots with pin-safe ownership.
+- Account for generated text, occupied/free slab bytes, mappings and retained cleanup failures.
+- Add fixed-stride record execution without descriptor arrays and an installed public consumer.
+- Extend native ABI, relocation, failure injection, concurrency, guard-page and layout tests.
+- Prepare API 1, ABI/SONAME 1.7 with 32 exports and retained 1.x source contracts.
+- Retain raw execution, cold, storage and record-layout measurements and reported regressions.
+
+## 1.6.0
 
 - Assign integer values to bounded caller-saved register homes with deterministic spills.
 - Remove dead pure writes within blocks while retaining every potentially failing load.

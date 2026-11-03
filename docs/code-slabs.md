@@ -46,7 +46,8 @@ the new page before subtracting a successfully unmapped old page. generated_byte
 counts currently callable whole-function and trace text. occupied_bytes counts
 aligned live slab entries plus callable isolated whole-function and trace text. slab_free_bytes includes
 holes and unused tails of live immutable slabs, reclaimable only by replacement.
-executable_mappings includes isolated/trace/retired mappings;
+executable_mappings counts owned mmap ranges, including isolated/trace/retired
+mappings; adjacent OS VMAs may coalesce independently.
 retired_executable_bytes counts mappings with no callable entry. These are
 requested mapping/text ledgers, not total allocator memory or process RSS.
 Statistics queries scan the mapping owners and translations under the mutex.

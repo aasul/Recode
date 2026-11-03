@@ -1,0 +1,212 @@
+src/adaptive.c:387:12: warning: Dereference of null pointer (loaded from variable 'entry') [core.NullDereference]
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |            ^
+src/adaptive.c:1531:9: note: Assuming 'runtime' is not equal to NULL
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |         ^~~~~~~~~~~~~~~
+src/adaptive.c:1531:9: note: Left side of '||' is false
+src/adaptive.c:1531:28: note: Assuming the condition is false
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |                            ^~~~~~~~~~~~~~~~
+src/adaptive.c:1531:5: note: Taking false branch
+ 1531 |     if (runtime == NULL || *runtime == NULL)
+      |     ^
+src/adaptive.c:1535:9: note: Assuming field 'active_calls' is equal to 0
+ 1535 |     if (r->stats.active_calls != 0) {
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1535:5: note: Taking false branch
+ 1535 |     if (r->stats.active_calls != 0) {
+      |     ^
+src/adaptive.c:1539:29: note: Calling 'clear_locked'
+ 1539 |     enum rc_status status = clear_locked(r, error);
+      |                             ^~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1443:51: note: Assuming 't' is not equal to NULL
+ 1443 |     for (struct translation *t = r->translations; t != NULL; t = t->next) {
+      |                                                   ^~~~~~~~~
+src/adaptive.c:1443:5: note: Loop condition is true.  Entering loop body
+ 1443 |     for (struct translation *t = r->translations; t != NULL; t = t->next) {
+      |     ^
+src/adaptive.c:1445:35: note: Calling 'release_mapping'
+ 1445 |         enum rc_status released = release_mapping(r, t, &current);
+      |                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:408:9: note: Assuming field 'pins' is equal to 0
+  408 |     if (t->pins != 0)
+      |         ^~~~~~~~~~~~
+src/adaptive.c:408:5: note: Taking false branch
+  408 |     if (t->pins != 0)
+      |     ^
+src/adaptive.c:417:9: note: Assuming field 'slab' is not equal to NULL
+  417 |     if (t->slab != NULL) {
+      |         ^~~~~~~~~~~~~~~
+src/adaptive.c:417:5: note: Taking true branch
+  417 |     if (t->slab != NULL) {
+      |     ^
+src/adaptive.c:419:13: note: Assuming field 'references' is equal to 1
+  419 |         if (s->references == 1) {
+      |             ^~~~~~~~~~~~~~~~~~
+src/adaptive.c:419:9: note: Taking true branch
+  419 |         if (s->references == 1) {
+      |         ^
+src/adaptive.c:420:22: note: Calling 'release_slab'
+  420 |             status = release_slab(r,s,&release_error);
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:381:9: note: Assuming 'status' is equal to RC_OK
+  381 |     if (status != RC_OK) {
+      |         ^~~~~~~~~~~~~~~
+src/adaptive.c:381:5: note: Taking false branch
+  381 |     if (status != RC_OK) {
+      |     ^
+src/adaptive.c:387:5: note: Loop condition is true.  Entering loop body
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |     ^
+src/adaptive.c:387:25: note: Null pointer value stored to 'entry'
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:387:12: note: Dereference of null pointer (loaded from variable 'entry')
+  387 |     while (*entry != s) entry = &(*entry)->next;
+      |            ^~~~~~
+src/adaptive.c:1263:51: warning: Addition of a null pointer (from variable 'record') and a probably nonzero integer value may result in undefined behavior [core.NullPointerArithm]
+ 1263 |                 memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+      |                                             ~~~~~~^
+src/adaptive.c:1187:9: note: Assuming 'r' is not equal to NULL
+ 1187 |     if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+      |         ^~~~~~~~~
+src/adaptive.c:1187:5: note: Taking false branch
+ 1187 |     if (r == NULL) return rc_fail(error,RC_ARGUMENT,0,0);
+      |     ^
+src/adaptive.c:1190:9: note: Assuming 'f' is not equal to NULL
+ 1190 |     if (f == NULL) {
+      |         ^~~~~~~~~
+src/adaptive.c:1190:5: note: Taking false branch
+ 1190 |     if (f == NULL) {
+      |     ^
+src/adaptive.c:1195:18: note: Assuming field 'integer' is not equal to NULL
+ 1195 |     bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+      |                  ^~~~~~~~~~~~~~~~~~
+src/adaptive.c:1195:18: note: Left side of '&&' is true
+src/adaptive.c:1195:41: note: Assuming 'records' is not equal to NULL
+ 1195 |     bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+      |                                         ^~~~~~~~~~~~~~~
+src/adaptive.c:1195:41: note: Left side of '||' is false
+src/adaptive.c:1195:60: note: Assuming field 'argument_count' is equal to field 'arguments'
+ 1195 |     bool valid = t->integer != NULL && (records == NULL || records->argument_count == t->integer->arguments);
+      |                                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1196:24: note: 'records' is not equal to NULL
+ 1196 |     for (size_t n = 0; records == NULL && valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
+      |                        ^~~~~~~
+src/adaptive.c:1196:40: note: Left side of '&&' is false
+ 1196 |     for (size_t n = 0; records == NULL && valid && n < count; ++n) valid = items[n].argument_count == t->integer->arguments;
+      |                                        ^
+src/adaptive.c:1197:10: note: 'valid' is true
+ 1197 |     if (!valid || count == 0) {
+      |          ^~~~~
+src/adaptive.c:1197:9: note: Left side of '||' is false
+ 1197 |     if (!valid || count == 0) {
+      |         ^
+src/adaptive.c:1197:19: note: Assuming 'count' is not equal to 0
+ 1197 |     if (!valid || count == 0) {
+      |                   ^~~~~~~~~~
+src/adaptive.c:1197:5: note: Taking false branch
+ 1197 |     if (!valid || count == 0) {
+      |     ^
+src/adaptive.c:1201:9: note: Assuming field 'active' is not equal to SIZE_MAX
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |         ^~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1201:9: note: Left side of '||' is false
+src/adaptive.c:1201:34: note: Assuming field 'pins' is not equal to SIZE_MAX
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |                                  ^~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1201:9: note: Left side of '||' is false
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |         ^
+src/adaptive.c:1201:57: note: Assuming field 'active_calls' is not equal to SIZE_MAX
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |                                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1201:5: note: Taking false branch
+ 1201 |     if (f->active == SIZE_MAX || t->pins == SIZE_MAX || r->stats.active_calls == SIZE_MAX) {
+      |     ^
+src/adaptive.c:1211:25: note: Assuming field 'interpreted' is equal to 0
+ 1211 |     bool allow_native = f->stats.interpreted != 0 || r->config.cold_batch_compile;
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1211:25: note: Left side of '||' is false
+src/adaptive.c:1212:9: note: Assuming 'allow_native' is false
+ 1212 |     if (allow_native && t->integer_function != NULL) {
+      |         ^~~~~~~~~~~~
+src/adaptive.c:1212:22: note: Left side of '&&' is false
+ 1212 |     if (allow_native && t->integer_function != NULL) {
+      |                      ^
+src/adaptive.c:1216:13: note: Assuming field 'policy' is not equal to RC_POLICY_ADAPTIVE
+ 1216 |         if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1216:9: note: Taking false branch
+ 1216 |         if (r->config.policy == RC_POLICY_ADAPTIVE) tick = now_ns();
+      |         ^
+src/adaptive.c:1217:13: note: Assuming field 'integer_function' is not equal to NULL
+ 1217 |         if (t->integer_function == NULL && (should_compile_cold_batch(r,f,count) || should_compile(r,f,tick)))
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1217:41: note: Left side of '&&' is false
+ 1217 |         if (t->integer_function == NULL && (should_compile_cold_batch(r,f,count) || should_compile(r,f,tick)))
+      |                                         ^
+src/adaptive.c:1220:34: note: 'allow_native' is false
+ 1220 |     rc_integer_function native = allow_native ? t->integer_function : NULL;
+      |                                  ^~~~~~~~~~~~
+src/adaptive.c:1220:34: note: '?' condition is false
+src/adaptive.c:1221:46: note: 'native' is equal to NULL
+ 1221 |     rc_integer_batch_function batch_native = native != NULL ? t->batch_function : NULL;
+      |                                              ^~~~~~
+src/adaptive.c:1221:46: note: '?' condition is false
+src/adaptive.c:1223:9: note: 'native' is equal to NULL
+ 1223 |     if (native != NULL) {
+      |         ^~~~~~
+src/adaptive.c:1223:5: note: Taking false branch
+ 1223 |     if (native != NULL) {
+      |     ^
+src/adaptive.c:1227:9: note: 'tick' is equal to 0
+ 1227 |     if (tick != 0) {
+      |         ^~~~
+src/adaptive.c:1227:5: note: Taking false branch
+ 1227 |     if (tick != 0) {
+      |     ^
+src/adaptive.c:1234:30: note: 'native' is equal to NULL
+ 1234 |     uint64_t prior_samples = native != NULL ? f->stats.compiled_samples : f->stats.interpreted_samples;
+      |                              ^~~~~~
+src/adaptive.c:1234:30: note: '?' condition is false
+src/adaptive.c:1240:24: note: 'n' is < 'count'
+ 1240 |     for (size_t n = 0; n < count; ++n) {
+      |                        ^
+src/adaptive.c:1240:5: note: Loop condition is true.  Entering loop body
+ 1240 |     for (size_t n = 0; n < count; ++n) {
+      |     ^
+src/adaptive.c:1241:22: note: 'native' is equal to NULL
+ 1241 |         size_t run = native != NULL ? rc_unsampled_run(rc_saturating_add(base,n),
+      |                      ^~~~~~
+src/adaptive.c:1241:22: note: '?' condition is false
+src/adaptive.c:1243:13: note: 'run' is equal to 0
+ 1243 |         if (run != 0) {
+      |             ^~~
+src/adaptive.c:1243:9: note: Taking false branch
+ 1243 |         if (run != 0) {
+      |         ^
+src/adaptive.c:1259:13: note: 'records' is not equal to NULL
+ 1259 |         if (records != NULL) {
+      |             ^~~~~~~
+src/adaptive.c:1259:9: note: Taking true branch
+ 1259 |         if (records != NULL) {
+      |         ^
+src/adaptive.c:1260:37: note: Assuming field 'records' is equal to NULL
+ 1260 |             const uint8_t *record = records->records != NULL
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1260:37: note: '?' condition is false
+src/adaptive.c:1260:13: note: 'record' initialized to a null pointer value
+ 1260 |             const uint8_t *record = records->records != NULL
+      |             ^~~~~~~~~~~~~~~~~~~~~
+src/adaptive.c:1262:34: note: Assuming 'arg' is < 'arity'
+ 1262 |             for (size_t arg = 0; arg < arity; ++arg)
+      |                                  ^~~~~~~~~~~
+src/adaptive.c:1262:13: note: Loop condition is true.  Entering loop body
+ 1262 |             for (size_t arg = 0; arg < arity; ++arg)
+      |             ^
+src/adaptive.c:1263:51: note: Addition of a null pointer (from variable 'record') and a probably nonzero integer value may result in undefined behavior
+ 1263 |                 memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+      |                                             ~~~~~~^
+2 warnings generated.

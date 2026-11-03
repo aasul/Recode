@@ -1,0 +1,257 @@
+/tmp/recode-v17-comparison/before-source/src/integer.c:53:13: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+   53 |             memcpy(insns, b->program.insns, b->program.count * sizeof(*insns));
+      |             ^~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:53:13: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+   53 |             memcpy(insns, b->program.insns, b->program.count * sizeof(*insns));
+      |             ^~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:89:20: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                 ~~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:119:49: warning: The left operand of '&' is a garbage value [clang-analyzer-core.UndefinedBinaryOperatorResult]
+  119 |                 uint64_t merged = next->defined & defined;
+      |                                                 ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:9: note: Assuming 'b' is not equal to NULL
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |         ^~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:9: note: 'b' is not equal to NULL
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:9: note: Left side of '||' is false
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:22: note: Assuming 'out' is not equal to NULL
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |                      ^~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:9: note: Left side of '||' is false
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:37: note: Assuming the condition is false
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |                                     ^~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:156:5: note: Taking false branch
+  156 |     if (b == NULL || out == NULL || *out != NULL)
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:158:29: note: Calling 'rc_integer_validate'
+  158 |     enum rc_status status = rc_integer_validate(&b->program, error);
+      |                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:67:9: note: 'p' is not equal to NULL
+   67 |     if (p == NULL) return rc_fail(error, RC_ARGUMENT, 0, 0);
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:67:5: note: Taking false branch
+   67 |     if (p == NULL) return rc_fail(error, RC_ARGUMENT, 0, 0);
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:9: note: Assuming field 'registers' is not equal to 0
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:9: note: Left side of '||' is false
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:30: note: Assuming field 'registers' is <= RC_INTEGER_MAX_REGISTERS
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:9: note: Left side of '||' is false
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:73: note: Assuming field 'arguments' is <= 2
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |                                                                         ^~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:9: note: Left side of '||' is false
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:69:9: note: Assuming field 'count' is <= RC_INTEGER_MAX_INSTRUCTIONS
+   69 |         p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:9: note: Left side of '||' is false
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:69:52: note: Assuming field 'count' is not equal to 0
+   69 |         p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+      |                                                    ^~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:69:52: note: Left side of '&&' is true
+/tmp/recode-v17-comparison/before-source/src/integer.c:69:69: note: Assuming field 'insns' is not equal to NULL
+   69 |         p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+      |                                                                     ^~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:68:5: note: Taking false branch
+   68 |     if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:71:12: note: Field 'count' is not equal to 0
+   71 |     if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
+      |            ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:71:5: note: Taking false branch
+   71 |     if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:77:24: note: 'n' is < field 'count'
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |                        ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:77:5: note: Loop condition is true.  Entering loop body
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:81:13: note: 'status' is equal to RC_OK
+   81 |         if (status != RC_OK) goto done;
+      |             ^~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:81:9: note: Taking false branch
+   81 |         if (status != RC_OK) goto done;
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:16: note: Field 'op' is equal to RC_INT_JUMP
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:34: note: Left side of '||' is true
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                  ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:63: note: Assuming field 'target' is < field 'count'
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                                               ^~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:9: note: Taking false branch
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:85:13: note: Assuming the condition is false
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |             ^~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:85:31: note: Left side of '&&' is false
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |                               ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:89:22: note: Field 'op' is equal to RC_INT_JUMP
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                      ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:89:40: note: Left side of '||' is true
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                                        ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:77:24: note: 'n' is < field 'count'
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |                        ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:77:5: note: Loop condition is true.  Entering loop body
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:81:13: note: 'status' is equal to RC_OK
+   81 |         if (status != RC_OK) goto done;
+      |             ^~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:81:9: note: Taking false branch
+   81 |         if (status != RC_OK) goto done;
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:16: note: Field 'op' is equal to RC_INT_JUMP
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:34: note: Left side of '||' is true
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                  ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:63: note: Assuming field 'target' is < field 'count'
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |                                                               ^~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:82:9: note: Taking false branch
+   82 |         if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:85:13: note: Assuming the condition is true
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |             ^~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:85:13: note: Left side of '&&' is true
+/tmp/recode-v17-comparison/before-source/src/integer.c:85:36: note: Field 'op' is equal to RC_INT_JUMP
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |                                    ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:85:54: note: Left side of '&&' is false
+   85 |         if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
+      |                                                      ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:89:22: note: Field 'op' is equal to RC_INT_JUMP
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                      ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:89:40: note: Left side of '||' is true
+   89 |         control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+      |                                        ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:77:5: note: Loop condition is false. Execution continues on line 91
+   77 |     for (size_t n = 0; n < p->count; ++n) {
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:91:9: note: Assuming 'memory' is equal to field 'memory'
+   91 |     if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
+      |         ^~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:91:5: note: Taking false branch
+   91 |     if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:92:10: note: 'control' is true
+   92 |     if (!control) {
+      |          ^~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:92:5: note: Taking false branch
+   92 |     if (!control) {
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:102:13: note: Uninitialized value stored to field 'defined'
+  102 |     facts = malloc(p->count * sizeof(*facts));
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:103:9: note: Assuming 'facts' is not equal to NULL
+  103 |     if (facts == NULL) { status = RC_MEMORY; offset = 0; goto done; }
+      |         ^~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:103:5: note: Taking false branch
+  103 |     if (facts == NULL) { status = RC_MEMORY; offset = 0; goto done; }
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:104:5: note: Loop condition is true.  Entering loop body
+  104 |     for (size_t n = 0; n < p->count; ++n) facts[n] = (struct facts){UINT64_MAX,false};
+      |     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:104:5: note: Loop condition is true.  Entering loop body
+/tmp/recode-v17-comparison/before-source/src/integer.c:104:5: note: Loop condition is false. Execution continues on line 105
+/tmp/recode-v17-comparison/before-source/src/integer.c:109:9: note: Loop condition is true.  Entering loop body
+  109 |         for (size_t n = 0; n < p->count; ++n) {
+      |         ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:110:27: note: Field 'reachable' is true
+  110 |             if (!facts[n].reachable) continue;
+      |                           ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:110:13: note: Taking false branch
+  110 |             if (!facts[n].reachable) continue;
+      |             ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:113:19: note: Field 'op' is > RC_INT_SLE
+  113 |             if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+      |                   ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:113:17: note: Left side of '||' is false
+  113 |             if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+      |                 ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:113:13: note: Taking false branch
+  113 |             if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+      |             ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:115:19: note: Field 'op' is equal to RC_INT_JUMP
+  115 |             if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) edges[count++] = i.target;
+      |                   ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:115:37: note: Left side of '||' is true
+  115 |             if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) edges[count++] = i.target;
+      |                                     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:116:19: note: Field 'op' is equal to RC_INT_JUMP
+  116 |             if (i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) edges[count++] = n + 1;
+      |                   ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:116:37: note: Left side of '&&' is false
+  116 |             if (i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) edges[count++] = n + 1;
+      |                                     ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:117:13: note: Loop condition is true.  Entering loop body
+  117 |             for (size_t e = 0; e < count; ++e) {
+      |             ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:119:49: note: The left operand of '&' is a garbage value
+  119 |                 uint64_t merged = next->defined & defined;
+      |                                   ~~~~~~~~~~~~~ ^
+/tmp/recode-v17-comparison/before-source/src/integer.c:148:5: warning: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11 [clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling]
+  148 |     memcpy(copy->insns, p->insns, p->count * sizeof(*copy->insns));
+      |     ^~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:148:5: note: Call to function 'memcpy' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'memcpy_s' in case of C11
+  148 |     memcpy(copy->insns, p->insns, p->count * sizeof(*copy->insns));
+      |     ^~~~~~
+/tmp/recode-v17-comparison/before-source/src/integer.c:218:44: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  218 |         case RC_INT_SHL: value = a << (b & 63); break;
+      |                                          ~ ^~
+/tmp/recode-v17-comparison/before-source/src/integer.c:219:44: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  219 |         case RC_INT_SHR: value = a >> (b & 63); break;
+      |                                          ~ ^~
+/tmp/recode-v17-comparison/before-source/src/integer.c:226:55: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  226 |         case RC_INT_SLT: value = (a ^ (UINT64_C(1) << 63)) < (b ^ (UINT64_C(1) << 63)); break;
+      |                                                    ~~ ^~
+/tmp/recode-v17-comparison/before-source/src/integer.c:226:83: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  226 |         case RC_INT_SLT: value = (a ^ (UINT64_C(1) << 63)) < (b ^ (UINT64_C(1) << 63)); break;
+      |                                                                                ~~ ^~
+/tmp/recode-v17-comparison/before-source/src/integer.c:227:55: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  227 |         case RC_INT_SLE: value = (a ^ (UINT64_C(1) << 63)) <= (b ^ (UINT64_C(1) << 63)); break;
+      |                                                    ~~ ^~
+/tmp/recode-v17-comparison/before-source/src/integer.c:227:84: warning: use of a signed integer operand with a binary bitwise operator [bugprone-signed-bitwise]
+  227 |         case RC_INT_SLE: value = (a ^ (UINT64_C(1) << 63)) <= (b ^ (UINT64_C(1) << 63)); break;
+      |                                                                                 ~~ ^~
+/tmp/recode-v17-comparison/before-source/src/internal.h:53:39: warning: 3 adjacent parameters of 'rc_unsampled_run' of similar type are easily swapped by mistake [bugprone-easily-swappable-parameters]
+   53 | static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+      |                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   54 |                                        size_t remaining, uint64_t period)
+      |                                        ~~~~~~~~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/internal.h:53:48: note: the first parameter in the range is 'invocation'
+   53 | static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+      |                                                ^~~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/internal.h:54:47: note: the last parameter in the range is 'remaining'
+   54 |                                        size_t remaining, uint64_t period)
+      |                                               ^~~~~~~~~
+/tmp/recode-v17-comparison/before-source/src/internal.h:53:39: note: after resolving type aliases, the common type of 'uint64_t' and 'size_t' is 'unsigned long'
+   53 | static inline size_t rc_unsampled_run(uint64_t invocation, uint64_t samples,
+      |                                       ^

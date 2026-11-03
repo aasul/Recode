@@ -7,7 +7,7 @@ A separate accumulator pipeline translates the documented x86 instruction subset
 and supports guarded loop tracing. Recode does not load or optimize arbitrary
 binaries and is not a sandbox.
 
-This branch prepares v1.6.0 for maintainer review. It is not an official release.
+This branch prepares v1.7.0 for maintainer review. It is not an official release.
 Start with the [getting-started guide](docs/getting-started.md),
 [public API policy](docs/public-api.md) and [release checklist](docs/release-checklist.md).
 
@@ -34,12 +34,12 @@ The public interface is in [include/recode.h](include/recode.h).
 
 ## Install and embed
 
-Version 1.6 provides static/shared installation and the `Recode::recode` CMake
+Version 1.7 provides static/shared installation and the `Recode::recode` CMake
 target. See [embedding.md](docs/embedding.md) for installation, an independent
 consumer and ownership/error handling, and [compatibility.md](docs/compatibility.md)
 for platform, instruction and security limits. The [public API policy](docs/public-api.md)
 defines 1.x source compatibility and patch-level binary compatibility. Consumers
-rebuild across minor releases; the v1.6 SONAME is 1.6.
+rebuild across minor releases; the v1.7 SONAME is 1.7.
 
 ## Integer programs
 
@@ -136,6 +136,24 @@ compilation remains available through the existing policies. Traces share cache
 ownership, execution pins and the executable budget. See [docs/tracing.md](docs/tracing.md)
 for configuration, native state reconstruction, limits and measured regressions.
 
+## v1.7 runtime changes
+
+Native batches use a private fused loop between timed samples. The opt-in
+[cold-batch option](docs/cold-batch.md) permits cost-based first-batch compilation;
+default policies retain their prior behavior. Small translations can share
+[immutable executable page snapshots](docs/code-slabs.md), with spare-page and
+compilation-cost trade-offs. The additive [record API](docs/contiguous-records.md)
+traverses fixed-stride caller records without descriptor arrays. Its independent
+[installed consumer](examples/contiguous-rules) verifies rules against C.
+
+See [v1.7 verification](docs/release-verification-1.7.md) for the source archive,
+test matrix and compatibility evidence. See [v1.7 measurements](docs/performance-1.7.md)
+for observed gains and regressions,
+methodology and raw samples. Source consumers rebuild for ABI 1.7; no cross-minor
+binary substitution is promised. The source remains Linux x86-64 C11 with the
+existing instruction baseline. Maintainer review and separate release
+publication authorization remain required.
+
 ## v1.6 performance work
 
 The integer backend assigns frequently used values to caller-saved registers,
@@ -206,7 +224,7 @@ fall back to interpretation and retain compilation diagnostics in statistics.
 
 See the [release verification](docs/release-verification.md),
 [migration guide](docs/migration.md), [troubleshooting](docs/troubleshooting.md),
-[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.6.md).
+[supported platforms](docs/supported-platforms.md) and [release notes draft](docs/release-notes-1.7.md).
 
 ## Contributing
 

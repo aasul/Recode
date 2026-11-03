@@ -1,9 +1,9 @@
-# Public API and compatibility policy (v1.6 candidate)
+# Public API and compatibility policy (v1.7 candidate)
 
 The supported installed interfaces are recode.h, recode_integer.h and generated
 recode_version.h. Functions in src headers, native entry conventions, optimizer
 analysis structures and trace kernels are private. The shared library exports
-only the 31 declared public functions, controlled by cmake/recode.map and checked
+only the 32 declared public functions, controlled by cmake/recode.map and checked
 with nm/readelf in the shared-abi CTest. Static archives also contain private
 symbols for linking; those names carry no compatibility promise.
 
@@ -24,7 +24,7 @@ be handled by a default/error path. Fixes of undocumented or erroneous behavior
 are permitted, with migration notes when observable.
 
 SONAME is librecode.so.<major>.<minor>, preventing silent substitution by a
-layout-changing minor release. The first stable ABI has SONAME 1.0; this minor release has SONAME 1.6. RECODE_ABI_MAJOR/MINOR identify matching
+layout-changing minor release. The first stable ABI has SONAME 1.0; this minor release has SONAME 1.7. RECODE_ABI_MAJOR/MINOR identify matching
 header ABI;
 RECODE_API_VERSION remains 1 because existing source contracts are preserved.
 rc_version_string() identifies the linked implementation. Experimental 0.x CMake
@@ -97,3 +97,10 @@ NULL error is supported. Destroy/free with NULL is allowed only where documented
 The additive [integer batch API](batch-execution.md) preserves scalar signatures
 and enum values. Its fail-fast prefix is the documented exception to scalar
 execution-error result preservation: completed earlier batch slots remain valid.
+
+Version 1.7 adds rc_integer_record_batch/rc_runtime_call_integer_records, the
+trailing cold_batch_compile configuration flag and trailing executable-storage
+statistics fields. Existing function signatures and enum values are retained.
+Zero/default initialization preserves prior policies. See the [record contract](contiguous-records.md),
+[cold policy](cold-batch.md) and [slab accounting](code-slabs.md). Minor ABI 1.7
+requires rebuilding caller-allocated public structs with matching headers.
