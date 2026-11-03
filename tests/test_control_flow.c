@@ -303,6 +303,27 @@ static void test_validation_precedence(void)
     }
 }
 
+static void test_decode_precedence(void)
+{
+    const struct {
+        uint8_t bytes[10];
+        size_t length;
+        enum rc_status status;
+        size_t offset;
+    } cases[] = {
+        /* Parse every instruction before resolving branches, then validate IR. */
+        {{0xeb,0x7f,0xff},3,RC_UNSUPPORTED,2},
+        {{0xeb,0x7f,0xb8,0},4,RC_TRUNCATED,2},
+        {{0xeb,0x7f,0xc3},3,RC_BRANCH,0},
+        {{0xeb,0,0xc3},3,RC_UNINITIALIZED,2},
+        {{0xb8,0,0,0,0,0xe9,0,0,0,0},10,RC_BRANCH,5},
+        {{0xb8,0,0,0,0,0xeb,0,0xeb,0x7f,0xc3},10,RC_BRANCH,7},
+        {{0xb8,0,0,0,0,0xc3,0xeb,0xff,0xc3},9,RC_BRANCH,6}
+    };
+    for (size_t n = 0; n < sizeof(cases)/sizeof(*cases); ++n)
+        decode_error(cases[n].bytes,cases[n].length,cases[n].status,cases[n].offset);
+}
+
 static void test_truncation(void)
 {
     const uint8_t forms[][7] = {{0xeb,0},{0xe9,0,0,0,0},{0x74,0},{0x75,0},
@@ -616,6 +637,7 @@ int main(void)
 {
     test_validation();
     test_validation_precedence();
+    test_decode_precedence();
     test_truncation();
     run_child(test_encodings);
     run_child(test_flags_and_optimizer);
