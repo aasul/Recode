@@ -1,0 +1,47 @@
+# v1.7 measurements
+
+## Native fusion milestone
+
+Baseline: immutable v1.6.0 / 0e4a9cca12a45dd5964ee4e9108455878b3256de.
+Candidate: the native-fusion implementation in this commit. The retained manifest
+labels it fusion-precommit; it was measured before committing the unchanged
+implementation. Seven rounds alternate revision and engine order, pinned to CPU 0
+on the Intel N150, GCC 16.2.1, Release (-O3 -DNDEBUG). Frequency and background
+activity were uncontrolled. Builds and tests completed before timing.
+
+Raw samples and environment: benchmarks/v1.7/fusion. Inputs, independent result
+checks, sample policy and harness are identical for both libraries. All seven
+batch sizes and six workloads are retained. Preparation is outside execution
+timing for both paths. This is an execution study, not an end-to-end application
+comparison. An earlier overlapping-build diagnostic collection is not used.
+
+Medians at 128 records, in ns/record; compilation in ns/translation:
+
+| Workload | v1.6 batch | Fused batch | v1.6 scalar | Fused scalar | v1.6 compile | Fused compile |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| arithmetic | 15.009 | 13.273 | 53.414 | 53.331 | 5525.120 | 6462.950 |
+| bitwise | 15.775 | 14.859 | 53.857 | 54.046 | 5359.410 | 6069.130 |
+| conditional | 15.210 | 14.298 | 54.828 | 54.612 | 5122.300 | 6706.890 |
+| branches | 25.987 | 25.035 | 64.577 | 65.508 | 7626.320 | 9332.140 |
+| loop8 | 21.967 | 18.913 | 60.174 | 60.207 | 5745.850 | 6327.170 |
+| records | 18.751 | 16.906 | 56.629 | 56.639 | 5920.290 | 7608.200 |
+
+Arithmetic improves, but does not reach the aspirational 10 ns/record target.
+The default timed samples and whole-request validation remain in the public API.
+Compilation emits two bodies and is more expensive. Dividing added compile cost
+by the warm per-item saving is only a local amortization estimate, not a cold
+promotion guarantee. Scalar differences and small-batch regressions remain in
+the raw samples; no universal improvement is claimed.
+
+Thread CSVs contain three internal rounds on CPUs 0..3, including creation/join
+and result checks. All baseline rounds precede candidate rounds, so these are
+concurrency diagnostics with an order limitation, not a controlled scaling claim.
+Executable storage still rounds each translation to pages in this milestone.
+
+Reproduce with both libraries built before timing:
+
+```sh
+python3 benchmarks/profiling/collect.py BASELINE_PROFILE CANDIDATE_PROFILE OUTPUT \
+  --before-revision 0e4a9cca12a45dd5964ee4e9108455878b3256de \
+  --after-revision CANDIDATE_SHA --rounds 7 --cpu 0
+```
