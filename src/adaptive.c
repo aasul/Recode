@@ -981,10 +981,10 @@ static void trace_after(struct rc_observer *observer, size_t pc,
         pthread_mutex_lock(&r->mutex);
         struct trace_slot *slot = &t->traces[i];
         add(&slot->edges,1);
-        bool unavailable = slot->disabled || slot->recording || t->invocations <= slot->retry_after;
-        if (unavailable)
+        if (slot->disabled || slot->recording || t->invocations <= slot->retry_after)
             call->blocked[i] = true;
-        bool eligible = !unavailable && slot->edges >= r->config.trace_hot_threshold;
+        bool eligible = !slot->disabled && !slot->recording &&
+            t->invocations > slot->retry_after && slot->edges >= r->config.trace_hot_threshold;
         if (eligible && slot->function != NULL) {
             call->views[i].function = slot->function;
             add(&call->stats.trace_hits,1);
