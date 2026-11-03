@@ -21,11 +21,8 @@ enum rc_status rc_compile(const uint8_t *bytes, size_t length, bool optimize,
     size_t needed = 0;
     if (status == RC_OK)
         status = rc_emit(&program, NULL, 0, &needed, error);
-    if (status != RC_OK) {
-        rc_program_free(&program);
-        return status;
-    }
-    status = rc_map_program(&program, needed, code, NULL, error);
+    if (status == RC_OK)
+        status = rc_map_program(&program, needed, code, NULL, error);
     rc_program_free(&program);
     return status;
 }
