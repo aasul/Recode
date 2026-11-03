@@ -8,7 +8,8 @@
 /* RAX/RCX are scratch. Memory entries also reserve RDX=data, R8=result,
  * R9=length and R10=fault PC. Assigned registers have one home across all
  * edges, including backedges; the remaining virtuals keep authoritative slots.
- * Batch control uses saved RBX/RBP/R12..R15, outside the allocation pool. */
+ * Batch entries save RBX=record layout, RBP=stride, R12=context, R13=input,
+ * R14=output and R15=remaining, outside the allocation pool. */
 _Static_assert(offsetof(struct rc_integer_batch_context,items) == 0, "native batch items");
 _Static_assert(offsetof(struct rc_integer_batch_context,results) == 8, "native batch results");
 _Static_assert(offsetof(struct rc_memory_view,data) == 0, "native view data");
@@ -36,7 +37,6 @@ static void word(struct output *o, uint32_t value)
 {
     for (unsigned n = 0; n < 32; n += 8) byte(o,(uint8_t)(value >> n));
 }
-static bool binary(enum rc_integer_op op) { return op >= RC_INT_ADD && op <= RC_INT_SLE; }
 static void allocate(const struct rc_integer_program *p, struct rc_integer_allocation *a)
 {
     a->frame = 0;
@@ -50,7 +50,7 @@ static void allocate(const struct rc_integer_program *p, struct rc_integer_alloc
     uint64_t live = UINT64_MAX;
     for (size_t n = p->count; n-- > 0;) {
         struct rc_integer_insn i = p->insns[n];
-        bool writes = i.op <= RC_INT_SLE || rc_integer_load(i.op);
+        bool writes = rc_integer_writes(i.op);
         if (i.op == RC_INT_RETURN) live = 0;
         if (i.op == RC_INT_BRANCH || i.op == RC_INT_JUMP) live = UINT64_MAX;
         /* All registers are live on block exits. Only overwritten or unused
@@ -62,7 +62,7 @@ static void allocate(const struct rc_integer_program *p, struct rc_integer_alloc
             if (i.op == RC_INT_ARGUMENT) arguments[i.immediate] = true;
             if (writes) ++weights[i.dst];
             if (rc_integer_reads(i) != 0) ++weights[i.left];
-            if (binary(i.op)) ++weights[i.right];
+            if (rc_integer_binary(i.op)) ++weights[i.right];
         }
         if (targets[n]) live = UINT64_MAX;
     }
@@ -179,62 +179,119 @@ static void batch_exit(struct output *o, const struct rc_integer_allocation *a)
     for (int reg = 15; reg >= 12; --reg) { byte(o,0x41); byte(o,(uint8_t)(0x58+(reg & 7))); }
     byte(o,0x5d); byte(o,0x5b); byte(o,0xc3);
 }
+static size_t emit_batch_entry(const struct rc_integer_program *p,
+                                  const struct rc_integer_allocation *a,
+                                  struct output *o, struct rc_integer_plan *batch)
+{
+    byte(o,0x53); byte(o,0x55);
+    for (int reg = 12; reg <= 15; ++reg) { byte(o,0x41); byte(o,(uint8_t)(0x50+(reg & 7))); }
+    move(o,12,7);
+    memory(o,0x8b,13,12,0); memory(o,0x8b,14,12,8); memory(o,0x8b,15,12,16);
+    memory(o,0x8b,3,12,40); memory(o,0x8b,5,12,48);
+    frame(o,0xec,a->frame);
+    regop(o,0x85,15,15); byte(o,0x0f); byte(o,0x84); branch(o,batch->batch_finish);
+    size_t loop = o->count; /* The backedge is taken only with a nonzero remaining count. */
+    regop(o,0x85,3,3); byte(o,0x0f); byte(o,0x85); branch(o,batch->batch_record);
+    if (p->arguments != 0) {
+        memory(o,0x8b,0,13,0); memory(o,0x8b,7,0,0);
+        if (p->arguments > 1) memory(o,0x8b,6,0,8);
+    }
+    if (p->memory) {
+        /* NULL view is the empty view. Do not dereference it. */
+        constant(o,2,0); constant(o,9,0); memory(o,0x8b,0,13,16);
+        regop(o,0x85,0,0); byte(o,0x0f); byte(o,0x84); branch(o,o->count+4+8);
+        memory(o,0x8b,2,0,0); memory(o,0x8b,9,0,8);
+    }
+    byte(o,0xe9); branch(o,batch->batch_program);
+    if (o->bytes == NULL) batch->batch_record = o->count;
+    for (size_t n = 0; n < p->arguments; ++n) {
+        memory(o,0x8b,0,3,(uint8_t)(40+8*n));
+        indexed(o,0x8b,n == 0 ? 7 : 6,13,0);
+    }
+    if (p->memory) {
+        memory(o,0x8b,0,3,56); indexed(o,0x8d,2,13,0);
+        memory(o,0x8b,9,3,64);
+    }
+    if (o->bytes == NULL) batch->batch_program = o->count;
+    return loop;
+}
+
+static void emit_binary(const struct rc_integer_allocation *a, struct output *o,
+                          struct rc_integer_insn i, int dst)
+{
+    int left = source(o,a,i.left,0);
+    int right = source(o,a,i.right,1);
+    if (dst == right && (i.op == RC_INT_ADD || i.op == RC_INT_MUL ||
+        i.op == RC_INT_AND || i.op == RC_INT_OR || i.op == RC_INT_XOR ||
+        i.op == RC_INT_EQ || i.op == RC_INT_NE)) {
+        int swap = left;
+        left = right;
+        right = swap;
+    }
+    /* Shifts need CL; other destructive overlaps need a saved right operand. */
+    if (i.op == RC_INT_SHL || i.op == RC_INT_SHR || (dst == right && dst != left)) {
+        move(o,1,right);
+        right = 1;
+    }
+    move(o,dst,left);
+    operation(o,i.op,dst,right);
+}
+
+static void emit_load(const struct rc_integer_allocation *a, struct output *o,
+                        struct rc_integer_insn i, size_t pc, int dst, size_t failure)
+{
+    byte(o,0x41); byte(o,0xba); word(o,(uint32_t)pc);
+    move(o,0,source(o,a,i.left,0)); move(o,1,9);
+    /* Compare before subtracting so an offset beyond the view cannot wrap. */
+    regop(o,0x39,0,1); byte(o,0x0f); byte(o,0x87); branch(o,failure);
+    regop(o,0x29,1,0);
+    byte(o,0x48); byte(o,0x83); byte(o,0xf9); byte(o,(uint8_t)(1u << (i.op-RC_INT_LOAD_U8)));
+    byte(o,0x0f); byte(o,0x82); branch(o,failure);
+    if (i.op == RC_INT_LOAD_U64) byte(o,0x48);
+    if (i.op == RC_INT_LOAD_U8 || i.op == RC_INT_LOAD_U16) {
+        byte(o,0x0f); byte(o,i.op == RC_INT_LOAD_U8 ? 0xb6 : 0xb7);
+    } else byte(o,0x8b);
+    byte(o,0x04); byte(o,0x02);
+    move(o,dst,0);
+}
+
+static size_t emit_batch_finish(const struct rc_integer_program *p,
+                                   const struct rc_integer_allocation *a,
+                                   struct output *o, struct rc_integer_plan *batch, size_t loop)
+{
+    if (o->bytes == NULL) batch->batch_success = o->count;
+    memory(o,0x89,0,14,0);
+    regop(o,0x01,13,5); advance(o,14,8);
+    advance(o,15,255); /* ADD -1, keeping flags for the loop backedge. */
+    byte(o,0x0f); byte(o,0x85); branch(o,loop);
+    if (o->bytes == NULL) batch->batch_finish = o->count;
+    constant(o,0,RC_OK); byte(o,0xe9); branch(o,batch->batch_exit);
+    if (o->bytes == NULL) batch->batch_failure = o->count;
+    if (p->memory) memory(o,0x89,10,12,32);
+    constant(o,0,RC_BOUNDS);
+    if (o->bytes == NULL) batch->batch_exit = o->count;
+    batch_exit(o,a);
+    return batch->batch_failure;
+}
+
 static size_t emit_body(const struct rc_integer_program *p, const struct rc_integer_allocation *a,
                         struct output *o, size_t *offsets, size_t failure, struct rc_integer_plan *batch)
 {
     byte(o,0xf3); byte(o,0x0f); byte(o,0x1e); byte(o,0xfa);
+    size_t loop = 0;
     if (batch != NULL) {
-        byte(o,0x53); byte(o,0x55);
-        for (int reg = 12; reg <= 15; ++reg) { byte(o,0x41); byte(o,(uint8_t)(0x50+(reg & 7))); }
-        move(o,12,7);
-        memory(o,0x8b,13,12,0); memory(o,0x8b,14,12,8); memory(o,0x8b,15,12,16);
-        memory(o,0x8b,3,12,40); memory(o,0x8b,5,12,48);
-    }
-    frame(o,0xec,a->frame);
-    if (batch == NULL && p->memory) move(o,9,1);
-    size_t loop = o->count;
-    if (batch != NULL) {
-        regop(o,0x85,15,15); byte(o,0x0f); byte(o,0x84); branch(o,batch->batch_finish);
-        loop = o->count; /* The backedge is taken only with a nonzero remaining count. */
-        regop(o,0x85,3,3); byte(o,0x0f); byte(o,0x85); branch(o,batch->batch_record);
-        if (p->arguments != 0) {
-            memory(o,0x8b,0,13,0); memory(o,0x8b,7,0,0);
-            if (p->arguments > 1) memory(o,0x8b,6,0,8);
-        }
-        if (p->memory) {
-            /* NULL view is the empty view. Do not dereference it. */
-            constant(o,2,0); constant(o,9,0); memory(o,0x8b,0,13,16);
-            regop(o,0x85,0,0); byte(o,0x0f); byte(o,0x84); branch(o,o->count+4+8);
-            memory(o,0x8b,2,0,0); memory(o,0x8b,9,0,8);
-        }
-        byte(o,0xe9); branch(o,batch->batch_program);
-        if (o->bytes == NULL) batch->batch_record = o->count;
-        for (size_t n = 0; n < p->arguments; ++n) {
-            memory(o,0x8b,0,3,(uint8_t)(40+8*n));
-            indexed(o,0x8b,n == 0 ? 7 : 6,13,0);
-        }
-        if (p->memory) {
-            memory(o,0x8b,0,3,56); indexed(o,0x8d,2,13,0);
-            memory(o,0x8b,9,3,64);
-        }
-        if (o->bytes == NULL) batch->batch_program = o->count;
+        loop = emit_batch_entry(p,a,o,batch);
+    } else {
+        frame(o,0xec,a->frame);
+        if (p->memory) move(o,9,1);
     }
     for (size_t n = 0; n < p->count; ++n) {
         if (o->bytes == NULL) offsets[n] = o->count;
         if (a->skip[n]) continue;
         struct rc_integer_insn i = p->insns[n];
         int dst = a->registers[i.dst] >= 0 ? a->registers[i.dst] : 0;
-        if (binary(i.op)) {
-            int left = source(o,a,i.left,0), right = source(o,a,i.right,1);
-            if (dst == right && (i.op == RC_INT_ADD || i.op == RC_INT_MUL ||
-                i.op == RC_INT_AND || i.op == RC_INT_OR || i.op == RC_INT_XOR ||
-                i.op == RC_INT_EQ || i.op == RC_INT_NE)) {
-                int swap = left; left = right; right = swap;
-            }
-            if (i.op == RC_INT_SHL || i.op == RC_INT_SHR || (dst == right && dst != left)) {
-                move(o,1,right); right = 1;
-            }
-            move(o,dst,left); operation(o,i.op,dst,right);
+        if (rc_integer_binary(i.op)) {
+            emit_binary(a,o,i,dst);
         } else switch (i.op) {
         case RC_INT_ARGUMENT: move(o,dst,i.immediate == 0 ? 7 : 6); break;
         case RC_INT_CONSTANT: constant(o,dst,i.immediate); break;
@@ -242,18 +299,8 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
         case RC_INT_LOAD_U16:
         case RC_INT_LOAD_U32:
         case RC_INT_LOAD_U64:
-            byte(o,0x41); byte(o,0xba); word(o,(uint32_t)n);
-            move(o,0,source(o,a,i.left,0)); move(o,1,9);
-            regop(o,0x39,0,1); byte(o,0x0f); byte(o,0x87); branch(o,failure);
-            regop(o,0x29,1,0);
-            byte(o,0x48); byte(o,0x83); byte(o,0xf9); byte(o,(uint8_t)(1u << (i.op-RC_INT_LOAD_U8)));
-            byte(o,0x0f); byte(o,0x82); branch(o,failure);
-            if (i.op == RC_INT_LOAD_U64) byte(o,0x48);
-            if (i.op == RC_INT_LOAD_U8 || i.op == RC_INT_LOAD_U16) {
-                byte(o,0x0f); byte(o,i.op == RC_INT_LOAD_U8 ? 0xb6 : 0xb7);
-            } else byte(o,0x8b);
-            byte(o,0x04); byte(o,0x02);
-            move(o,dst,0); break;
+            emit_load(a,o,i,n,dst,failure);
+            break;
         case RC_INT_BRANCH: {
             int condition = source(o,a,i.left,0);
             regop(o,0x85,condition,condition);
@@ -274,21 +321,8 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
         }
         if (a->registers[i.dst] < 0) stack(o,0x89,0,i.dst);
     }
-    if (batch != NULL) {
-        if (o->bytes == NULL) batch->batch_success = o->count;
-        memory(o,0x89,0,14,0);
-        regop(o,0x01,13,5); advance(o,14,8);
-        advance(o,15,255); /* ADD -1, keeping flags for the loop backedge. */
-        byte(o,0x0f); byte(o,0x85); branch(o,loop);
-        if (o->bytes == NULL) batch->batch_finish = o->count;
-        constant(o,0,RC_OK); byte(o,0xe9); branch(o,batch->batch_exit);
-        if (o->bytes == NULL) batch->batch_failure = o->count;
-        if (p->memory) memory(o,0x89,10,12,32);
-        constant(o,0,RC_BOUNDS);
-        if (o->bytes == NULL) batch->batch_exit = o->count;
-        batch_exit(o,a);
-        return batch->batch_failure;
-    }
+    if (batch != NULL)
+        return emit_batch_finish(p,a,o,batch,loop);
     size_t failure_offset = o->count;
     if (p->memory) {
         byte(o,0x4d); byte(o,0x89); byte(o,0x50); byte(o,0x08);

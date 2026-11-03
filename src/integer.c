@@ -13,17 +13,22 @@ static enum rc_status check_insn(const struct rc_integer_program *p,
 {
     if (i.op < RC_INT_ARGUMENT || i.op > RC_INT_LOAD_U64)
         return RC_INVALID_IR;
-    bool binary = i.op >= RC_INT_ADD && i.op <= RC_INT_SLE;
-    bool writes = i.op <= RC_INT_SLE || rc_integer_load(i.op);
+    bool binary = rc_integer_binary(i.op);
+    bool writes = rc_integer_writes(i.op);
     bool reads = rc_integer_load(i.op) || binary || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN;
     bool branch = i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH;
     if ((writes ? i.dst >= p->registers : i.dst != 0) ||
         (reads ? i.left >= p->registers : i.left != 0) ||
-        (binary ? i.right >= p->registers : i.right != 0) ||
-        (branch ? i.target >= RC_INTEGER_MAX_INSTRUCTIONS : i.target != 0) ||
-        (i.op == RC_INT_ARGUMENT && i.immediate >= p->arguments) ||
-        (i.op != RC_INT_ARGUMENT && i.op != RC_INT_CONSTANT && i.immediate != 0))
+        (binary ? i.right >= p->registers : i.right != 0))
         return RC_INVALID_IR;
+    if (branch ? i.target >= RC_INTEGER_MAX_INSTRUCTIONS : i.target != 0)
+        return RC_INVALID_IR;
+    if (i.op == RC_INT_ARGUMENT) {
+        if (i.immediate >= p->arguments)
+            return RC_INVALID_IR;
+    } else if (i.op != RC_INT_CONSTANT && i.immediate != 0) {
+        return RC_INVALID_IR;
+    }
     return RC_OK;
 }
 
@@ -72,7 +77,7 @@ static enum rc_status validate_linear_definitions(const struct rc_integer_progra
         uint64_t reads = rc_integer_reads(insn);
         if ((reads & defined) != reads)
             return rc_fail(error, RC_UNINITIALIZED, n, 0);
-        if (insn.op <= RC_INT_SLE || rc_integer_load(insn.op))
+        if (rc_integer_writes(insn.op))
             defined |= UINT64_C(1) << insn.dst;
     }
     return rc_fail(error, RC_OK, 0, 0);
@@ -103,7 +108,7 @@ static enum rc_status validate_control_definitions(const struct rc_integer_progr
                 continue;
             struct rc_integer_insn insn = p->insns[n];
             uint64_t defined = facts[n].defined;
-            if (insn.op <= RC_INT_SLE || rc_integer_load(insn.op))
+            if (rc_integer_writes(insn.op))
                 defined |= UINT64_C(1) << insn.dst;
             size_t edges[2], count = 0;
             if (insn.op == RC_INT_JUMP || insn.op == RC_INT_BRANCH)
@@ -228,7 +233,7 @@ enum rc_status rc_integer_interpret_validated(const struct rc_integer_program *p
         if (limited && budget-- == 0) return rc_fail(error, RC_BUDGET, pc, 0);
         struct rc_integer_insn i = p->insns[pc++];
         uint64_t a = 0, b = 0, value = 0;
-        if (i.op >= RC_INT_ADD && i.op <= RC_INT_SLE) { a = regs[i.left]; b = regs[i.right]; }
+        if (rc_integer_binary(i.op)) { a = regs[i.left]; b = regs[i.right]; }
         switch (i.op) {
         case RC_INT_LOAD_U8:
         case RC_INT_LOAD_U16:

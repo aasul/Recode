@@ -24,6 +24,14 @@ static inline bool rc_integer_load(enum rc_integer_op op)
 {
     return op >= RC_INT_LOAD_U8 && op <= RC_INT_LOAD_U64;
 }
+static inline bool rc_integer_binary(enum rc_integer_op op)
+{
+    return op >= RC_INT_ADD && op <= RC_INT_SLE;
+}
+static inline bool rc_integer_writes(enum rc_integer_op op)
+{
+    return op <= RC_INT_SLE || rc_integer_load(op);
+}
 /* A prepared layout borrows immutable program storage through publication.
  * Only rc_integer_prepare initializes it; it is not an untrusted descriptor. */
 struct rc_integer_allocation {
@@ -41,7 +49,7 @@ struct rc_integer_plan {
 };
 static inline uint64_t rc_integer_reads(struct rc_integer_insn i)
 {
-    bool binary = i.op >= RC_INT_ADD && i.op <= RC_INT_SLE;
+    bool binary = rc_integer_binary(i.op);
     uint64_t mask = 0;
     if (binary || rc_integer_load(i.op) || i.op == RC_INT_BRANCH || i.op == RC_INT_RETURN)
         mask = UINT64_C(1) << i.left;

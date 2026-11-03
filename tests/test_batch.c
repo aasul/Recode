@@ -191,24 +191,33 @@ static void test_sampling(void)
             }
     enum { COUNT=257 };
     uint8_t data[8] = {0}; struct rc_memory_view view = {data,sizeof(data)};
-    uint64_t args[COUNT][2] = {{0}}, out[COUNT]; struct rc_integer_batch_item items[COUNT];
+    uint64_t args[COUNT][3] = {{0}}, out[COUNT]; struct rc_integer_batch_item items[COUNT];
     for (size_t n = 0; n < COUNT; ++n) items[n] = (struct rc_integer_batch_item){args[n],2,&view};
+    struct rc_integer_record_batch records = {args,COUNT,sizeof(args[0]),sizeof(args[0]),2,{0,8},16,8};
     const size_t faults[] = {0,7,8,15,16,17,127,128,255,256};
-    for (size_t p = 0; p < sizeof(periods)/sizeof(*periods); ++p) {
+    for (unsigned contiguous = 0; contiguous < 2; ++contiguous)
+      for (size_t p = 0; p < sizeof(periods)/sizeof(*periods); ++p) {
         struct rc_runtime_config c = rc_runtime_default_config();
         c.policy = RC_POLICY_FIXED; c.hot_threshold = 2; c.sample_period = periods[p];
         struct rc_runtime *r = NULL; rc_handle h; size_t done;
         struct rc_integer_program *programmed = program(true,0);
         CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
         CHECK(rc_runtime_register_integer(r,programmed,&h,NULL) == RC_OK); rc_integer_program_destroy(programmed);
-        for (unsigned warm = 0; warm < 2; ++warm)
-            CHECK(rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,NULL) == RC_OK && done == COUNT);
+        for (unsigned warm = 0; warm < 2; ++warm) {
+            enum rc_status status = contiguous
+                ? rc_runtime_call_integer_records(r,h,&records,out,COUNT,&done,NULL)
+                : rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,NULL);
+            CHECK(status == RC_OK && done == COUNT);
+        }
         for (size_t f = 0; f < sizeof(faults)/sizeof(*faults); ++f) {
             size_t fault = faults[f]; args[fault][0] = 1;
             for (size_t n = 0; n < COUNT; ++n) out[n] = 91;
             struct rc_function_stats before,after; struct rc_error error;
             CHECK(rc_runtime_function_stats(r,h,&before,NULL) == RC_OK);
-            CHECK(rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,&error) == RC_BOUNDS);
+            enum rc_status status = contiguous
+                ? rc_runtime_call_integer_records(r,h,&records,out,COUNT,&done,&error)
+                : rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,&error);
+            CHECK(status == RC_BOUNDS);
             CHECK(done == fault && error.offset == 1 && error.system_errno == 0);
             uint64_t samples = 0;
             for (size_t n = 0; n <= fault; ++n)
