@@ -46,36 +46,20 @@ void rc_cfg_free(struct rc_cfg *cfg)
     *cfg = (struct rc_cfg){0};
 }
 
-enum rc_status rc_analyze(const struct rc_program *program, struct rc_cfg *cfg,
-                           struct rc_error *error)
+static enum rc_status build_blocks(const struct rc_program *program, struct rc_cfg *cfg,
+                                      struct rc_error *error)
 {
-    if (program == NULL || (program->count != 0 && program->insns == NULL))
-        return rc_fail(error, RC_ARGUMENT, 0, 0);
     size_t count = program->count;
-    if (count == 0)
-        return rc_fail(error, RC_MISSING_RET, 0, 0);
-    if (count > UINT32_MAX || count > SIZE_MAX / sizeof(*cfg->blocks) ||
-        count > SIZE_MAX / sizeof(*cfg->block_for))
-        return rc_fail(error, RC_MEMORY, 0, 0);
-    cfg->blocks = malloc(count * sizeof(*cfg->blocks));
-    cfg->block_for = malloc(count * sizeof(*cfg->block_for));
-    if (cfg->blocks == NULL || cfg->block_for == NULL) {
-        rc_cfg_free(cfg);
-        return rc_fail(error, RC_MEMORY, 0, 0);
-    }
     for (size_t i = 0; i < count; ++i)
         cfg->block_for[i] = 0;
-    enum rc_status status = RC_INVALID_IR;
-    size_t offset = 0;
     for (size_t i = 0; i < count; ++i) {
         enum rc_op op = program->insns[i].op;
-        offset = i;
         if (op < RC_INPUT || op > RC_JNZ)
-            goto failed;
+            return rc_fail(error,RC_INVALID_IR,i,0);
         if (rc_is_branch(op)) {
             size_t target = program->insns[i].immediate;
             if (target >= count)
-                goto failed;
+                return rc_fail(error,RC_INVALID_IR,i,0);
             cfg->block_for[target] = 1;
         }
         if ((rc_is_branch(op) || op == RC_RET) && i + 1 < count)
@@ -108,6 +92,11 @@ enum rc_status rc_analyze(const struct rc_program *program, struct rc_cfg *cfg,
         block->defined = RC_RAX_DEFINED | RC_ZF_DEFINED;
         block->next = SIZE_MAX;
     }
+    return RC_OK;
+}
+
+static void propagate_definitions(struct rc_cfg *cfg)
+{
     size_t head = 0, tail = 0;
     cfg->blocks[0].reachable = true;
     while (head != SIZE_MAX) {
@@ -143,45 +132,63 @@ enum rc_status rc_analyze(const struct rc_program *program, struct rc_cfg *cfg,
             }
         }
     } while (changed);
+}
+
+static enum rc_status validate_block_entries(const struct rc_program *program,
+                                                const struct rc_cfg *cfg, struct rc_error *error)
+{
     for (size_t b = 0; b < cfg->count; ++b) {
-        struct rc_block *block = &cfg->blocks[b];
+        const struct rc_block *block = &cfg->blocks[b];
         if (!block->reachable)
             continue;
         unsigned defined = block->defined;
         for (size_t i = block->first; i < block->end; ++i) {
             enum rc_op op = program->insns[i].op;
-            offset = i;
-            if ((rc_writes_zf(op) || op == RC_RET) && (defined & RC_RAX_DEFINED) == 0) {
-                status = RC_UNINITIALIZED;
-                goto failed;
-            }
-            if ((op == RC_JZ || op == RC_JNZ) && (defined & RC_ZF_DEFINED) == 0) {
-                status = RC_UNDEFINED_ZF;
-                goto failed;
-            }
+            if ((rc_writes_zf(op) || op == RC_RET) && (defined & RC_RAX_DEFINED) == 0)
+                return rc_fail(error,RC_UNINITIALIZED,i,0);
+            if ((op == RC_JZ || op == RC_JNZ) && (defined & RC_ZF_DEFINED) == 0)
+                return rc_fail(error,RC_UNDEFINED_ZF,i,0);
             if (op == RC_INPUT || op == RC_CONST)
                 defined |= RC_RAX_DEFINED;
             if (rc_writes_zf(op))
                 defined |= RC_ZF_DEFINED;
         }
         enum rc_op last = program->insns[block->end - 1].op;
-        if (block->end == count && last != RC_JMP && last != RC_RET) {
-            status = RC_MISSING_RET;
-            offset = count;
-            goto failed;
-        }
+        if (block->end == program->count && last != RC_JMP && last != RC_RET)
+            return rc_fail(error,RC_MISSING_RET,program->count,0);
     }
     for (size_t b = 0; b < cfg->count; ++b) {
-        if (!cfg->blocks[b].reachable) {
-            status = RC_TRAILING;
-            offset = cfg->blocks[b].first;
-            goto failed;
-        }
+        if (!cfg->blocks[b].reachable)
+            return rc_fail(error,RC_TRAILING,cfg->blocks[b].first,0);
     }
     return rc_fail(error, RC_OK, 0, 0);
-failed:
-    rc_cfg_free(cfg);
-    return rc_fail(error, status, offset, 0);
+}
+
+enum rc_status rc_analyze(const struct rc_program *program, struct rc_cfg *cfg,
+                           struct rc_error *error)
+{
+    if (program == NULL || (program->count != 0 && program->insns == NULL))
+        return rc_fail(error, RC_ARGUMENT, 0, 0);
+    size_t count = program->count;
+    if (count == 0)
+        return rc_fail(error, RC_MISSING_RET, 0, 0);
+    if (count > UINT32_MAX || count > SIZE_MAX / sizeof(*cfg->blocks) ||
+        count > SIZE_MAX / sizeof(*cfg->block_for))
+        return rc_fail(error, RC_MEMORY, 0, 0);
+    cfg->blocks = malloc(count * sizeof(*cfg->blocks));
+    cfg->block_for = malloc(count * sizeof(*cfg->block_for));
+    if (cfg->blocks == NULL || cfg->block_for == NULL) {
+        rc_cfg_free(cfg);
+        return rc_fail(error, RC_MEMORY, 0, 0);
+    }
+    enum rc_status status = build_blocks(program,cfg,error);
+    if (status == RC_OK) {
+        propagate_definitions(cfg);
+        status = validate_block_entries(program,cfg,error);
+    }
+    if (status != RC_OK)
+        rc_cfg_free(cfg);
+    return status;
 }
 
 enum rc_status rc_validate(const struct rc_program *program, struct rc_error *error)

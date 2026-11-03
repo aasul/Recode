@@ -274,6 +274,35 @@ static void test_validation(void)
     rc_cfg_free(&cfg);
 }
 
+static void test_validation_precedence(void)
+{
+    const struct {
+        struct rc_insn insns[4];
+        size_t count;
+        enum rc_status status;
+        size_t offset;
+    } cases[] = {
+        {{{RC_RET,0},{RC_NOP,0},{RC_JMP,UINT32_MAX}},3,RC_INVALID_IR,2},
+        {{{RC_RET,0},{(enum rc_op)(RC_JNZ+1),0}},2,RC_INVALID_IR,1},
+        {{{RC_JMP,2},{RC_INPUT,0},{RC_RET,0}},3,RC_UNINITIALIZED,2},
+        {{{RC_JMP,2},{RC_RET,0},{RC_NOP,0}},3,RC_MISSING_RET,3},
+        {{{RC_INPUT,0},{RC_RET,0},{RC_RET,0}},3,RC_TRAILING,2}
+    };
+    for (size_t n = 0; n < sizeof(cases)/sizeof(*cases); ++n) {
+        struct rc_insn insns[4];
+        memcpy(insns,cases[n].insns,sizeof(insns));
+        struct rc_program program = {insns,cases[n].count};
+        struct rc_cfg cfg = {0};
+        struct rc_error error;
+        CHECK(rc_analyze(&program,&cfg,&error) == cases[n].status);
+        CHECK(error.status == cases[n].status && error.offset == cases[n].offset && error.system_errno == 0);
+        CHECK(cfg.blocks == NULL && cfg.block_for == NULL && cfg.count == 0);
+        CHECK(rc_validate(&program,&error) == cases[n].status && error.offset == cases[n].offset);
+        CHECK(rc_optimize(&program,&error) == cases[n].status && error.offset == cases[n].offset);
+        CHECK(program.count == cases[n].count && memcmp(insns,cases[n].insns,sizeof(insns)) == 0);
+    }
+}
+
 static void test_truncation(void)
 {
     const uint8_t forms[][7] = {{0xeb,0},{0xe9,0,0,0,0},{0x74,0},{0x75,0},
@@ -586,6 +615,7 @@ static void test_nontermination(void)
 int main(void)
 {
     test_validation();
+    test_validation_precedence();
     test_truncation();
     run_child(test_encodings);
     run_child(test_flags_and_optimizer);
