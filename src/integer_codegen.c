@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "integer.h"
+#include "emitter.h"
 
 #include <errno.h>
 #include <string.h>
@@ -27,16 +28,6 @@ _Static_assert(offsetof(struct rc_integer_record_batch,view_offset) == 56, "reco
 _Static_assert(offsetof(struct rc_integer_record_batch,view_length) == 64, "record view length");
 _Static_assert(offsetof(struct rc_integer_result,value) == 0, "native result offset");
 _Static_assert(offsetof(struct rc_integer_result,offset) == 8, "native fault offset");
-struct output { uint8_t *bytes; size_t count; };
-static void byte(struct output *o, uint8_t value)
-{
-    if (o->bytes != NULL) o->bytes[o->count] = value;
-    ++o->count;
-}
-static void word(struct output *o, uint32_t value)
-{
-    for (unsigned n = 0; n < 32; n += 8) byte(o,(uint8_t)(value >> n));
-}
 static void allocate(const struct rc_integer_program *p, struct rc_integer_allocation *a)
 {
     a->frame = 0;

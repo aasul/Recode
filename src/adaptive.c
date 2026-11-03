@@ -927,6 +927,42 @@ static bool trace_before(struct rc_observer *observer, struct rc_state *state)
     return false;
 }
 
+static void finish_recording(struct rc_observer *observer)
+{
+    struct trace_call *call = observer->context;
+    struct rc_runtime *r = call->runtime;
+    struct translation *t = call->function->translation;
+    pthread_mutex_lock(&r->mutex);
+    struct trace_slot *slot = &t->traces[call->recording];
+    add(&call->stats.trace_recording_ns,elapsed(call->recording_start,now_ns()));
+    add(&call->stats.trace_recorded_ops,slot->trace.count);
+    slot->recording = false;
+    observer->recording = NULL;
+    if (slot->trace.stop == RC_TRACE_LOOP || slot->trace.stop == RC_TRACE_RETURN) {
+        size_t used = slot->trace.count * sizeof(*slot->trace.ops);
+        struct rc_trace_op *compact = malloc(used);
+        if (compact != NULL) {
+            memcpy(compact,slot->trace.ops,used);
+            free(slot->trace.ops);
+            r->stats.metadata_bytes -= (slot->trace.capacity - slot->trace.count) * sizeof(*compact);
+            slot->trace.ops = compact;
+            slot->trace.capacity = slot->trace.count;
+        }
+        if (!r->config.trace_record_only) compile_trace(call,slot);
+        else slot->disabled = true;
+        call->views[call->recording].function = slot->function;
+    } else {
+        slot->disabled = true;
+        add(&call->stats.trace_aborts,1);
+        r->stats.metadata_bytes -= slot->trace.capacity * sizeof(*slot->trace.ops);
+        free(slot->trace.ops);
+        slot->trace.ops = NULL;
+    }
+    if (slot->disabled) call->blocked[call->recording] = true;
+    stop_observing(observer);
+    pthread_mutex_unlock(&r->mutex);
+}
+
 static void trace_after(struct rc_observer *observer, size_t pc,
                          struct rc_state *state, bool returned)
 {
@@ -935,35 +971,7 @@ static void trace_after(struct rc_observer *observer, size_t pc,
     struct translation *t = call->function->translation;
     if (observer->recording != NULL) {
         if (observer->recording->stop == RC_TRACE_RECORDING) return;
-        pthread_mutex_lock(&r->mutex);
-        struct trace_slot *slot = &t->traces[call->recording];
-        add(&call->stats.trace_recording_ns,elapsed(call->recording_start,now_ns()));
-        add(&call->stats.trace_recorded_ops,slot->trace.count);
-        slot->recording = false;
-        observer->recording = NULL;
-        if (slot->trace.stop == RC_TRACE_LOOP || slot->trace.stop == RC_TRACE_RETURN) {
-            size_t used = slot->trace.count * sizeof(*slot->trace.ops);
-            struct rc_trace_op *compact = malloc(used);
-            if (compact != NULL) {
-                memcpy(compact,slot->trace.ops,used);
-                free(slot->trace.ops);
-                r->stats.metadata_bytes -= (slot->trace.capacity - slot->trace.count) * sizeof(*compact);
-                slot->trace.ops = compact;
-                slot->trace.capacity = slot->trace.count;
-            }
-            if (!r->config.trace_record_only) compile_trace(call,slot);
-            else slot->disabled = true;
-            call->views[call->recording].function = slot->function;
-        } else {
-            slot->disabled = true;
-            add(&call->stats.trace_aborts,1);
-            r->stats.metadata_bytes -= slot->trace.capacity * sizeof(*slot->trace.ops);
-            free(slot->trace.ops);
-            slot->trace.ops = NULL;
-        }
-        if (slot->disabled) call->blocked[call->recording] = true;
-        stop_observing(observer);
-        pthread_mutex_unlock(&r->mutex);
+        finish_recording(observer);
         return;
     }
     if (returned || state->pc > pc || !rc_is_branch(t->program.insns[pc].op)) return;
@@ -973,10 +981,10 @@ static void trace_after(struct rc_observer *observer, size_t pc,
         pthread_mutex_lock(&r->mutex);
         struct trace_slot *slot = &t->traces[i];
         add(&slot->edges,1);
-        if (slot->disabled || slot->recording || t->invocations <= slot->retry_after)
+        bool unavailable = slot->disabled || slot->recording || t->invocations <= slot->retry_after;
+        if (unavailable)
             call->blocked[i] = true;
-        bool eligible = !slot->disabled && !slot->recording &&
-            t->invocations > slot->retry_after && slot->edges >= r->config.trace_hot_threshold;
+        bool eligible = !unavailable && slot->edges >= r->config.trace_hot_threshold;
         if (eligible && slot->function != NULL) {
             call->views[i].function = slot->function;
             add(&call->stats.trace_hits,1);

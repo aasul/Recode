@@ -1,10 +1,5 @@
 #include "internal.h"
 
-static bool fits_signed32(uint64_t value)
-{
-    return value <= INT32_MAX || value >= UINT64_MAX - (uint64_t)INT32_MAX;
-}
-
 static bool zf_live_after(const struct rc_program *program, const struct rc_cfg *cfg,
                            size_t block, size_t position)
 {
@@ -69,12 +64,12 @@ enum rc_status rc_optimize(struct rc_program *program, struct rc_error *error)
             bool live = zf_live_after(program, &cfg, b, end);
             /* ADD/SUB set ZF from the final RAX, so a representable nonzero
              * delta preserves ZF too. A zero delta still needs ADD 0 if live. */
-            if (fits_signed32(delta) || fits_signed32(UINT64_C(0) - delta)) {
+            if (rc_fits_signed32(delta) || rc_fits_signed32(UINT64_C(0) - delta)) {
                 size_t replacement = output;
                 for (size_t j = i; j < end; ++j)
                     cfg.block_for[j] = replacement;
                 if (delta != 0 || live) {
-                    bool add = fits_signed32(delta);
+                    bool add = rc_fits_signed32(delta);
                     program->insns[output++] = (struct rc_insn){add ? RC_ADD : RC_SUB,
                         (uint32_t)(add ? delta : UINT64_C(0) - delta)};
                 }
