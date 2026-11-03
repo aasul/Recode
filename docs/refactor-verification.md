@@ -95,3 +95,28 @@ The dispatch probe still checks the existing clock, lock and allocation counts.
 Session logs, raw measurements and the extended-driver reproduction script are
 in `/tmp/recode-evidence` and `/tmp/recode-long-measure.py`. No benchmark defaults
 or source drivers were changed in the repository.
+
+## Post-commit quality checks
+
+Desloppify ran and was rescanned from the specified C-support fork, pinned to
+`5179f6ba61dca2050813a1aa7e2f71ba7e4ce765`. Its C/C++ import model incorrectly
+marks linked translation units and tested consumers as orphaned/untested, and
+its signature matcher even treats `if` as a function. The two string-API warnings
+are numeric `sscanf` conversions of a bounded `/proc/self/status` line, with no
+string destination. These candidates were inspected, not treated as defects.
+File-size/complexity warnings remain; splitting private runtime state solely to
+satisfy those thresholds would spread the ownership and locking contract.
+The optional jscpd stage failed; its retry was stopped while npm waited for access.
+No subjective score or complete native C coverage is claimed.
+
+Standalone Cppcheck 2.17.1 completed all 21 `src` translation units with no findings:
+
+```sh
+cppcheck --check-level=exhaustive --std=c11 \
+  --enable=warning,performance,portability --error-exitcode=1 \
+  -Iinclude -Isrc -I/tmp/recode-final-gcc-release/generated src
+```
+
+The isolated Cppcheck installation initially lacked its configuration lookup path;
+that was corrected before this successful run. No source changes were needed
+following the post-commit review.
