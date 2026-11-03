@@ -26,7 +26,9 @@ timing. Seven processes per revision alternate revision/engine order for common
 scalar/bulk/lifecycle and native-entry/thread/fragmentation diagnostics.
 Cold/storage use three alternating revision processes; cold has seven internal
 option-order rounds per process. Records use three candidate processes with
-three internal engine-order rounds each. CPU 0 is used except the dedicated
+three internal engine-order rounds each. The record harness keeps declared
+record_size=33 and varies the allocated stride; independent declared-size effects
+were not measured. CPU 0 is used except the dedicated
 thread diagnostic on CPUs 0..3. Frequency and background activity are uncontrolled.
 No builds or scans ran during the final timing collection.
 

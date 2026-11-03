@@ -1,0 +1,111 @@
+{
+  "observed_date": "2026-11-03",
+  "note": "Snapshot before the final docs-only reporting commit. PR 43 checks/description carry the final head observation.",
+  "pull_requests": [
+    {
+      "pr": 39,
+      "url": "https://github.com/aasul/Recode/pull/39",
+      "head": "feat/v1.7-native-batch-fusion",
+      "base": "main",
+      "head_sha": "da4c296fccfab70939da2bd7f24a9126707f8554",
+      "state": "open",
+      "merged": false,
+      "workflow_runs": [
+        {
+          "id": 41524976126,
+          "name": "ci",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 62,
+          "jobs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41524976126/jobs",
+          "logs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41524976126/logs",
+          "workflow_id": 403018784
+        }
+      ]
+    },
+    {
+      "pr": 40,
+      "url": "https://github.com/aasul/Recode/pull/40",
+      "head": "perf/v1.7-cold-batch-policy",
+      "base": "feat/v1.7-native-batch-fusion",
+      "head_sha": "fbe5d3116c0426d3fe4dd62eaf2652473a6e74e8",
+      "state": "open",
+      "merged": false,
+      "workflow_runs": [
+        {
+          "id": 41525955318,
+          "name": "ci",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 63,
+          "jobs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41525955318/jobs",
+          "logs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41525955318/logs",
+          "workflow_id": 403018784
+        }
+      ]
+    },
+    {
+      "pr": 41,
+      "url": "https://github.com/aasul/Recode/pull/41",
+      "head": "feat/v1.7-code-slabs",
+      "base": "perf/v1.7-cold-batch-policy",
+      "head_sha": "66325a87e2ad10b37085fb7185f7fdcbd9ff7d45",
+      "state": "open",
+      "merged": false,
+      "workflow_runs": [
+        {
+          "id": 41527561548,
+          "name": "ci",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 64,
+          "jobs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41527561548/jobs",
+          "logs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41527561548/logs",
+          "workflow_id": 403018784
+        }
+      ]
+    },
+    {
+      "pr": 42,
+      "url": "https://github.com/aasul/Recode/pull/42",
+      "head": "feat/v1.7-contiguous-batch",
+      "base": "feat/v1.7-code-slabs",
+      "head_sha": "a7cedcbe0366052228a58dc8301f1f918452cdcd",
+      "state": "open",
+      "merged": false,
+      "workflow_runs": [
+        {
+          "id": 41529341828,
+          "name": "ci",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 65,
+          "jobs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41529341828/jobs",
+          "logs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41529341828/logs",
+          "workflow_id": 403018784
+        }
+      ]
+    },
+    {
+      "pr": 43,
+      "url": "https://github.com/aasul/Recode/pull/43",
+      "head": "release/v1.7.0",
+      "base": "feat/v1.7-contiguous-batch",
+      "head_sha": "763e6acb3d147280a5da766d4f2b7cc78262ce46",
+      "state": "open",
+      "merged": false,
+      "workflow_runs": [
+        {
+          "id": 41590446283,
+          "name": "ci",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 66,
+          "jobs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41590446283/jobs",
+          "logs_url": "https://api.github.com/repos/aasul/Recode/actions/runs/41590446283/logs",
+          "workflow_id": 403018784
+        }
+      ]
+    }
+  ]
+}

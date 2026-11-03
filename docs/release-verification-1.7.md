@@ -138,8 +138,15 @@ untested, `if` parsed as a function signature, goto cleanup falsely reported
 unreachable and numeric-only bounded sscanf falsely flagged for string overflow.
 The large runtime file remains a maintainability observation; it does not justify
 an unrelated refactor in release preparation. No confirmed behavioral defect was
-found in those candidates. A docs/evidence post-commit rescan is recorded in the
-PR after publication.
+found in those candidates. A fresh Git-free archive of reporting commit
+`763e6acb3d147280a5da766d4f2b7cc78262ce46` was scanned after that commit with
+`desloppify --lang cxx scan --path . --profile objective --skip-slow --no-badge`,
+then `desloppify --lang cxx next`. No project paths were excluded.
+report-quality.log and report-quality-next.log retain the results. The same 89
+candidates were reported, including two numeric sscanf false positives. The fresh
+scan still reports 459 coverage files despite counting 54 C/C++ files, so the
+coverage and queue limitations are not cured by fresh state. No new confirmed
+behavioral defect was found; production source remains unchanged.
 
 cppcheck is unavailable. clang-tidy is installed and was run on adaptive.c,
 integer_codegen.c and integer.c with
@@ -167,16 +174,16 @@ No warning suppression or behavior change was made merely to satisfy the tools.
 
 ## Review stack and observed CI
 
-Observed on 2026-11-03. The four feature PRs are open and unmerged. GitHub Actions
+Observed on 2026-11-03. All five PRs are open and unmerged. GitHub Actions
 ci completed successfully at their exact heads:
 
-| PR | Head branch | Base | Head commit | Successful run |
+| PR | Head branch | Base | Observed CI source head | Successful run |
 | --- | --- | --- | --- | --- |
 | [39](https://github.com/aasul/Recode/pull/39) | feat/v1.7-native-batch-fusion | main | da4c296fccfab70939da2bd7f24a9126707f8554 | [41524976126](https://github.com/aasul/Recode/actions/runs/41524976126) |
 | [40](https://github.com/aasul/Recode/pull/40) | perf/v1.7-cold-batch-policy | feat/v1.7-native-batch-fusion | fbe5d3116c0426d3fe4dd62eaf2652473a6e74e8 | [41525955318](https://github.com/aasul/Recode/actions/runs/41525955318) |
 | [41](https://github.com/aasul/Recode/pull/41) | feat/v1.7-code-slabs | perf/v1.7-cold-batch-policy | 66325a87e2ad10b37085fb7185f7fdcbd9ff7d45 | [41527561548](https://github.com/aasul/Recode/actions/runs/41527561548) |
 | [42](https://github.com/aasul/Recode/pull/42) | feat/v1.7-contiguous-batch | feat/v1.7-code-slabs | a7cedcbe0366052228a58dc8301f1f918452cdcd | [41529341828](https://github.com/aasul/Recode/actions/runs/41529341828) |
-| Pending publication | release/v1.7.0 | feat/v1.7-contiguous-batch | Reporting commit follows tested a3870ac | Pending |
+| [43](https://github.com/aasul/Recode/pull/43) | release/v1.7.0 | feat/v1.7-contiguous-batch | 763e6acb3d147280a5da766d4f2b7cc78262ce46 | [41590446283](https://github.com/aasul/Recode/actions/runs/41590446283) |
 
 Release branch integration commits before reporting:
 
@@ -185,7 +192,8 @@ Release branch integration commits before reporting:
 - a3870acfb8bff222c8c755505c0afc5b75c0c98c: native-entry/fragmentation probes.
 
 Merge order is 39, 40, 41, 42, then release preparation. The maintainer must retarget
-bases as preceding PRs merge. Tracking issue: [38](https://github.com/aasul/Recode/issues/38).
+bases as preceding PRs merge. Later docs-only reporting commits may advance the
+release head; the PR checks and description record its final CI observation. Tracking issue: [38](https://github.com/aasul/Recode/issues/38).
 CI covers GCC/Clang release/sanitizers plus shared/installed consumers and bounded
 fuzzing; it is distinct from the larger local matrix above.
 

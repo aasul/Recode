@@ -1,0 +1,25 @@
+  → query.json updated
+
+  Queue: 1 item
+  Next item  (#1 in queue)
+  (Ready to scan)
+  ────────────────────────────────────────────────────────────
+  Run post-flight scan to refresh queue and surface follow-up review work.
+
+  Action: desloppify scan
+
+  North star: strict 15.2/100 → target 85.0 (+69.8 needed)
+  Queue: 1 item (1 planning step · 20 planned)
+  Details: `desloppify plan queue` · Skip: `desloppify plan skip <id>`
+
+  Subjective: 20 unassessed.
+  Run `desloppify show subjective` for details.
+
+
+  ┌──────────────────────────────────────────────────────────┐
+  │                                                          │
+  │  Start working on the task above. When done:             │
+  │  `desloppify plan resolve`. Full queue: `desloppify      │
+  │  plan show`.                                             │
+  │                                                          │
+  └──────────────────────────────────────────────────────────┘

@@ -15,7 +15,7 @@ baseline is v1.6.0 at 0e4a9cca12a45dd5964ee4e9108455878b3256de.
 - [x] Rebuild unchanged v1.0, v1.5 and v1.6 consumers against 1.7 installations.
 - [x] Check all shared exports and SONAME, retaining every old public symbol.
 - [x] Finish immutable final comparative measurements, including available LLVM/MIR adapters.
-- [ ] Complete post-commit quality review and record all five PRs/CI states.
+- [x] Complete post-commit quality review and record all five PRs/CI states.
 
 Maintainer actions after development:
 
@@ -23,5 +23,7 @@ Maintainer actions after development:
 - [ ] Independently verify merged main and its release archive.
 - [ ] Separately authorize tagging and GitHub release publication.
 
-Evidence belongs in release-verification-1.7.md and performance-1.7.md.
+Evidence is in [release-verification-1.7.md](release-verification-1.7.md) and
+[performance-1.7.md](performance-1.7.md). The final reporting-head CI and archive
+checksum are recorded in [PR 43](https://github.com/aasul/Recode/pull/43).
 Development verification does not replace maintainer release review.
