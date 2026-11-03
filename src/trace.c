@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "trace.h"
+#include "emitter.h"
 
 #include <errno.h>
 #include <stddef.h>
@@ -77,18 +78,6 @@ _Static_assert(offsetof(struct rc_state, zf) == 24, "trace ZF offset");
 _Static_assert(offsetof(struct rc_state, remaining) == 32, "trace fuel offset");
 _Static_assert(sizeof(rc_trace_function) == sizeof(void *), "trace pointer size");
 
-struct output { uint8_t *bytes; size_t count; };
-static void byte(struct output *o, uint8_t b)
-{
-    if (o->bytes != NULL)
-        o->bytes[o->count] = b;
-    ++o->count;
-}
-static void word(struct output *o, uint32_t value)
-{
-    for (unsigned i = 0; i < 32; i += 8)
-        byte(o, (uint8_t)(value >> i));
-}
 static void sequence(struct output *o, const uint8_t *bytes, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
@@ -106,9 +95,35 @@ static void snapshot(struct output *o, uint32_t pc, enum rc_trace_exit reason)
     word(o, (uint32_t)reason);
     byte(o, 0xc3);
 }
-static bool fits32(uint64_t value)
+static struct rc_insn fold_arithmetic(const struct rc_trace *t, size_t *position)
 {
-    return value <= INT32_MAX || value >= UINT64_MAX - (uint64_t)INT32_MAX;
+    size_t end = *position;
+    uint64_t delta = 0;
+    while (end < t->count) {
+        struct rc_insn insn = t->ops[end].insn;
+        if (insn.op == RC_ADD) delta += rc_extend(insn.immediate);
+        else if (insn.op == RC_SUB) delta -= rc_extend(insn.immediate);
+        else if (insn.op != RC_NOP && insn.op != RC_JMP) break;
+        ++end;
+    }
+    uint64_t negative = UINT64_C(0) - delta;
+    bool add = rc_fits_signed32(delta);
+    if (!add && !rc_fits_signed32(negative))
+        return t->ops[*position].insn;
+    *position = end - 1;
+    /* Trace exits observe ZF, so even a zero delta needs ADD 0. */
+    return (struct rc_insn){add ? RC_ADD : RC_SUB, (uint32_t)(add ? delta : negative)};
+}
+
+static void emit_loop_backedge(struct output *o, size_t loop, uint32_t header)
+{
+    /* Save !ZF in DL before DEC uses flags for the quantum. TEST DL,DL
+     * reconstructs exactly the architectural ZF on both outgoing edges. */
+    const uint8_t fuel[] = {0x0f,0x95,0xc2,0x48,0xff,0xc9,0x74,0x07,0x84,0xd2,0xe9};
+    sequence(o,fuel,sizeof(fuel));
+    word(o,UINT32_C(0) - (uint32_t)(o->count + 4 - loop));
+    byte(o,0x84); byte(o,0xd2);
+    snapshot(o,header,RC_TRACE_YIELD);
 }
 
 static size_t emit_body(struct output *o, const struct rc_trace *t, bool optimize, size_t exits)
@@ -119,23 +134,8 @@ static size_t emit_body(struct output *o, const struct rc_trace *t, bool optimiz
     size_t loop = o->count, guard = 0;
     for (size_t i = 0; i < t->count; ++i) {
         struct rc_insn insn = t->ops[i].insn;
-        if (optimize && (insn.op == RC_ADD || insn.op == RC_SUB)) {
-            size_t end = i;
-            uint64_t delta = 0;
-            while (end < t->count) {
-                struct rc_insn next = t->ops[end].insn;
-                if (next.op == RC_ADD) delta += rc_extend(next.immediate);
-                else if (next.op == RC_SUB) delta -= rc_extend(next.immediate);
-                else if (next.op != RC_NOP && next.op != RC_JMP) break;
-                ++end;
-            }
-            if (fits32(delta) || fits32(UINT64_C(0) - delta)) {
-                bool add = fits32(delta);
-                insn = (struct rc_insn){add ? RC_ADD : RC_SUB,
-                    (uint32_t)(add ? delta : UINT64_C(0) - delta)};
-                i = end - 1;
-            }
-        }
+        if (optimize && (insn.op == RC_ADD || insn.op == RC_SUB))
+            insn = fold_arithmetic(t,&i);
         switch (insn.op) {
         case RC_INPUT: {
             const uint8_t input[] = {0x48,0x89,0xf0};
@@ -165,15 +165,8 @@ static size_t emit_body(struct output *o, const struct rc_trace *t, bool optimiz
         case RC_NOP: if (!optimize) byte(o,0x90); break;
         }
     }
-    if (t->stop == RC_TRACE_LOOP) {
-        /* Save !ZF in DL before DEC uses flags for the quantum. TEST DL,DL
-         * reconstructs exactly the architectural ZF on both outgoing edges. */
-        const uint8_t fuel[] = {0x0f,0x95,0xc2,0x48,0xff,0xc9,0x74,0x07,0x84,0xd2,0xe9};
-        sequence(o,fuel,sizeof(fuel));
-        word(o,UINT32_C(0) - (uint32_t)(o->count + 4 - loop));
-        byte(o,0x84); byte(o,0xd2);
-        snapshot(o,t->header,RC_TRACE_YIELD);
-    }
+    if (t->stop == RC_TRACE_LOOP)
+        emit_loop_backedge(o,loop,t->header);
     size_t exit_base = o->count;
     for (size_t i = 0; i < t->count; ++i)
         if (t->ops[i].insn.op == RC_JZ || t->ops[i].insn.op == RC_JNZ)

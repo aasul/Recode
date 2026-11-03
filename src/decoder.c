@@ -103,6 +103,45 @@ static enum rc_status decode_one(const uint8_t *bytes, size_t remaining,
     return RC_UNSUPPORTED;
 }
 
+static enum rc_status resolve_branches(struct rc_program *program, const size_t *offsets,
+                                        size_t length, struct rc_error *error)
+{
+    for (size_t i = 0; i < program->count; ++i) {
+        struct rc_insn *insn = &program->insns[i];
+        if (!rc_is_branch(insn->op))
+            continue;
+        uint32_t bits = insn->immediate;
+        int64_t displacement = bits;
+        if (bits > INT32_MAX)
+            displacement -= INT64_C(4294967296);
+        size_t next = offsets[i + 1];
+        size_t target;
+        if (displacement < 0) {
+            size_t distance = (size_t)(-displacement);
+            if (distance > next)
+                return rc_fail(error, RC_BRANCH, offsets[i], 0);
+            target = next - distance;
+        } else {
+            size_t distance = (size_t)displacement;
+            if (distance >= length - next)
+                return rc_fail(error, RC_BRANCH, offsets[i], 0);
+            target = next + distance;
+        }
+        size_t low = 0, high = program->count;
+        while (low < high) {
+            size_t mid = low + (high - low) / 2;
+            if (offsets[mid] < target)
+                low = mid + 1;
+            else
+                high = mid;
+        }
+        if (low == program->count || offsets[low] != target)
+            return rc_fail(error, RC_BRANCH, offsets[i], 0);
+        insn->immediate = (uint32_t)low;
+    }
+    return RC_OK;
+}
+
 enum rc_status rc_decode(const uint8_t *bytes, size_t length,
                          struct rc_program *program, struct rc_error *error)
 {
@@ -128,52 +167,22 @@ enum rc_status rc_decode(const uint8_t *bytes, size_t length,
         struct rc_insn insn;
         size_t used;
         status = decode_one(bytes + offset, length - offset, &insn, &used);
-        if (status != RC_OK)
+        if (status != RC_OK) {
+            rc_fail(error, status, offset, 0);
             goto failed;
+        }
         offsets[decoded.count] = offset;
         decoded.insns[decoded.count++] = insn;
         offset += used;
     }
     offsets[decoded.count] = length;
-    for (size_t i = 0; i < decoded.count; ++i) {
-        struct rc_insn *insn = &decoded.insns[i];
-        if (!rc_is_branch(insn->op))
-            continue;
-        uint32_t bits = insn->immediate;
-        int64_t displacement = bits;
-        if (bits > INT32_MAX)
-            displacement -= INT64_C(4294967296);
-        size_t next = offsets[i + 1];
-        offset = offsets[i];
-        status = RC_BRANCH;
-        size_t target;
-        if (displacement < 0) {
-            size_t distance = (size_t)(-displacement);
-            if (distance > next)
-                goto failed;
-            target = next - distance;
-        } else {
-            size_t distance = (size_t)displacement;
-            if (distance >= length - next)
-                goto failed;
-            target = next + distance;
-        }
-        size_t low = 0, high = decoded.count;
-        while (low < high) {
-            size_t mid = low + (high - low) / 2;
-            if (offsets[mid] < target)
-                low = mid + 1;
-            else
-                high = mid;
-        }
-        if (low == decoded.count || offsets[low] != target)
-            goto failed;
-        insn->immediate = (uint32_t)low;
-    }
+    status = resolve_branches(&decoded, offsets, length, error);
+    if (status != RC_OK)
+        goto failed;
     struct rc_error validation;
     status = rc_validate(&decoded, &validation);
     if (status != RC_OK) {
-        offset = offsets[validation.offset];
+        rc_fail(error, status, offsets[validation.offset], 0);
         goto failed;
     }
     free(offsets);
@@ -182,5 +191,5 @@ enum rc_status rc_decode(const uint8_t *bytes, size_t length,
 failed:
     free(offsets);
     rc_program_free(&decoded);
-    return rc_fail(error, status, offset, 0);
+    return status;
 }

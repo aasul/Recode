@@ -184,6 +184,57 @@ static enum rc_trace_exit reference(const struct rc_program *p, const struct rc_
         if (--s->remaining == 0) return RC_TRACE_YIELD;
     }
 }
+
+static void test_folding_boundaries(void)
+{
+    const struct { uint32_t add, sub; bool folded; } cases[] = {
+        {INT32_MAX,0,true}, {UINT32_C(0x80000000),0,true},
+        {INT32_MAX,UINT32_MAX,true}, {UINT32_C(0x80000000),1,false},
+        {INT32_MAX,UINT32_C(0x80000000),false},
+        {UINT32_C(0x80000000),INT32_MAX,false}, {INT32_MAX,INT32_MAX,true}
+    };
+    const uint64_t inputs[] = {0,1,UINT64_MAX,INT32_MAX,UINT64_C(0x80000000),
+        UINT64_C(0xffffffff80000000),UINT64_C(0x8000000000000000)};
+    for (size_t n = 0; n < sizeof(cases)/sizeof(*cases); ++n) {
+        /* Trace folding crosses recorded JMPs; whole-function folding cannot
+         * cross a block entry that another predecessor might reach. */
+        struct rc_insn insns[] = {{RC_INPUT,0},{RC_ADD,cases[n].add},
+            {RC_NOP,0},{RC_JMP,4},{RC_SUB,cases[n].sub},{RC_RET,0}};
+        struct rc_program p = {insns,6};
+        struct rc_trace_op ops[8];
+        struct rc_trace t = {.ops = ops,.capacity = 8};
+        record(&p,&t,(struct rc_state){.pc = 1});
+        CHECK(t.stop == RC_TRACE_RETURN && t.count == 5);
+        size_t sizes[2];
+        for (unsigned opt = 0; opt < 2; ++opt) {
+            struct rc_code code = {0};
+            rc_trace_function fn = compile(&p,&t,opt != 0,&code);
+            sizes[opt] = code.size;
+            uint8_t bytes[256];
+            CHECK(code.size < sizeof(bytes));
+            for (size_t capacity = 0; capacity <= code.size; ++capacity) {
+                memset(bytes,0xa5,sizeof(bytes));
+                size_t length;
+                enum rc_status status = rc_trace_emit(&p,&t,opt != 0,bytes,capacity,&length,NULL);
+                CHECK(length == code.size && status == (capacity < length ? RC_CAPACITY : RC_OK));
+                if (status == RC_OK) CHECK(memcmp(bytes,code.mapping,length) == 0);
+                for (size_t i = status == RC_OK ? length : 0; i < sizeof(bytes); ++i)
+                    CHECK(bytes[i] == 0xa5);
+            }
+            for (size_t i = 0; i < sizeof(inputs)/sizeof(*inputs); ++i) {
+                struct rc_state actual = {.rax = inputs[i],.argument = 99,.pc = 1,
+                    .zf = (uint8_t)(i % 2),.remaining = 3};
+                struct rc_state expected = actual;
+                CHECK(fn(&actual) == reference(&p,&t,&expected));
+                CHECK(actual.rax == expected.rax && actual.zf == expected.zf && actual.pc == expected.pc);
+                CHECK(actual.argument == expected.argument && actual.remaining == expected.remaining);
+            }
+            CHECK(rc_code_free(&code,NULL) == RC_OK);
+        }
+        CHECK(sizes[1] == sizes[0] - (cases[n].folded ? 7u : 1u));
+    }
+}
+
 static uint64_t random_state = UINT64_C(0x875b3e02ab117dad);
 static uint64_t random_value(void)
 {
@@ -359,6 +410,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
+    test_folding_boundaries();
     test_random_snapshots(); test_snapshots(); test_flags_and_optimization(); test_runtime(); test_candidate_limit(); test_concurrency();
     puts("trace paths, guards, snapshots, native loops, fallback, reuse, eviction and concurrency passed");
     return 0;

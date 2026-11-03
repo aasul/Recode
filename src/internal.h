@@ -67,6 +67,12 @@ static inline uint64_t rc_extend(uint32_t value)
         ? UINT64_C(0xffffffff00000000) | value : value;
 }
 
+/* A modulo-2^64 value encodable as one sign-extended x86 imm32. */
+static inline bool rc_fits_signed32(uint64_t value)
+{
+    return value <= INT32_MAX || value >= UINT64_MAX - (uint64_t)INT32_MAX;
+}
+
 enum rc_status rc_interpret_validated(const struct rc_program *program, uint64_t argument,
                                        uint64_t budget, uint64_t *result);
 enum rc_status rc_map_program(const struct rc_program *program, size_t needed,
