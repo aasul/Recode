@@ -88,6 +88,7 @@ struct rc_runtime_config {
     size_t trace_max_instructions; /* 1..4096 operations per recording. */
     size_t trace_max_candidates; /* 1..16 headers per translation. */
     bool trace_record_only; /* Diagnostic recording without native compilation. */
+    bool cold_batch_compile; /* Opt in to cost-based first-batch compilation; default false. */
 };
 struct rc_function_stats {
     uint64_t invocations, interpreted, jitted;

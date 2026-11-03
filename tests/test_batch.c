@@ -223,6 +223,53 @@ static void test_sampling(void)
     }
 }
 
+static void test_cold_policy(void)
+{
+    enum { COUNT = 8192 };
+    struct rc_integer_batch_item *items = malloc(COUNT*sizeof(*items));
+    uint64_t *out = malloc(COUNT*sizeof(*out)), args[2] = {UINT64_MAX,9};
+    CHECK(items != NULL && out != NULL);
+    for (size_t n = 0; n < COUNT; ++n) items[n] = (struct rc_integer_batch_item){args,2,NULL};
+    struct rc_integer_program *p = program(false,0);
+    for (enum rc_policy policy = RC_POLICY_INTERPRET; policy <= RC_POLICY_ADAPTIVE; ++policy)
+        for (unsigned enabled = 0; enabled < 2; ++enabled) for (unsigned budget = 0; budget < 2; ++budget) {
+            struct rc_runtime_config c = rc_runtime_default_config();
+            c.policy = policy; c.cold_batch_compile = enabled != 0; c.executable_budget = budget*4096u;
+            c.hot_threshold = UINT64_MAX;
+            struct rc_runtime *r = NULL; rc_handle h; size_t done;
+            CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK);
+            CHECK(rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+            CHECK(rc_runtime_call_integer_batch(r,h,items,0,out,COUNT,&done,NULL) == RC_OK && done == 0);
+            CHECK(rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,NULL) == RC_OK && done == COUNT);
+            for (size_t n = 0; n < COUNT; ++n) CHECK(out[n] == 8);
+            struct rc_function_stats stats;
+            CHECK(rc_runtime_function_stats(r,h,&stats,NULL) == RC_OK);
+            bool native = policy != RC_POLICY_INTERPRET && enabled && budget;
+            CHECK(stats.jitted == (native ? COUNT : 0) && stats.interpreted == (native ? 0 : COUNT));
+            CHECK(stats.compilation_attempts == (native ? 1u : 0u));
+            if (native) {
+                rc_handle alias; CHECK(rc_runtime_register_integer(r,p,&alias,NULL) == RC_OK);
+                CHECK(rc_runtime_call_integer_batch(r,alias,items,1,out,1,&done,NULL) == RC_OK && done == 1);
+                CHECK(rc_runtime_function_stats(r,alias,&stats,NULL) == RC_OK);
+                CHECK(stats.jitted == 1 && stats.interpreted == 0 && stats.compilation_attempts == 0);
+                CHECK(rc_runtime_invalidate(r,h,NULL) == RC_OK);
+                CHECK(rc_runtime_call_integer_batch(r,h,items,1,out,1,&done,NULL) == RC_OK);
+                CHECK(rc_runtime_function_stats(r,h,&stats,NULL) == RC_OK && stats.compilation_attempts == 1);
+            }
+            CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+        }
+    /* Size alone is insufficient when the configured compile estimate is high. */
+    struct rc_runtime_config c = rc_runtime_default_config(); c.policy = RC_POLICY_FIXED;
+    c.cold_batch_compile = true; c.initial_compile_ns = UINT64_MAX; c.hot_threshold = UINT64_MAX;
+    struct rc_runtime *r = NULL; rc_handle h; size_t done;
+    CHECK(rc_runtime_create(&c,&r,NULL) == RC_OK && rc_runtime_register_integer(r,p,&h,NULL) == RC_OK);
+    CHECK(rc_runtime_call_integer_batch(r,h,items,COUNT,out,COUNT,&done,NULL) == RC_OK);
+    struct rc_function_stats stats; CHECK(rc_runtime_function_stats(r,h,&stats,NULL) == RC_OK);
+    CHECK(stats.compilation_attempts == 0 && stats.policy_postponed != 0);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    rc_integer_program_destroy(p); free(out); free(items);
+}
+
 struct worker { struct rc_runtime *r; rc_handle h; unsigned id; bool memory; atomic_bool *start; };
 static void *work(void *context)
 {
@@ -240,9 +287,12 @@ static void *work(void *context)
     }
     return NULL;
 }
-static void test_concurrency(bool memory)
+static void test_concurrency(bool memory, bool cold)
 {
-    struct rc_integer_program *p=program(memory,0); struct rc_runtime *r=runtime(RC_POLICY_FIXED,4096); rc_handle h,alias;
+    struct rc_integer_program *p=program(memory,0); struct rc_runtime *r=NULL; rc_handle h,alias;
+    struct rc_runtime_config c=rc_runtime_default_config(); c.policy=RC_POLICY_FIXED;
+    c.hot_threshold=2; c.executable_budget=4096; c.cold_batch_compile=cold; c.initial_compile_ns=1;
+    CHECK(rc_runtime_create(&c,&r,NULL)==RC_OK);
     CHECK(rc_runtime_register_integer(r,p,&h,NULL)==RC_OK); CHECK(rc_runtime_register_integer(r,p,&alias,NULL)==RC_OK);
     rc_integer_program_destroy(p); pthread_t threads[4]; struct worker workers[4]; atomic_bool start=false;
     for(unsigned n=0;n<4;++n) {
@@ -267,6 +317,6 @@ static void test_concurrency(bool memory)
 }
 int main(void)
 {
-    alarm(60); test_inputs(); test_results(); test_bounds(); test_guard_page(); test_sampling(); test_concurrency(false); test_concurrency(true);
+    alarm(60); test_inputs(); test_results(); test_bounds(); test_guard_page(); test_sampling(); test_cold_policy(); test_concurrency(false,false); test_concurrency(true,false); test_concurrency(false,true); test_concurrency(true,true);
     puts("batch preflight, aliases, partial faults, independent results, policies and concurrent cache pressure passed"); return 0;
 }

@@ -91,7 +91,8 @@ struct rc_integer_batch_item {
  * BUSY; long batches can delay eviction. No cancellation or deadline is provided.
  * Invocation and tier counters count attempted items, including a failing load;
  * cache hit/miss counters count tier acquisitions, once per public batch call.
- * First use of a handle interprets the entire batch. FIXED/ADAPTIVE can promote
+ * By default first use interprets the entire batch. cold_batch_compile permits
+ * cost-based compilation or cached-native reuse on first use. FIXED/ADAPTIVE can promote
  * on a later batch boundary. Scalar policy decisions remain unchanged. */
 enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *runtime, rc_handle handle,
                                               const struct rc_integer_batch_item *items,
