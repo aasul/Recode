@@ -100,6 +100,26 @@ enum rc_status rc_runtime_call_integer_batch(struct rc_runtime *runtime, rc_hand
                                               size_t result_capacity, size_t *completed,
                                               struct rc_error *error);
 
+struct rc_integer_record_batch {
+    const void *records;
+    size_t record_count, stride, record_size;
+    size_t argument_count, argument_offsets[2];
+    size_t view_offset, view_length;
+};
+/* Ordered strided records with the same prefix/error/statistics contract as the
+ * descriptor batch API. stride >= record_size; offsets/views stay within each
+ * declared record. Arguments are uint64_t object representations, loaded safely
+ * even at unaligned offsets. View loads retain unsigned little-endian semantics.
+ * All layout values and borrowed record bytes are immutable until return.
+ * Outputs must be disjoint from the layout and the entire record span, including
+ * stride gaps. A zero record_count accepts NULL records/results but still checks
+ * layout and handle. Empty records with zero stride/arguments/view are valid.
+ * No descriptor array or per-record heap allocation is constructed. */
+enum rc_status rc_runtime_call_integer_records(struct rc_runtime *runtime, rc_handle handle,
+                                                const struct rc_integer_record_batch *batch,
+                                                uint64_t *results, size_t result_capacity,
+                                                size_t *completed, struct rc_error *error);
+
 /* The original execution interfaces use an empty view. LOAD returns RC_BOUNDS
  * only if reached. Views do not impose execution deadlines or sandbox native code. */
 

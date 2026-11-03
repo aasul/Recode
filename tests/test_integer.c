@@ -72,10 +72,16 @@ static void verify_fused(const struct rc_integer_program *p, const uint64_t *arg
     struct rc_integer_batch_item items[] = {{args,p->arguments,NULL},
         {alternate,p->arguments,NULL},{args,p->arguments,NULL}};
     uint64_t out[3] = {91,92,93}, abi = 0;
-    struct rc_integer_batch_context context = {items,out,3,99,0};
+    struct rc_integer_batch_context context = {items,out,3,99,0,NULL,sizeof(struct rc_integer_batch_item)};
     CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_OK && abi == 1);
     CHECK(context.completed == 3 && out[0] == value && out[1] == reference && out[2] == value);
-    context = (struct rc_integer_batch_context){NULL,NULL,0,99,0};
+    uint64_t records[3][2] = {{args[0],args[1]},{0,UINT64_MAX},{args[0],args[1]}};
+    struct rc_integer_record_batch layout = {.records=records,.record_count=3,.stride=sizeof(records[0]),
+        .record_size=sizeof(records[0]),.argument_count=p->arguments,.argument_offsets={0,8}};
+    context = (struct rc_integer_batch_context){records,out,3,99,0,&layout,sizeof(records[0])};
+    CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_OK && abi == 1 && context.completed == 3);
+    CHECK(out[0] == value && out[1] == reference && out[2] == value);
+    context = (struct rc_integer_batch_context){NULL,NULL,0,99,0,NULL,sizeof(struct rc_integer_batch_item)};
     CHECK(rc_test_batch_abi(batch,&context,&abi) == RC_OK && abi == 1 && context.completed == 0);
     CHECK(rc_code_free(&code,NULL) == RC_OK);
 }

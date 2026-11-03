@@ -7,13 +7,15 @@ backedges. The additional body increases compilation work and native text size.
 The low-level diagnostic scalar emitter remains scalar-only.
 
 The batch entry has the private signature `rc_status(context *)`. The context
-contains item/result pointers, a count, a successful prefix and a fault instruction
-index. Only validated requests reach it. RDI receives the context. Saved R12 holds
-it, R13 the current item, R14 the output cursor and R15 the remaining count. The
-allocator uses caller-saved registers only. R12..R15 are pushed once and restored
-on every exit. RBX/RBP, vector and floating-point state are untouched. RSP is
+contains input/result pointers, a count, a successful prefix, a fault instruction
+index, an optional record layout and a stride. Only validated requests reach it.
+RDI receives the context. Saved R12 holds it, R13 the current item, R14 the output
+cursor and R15 the remaining count. RBX holds an optional record layout and RBP
+the input stride. The allocator uses caller-saved registers only.
+RBX/RBP/R12..R15 are pushed once and restored
+on every exit. Vector and floating-point state are untouched. RSP is
 restored exactly. The leaf makes no calls and needs no aligned vector spills.
-The entry RSP residue of 8 modulo 16 remains unchanged by its four pushes and
+The entry RSP residue of 8 modulo 16 remains unchanged by its six pushes and
 16-byte spill frame. The convention follows the
 [System V AMD64 psABI](https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/low-level-sys-info.tex).
 

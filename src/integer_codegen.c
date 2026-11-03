@@ -8,7 +8,7 @@
 /* RAX/RCX are scratch. Memory entries also reserve RDX=data, R8=result,
  * R9=length and R10=fault PC. Assigned registers have one home across all
  * edges, including backedges; the remaining virtuals keep authoritative slots.
- * Batch control uses saved R12..R15, outside the scalar allocation pool. */
+ * Batch control uses saved RBX/RBP/R12..R15, outside the allocation pool. */
 _Static_assert(offsetof(struct rc_integer_batch_context,items) == 0, "native batch items");
 _Static_assert(offsetof(struct rc_integer_batch_context,results) == 8, "native batch results");
 _Static_assert(offsetof(struct rc_memory_view,data) == 0, "native view data");
@@ -18,6 +18,12 @@ _Static_assert(offsetof(struct rc_integer_batch_item,view) == 16, "native item v
 _Static_assert(offsetof(struct rc_integer_batch_context,count) == 16, "native batch count");
 _Static_assert(offsetof(struct rc_integer_batch_context,completed) == 24, "native batch prefix");
 _Static_assert(offsetof(struct rc_integer_batch_context,offset) == 32, "native batch fault");
+_Static_assert(offsetof(struct rc_integer_batch_context,records) == 40, "native record layout");
+_Static_assert(offsetof(struct rc_integer_batch_context,stride) == 48, "native record stride");
+_Static_assert(offsetof(struct rc_integer_record_batch,stride) == 16, "record stride");
+_Static_assert(offsetof(struct rc_integer_record_batch,argument_offsets) == 40, "record arguments");
+_Static_assert(offsetof(struct rc_integer_record_batch,view_offset) == 56, "record view offset");
+_Static_assert(offsetof(struct rc_integer_record_batch,view_length) == 64, "record view length");
 _Static_assert(offsetof(struct rc_integer_result,value) == 0, "native result offset");
 _Static_assert(offsetof(struct rc_integer_result,offset) == 8, "native fault offset");
 struct output { uint8_t *bytes; size_t count; };
@@ -154,6 +160,12 @@ static void memory(struct output *o, uint8_t opcode, int reg, int base, uint8_t 
     if ((base & 7) == 4) byte(o,0x24);
     byte(o,offset);
 }
+static void indexed(struct output *o, uint8_t opcode, int reg, int base, int index)
+{
+    byte(o,(uint8_t)(0x48 | (reg >= 8 ? 4 : 0) | (index >= 8 ? 2 : 0) | (base >= 8 ? 1 : 0)));
+    byte(o,opcode); byte(o,(uint8_t)(0x44 | ((reg & 7) << 3)));
+    byte(o,(uint8_t)(((index & 7) << 3) | (base & 7))); byte(o,0);
+}
 static void advance(struct output *o, int reg, uint8_t amount)
 {
     byte(o,(uint8_t)(0x48 | (reg >= 8 ? 1 : 0))); byte(o,0x83);
@@ -165,22 +177,26 @@ static void batch_exit(struct output *o, const struct rc_integer_allocation *a)
     memory(o,0x89,1,12,24);
     frame(o,0xc4,a->frame);
     for (int reg = 15; reg >= 12; --reg) { byte(o,0x41); byte(o,(uint8_t)(0x58+(reg & 7))); }
-    byte(o,0xc3);
+    byte(o,0x5d); byte(o,0x5b); byte(o,0xc3);
 }
 static size_t emit_body(const struct rc_integer_program *p, const struct rc_integer_allocation *a,
                         struct output *o, size_t *offsets, size_t failure, struct rc_integer_plan *batch)
 {
     byte(o,0xf3); byte(o,0x0f); byte(o,0x1e); byte(o,0xfa);
     if (batch != NULL) {
+        byte(o,0x53); byte(o,0x55);
         for (int reg = 12; reg <= 15; ++reg) { byte(o,0x41); byte(o,(uint8_t)(0x50+(reg & 7))); }
         move(o,12,7);
         memory(o,0x8b,13,12,0); memory(o,0x8b,14,12,8); memory(o,0x8b,15,12,16);
+        memory(o,0x8b,3,12,40); memory(o,0x8b,5,12,48);
     }
     frame(o,0xec,a->frame);
     if (batch == NULL && p->memory) move(o,9,1);
     size_t loop = o->count;
     if (batch != NULL) {
         regop(o,0x85,15,15); byte(o,0x0f); byte(o,0x84); branch(o,batch->batch_finish);
+        loop = o->count; /* The backedge is taken only with a nonzero remaining count. */
+        regop(o,0x85,3,3); byte(o,0x0f); byte(o,0x85); branch(o,batch->batch_record);
         if (p->arguments != 0) {
             memory(o,0x8b,0,13,0); memory(o,0x8b,7,0,0);
             if (p->arguments > 1) memory(o,0x8b,6,0,8);
@@ -191,6 +207,17 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
             regop(o,0x85,0,0); byte(o,0x0f); byte(o,0x84); branch(o,o->count+4+8);
             memory(o,0x8b,2,0,0); memory(o,0x8b,9,0,8);
         }
+        byte(o,0xe9); branch(o,batch->batch_program);
+        if (o->bytes == NULL) batch->batch_record = o->count;
+        for (size_t n = 0; n < p->arguments; ++n) {
+            memory(o,0x8b,0,3,(uint8_t)(40+8*n));
+            indexed(o,0x8b,n == 0 ? 7 : 6,13,0);
+        }
+        if (p->memory) {
+            memory(o,0x8b,0,3,56); indexed(o,0x8d,2,13,0);
+            memory(o,0x8b,9,3,64);
+        }
+        if (o->bytes == NULL) batch->batch_program = o->count;
     }
     for (size_t n = 0; n < p->count; ++n) {
         if (o->bytes == NULL) offsets[n] = o->count;
@@ -236,7 +263,8 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
         case RC_INT_RETURN:
             move(o,0,source(o,a,i.left,0));
             if (batch != NULL) {
-                byte(o,0xe9); branch(o,batch->batch_success); continue;
+                if (n+1 != p->count) { byte(o,0xe9); branch(o,batch->batch_success); }
+                continue;
             }
             if (p->memory) {
                 byte(o,0x49); byte(o,0x89); byte(o,0x00); byte(o,0x31); byte(o,0xc0);
@@ -249,7 +277,7 @@ static size_t emit_body(const struct rc_integer_program *p, const struct rc_inte
     if (batch != NULL) {
         if (o->bytes == NULL) batch->batch_success = o->count;
         memory(o,0x89,0,14,0);
-        advance(o,13,(uint8_t)sizeof(struct rc_integer_batch_item)); advance(o,14,8);
+        regop(o,0x01,13,5); advance(o,14,8);
         advance(o,15,255); /* ADD -1, keeping flags for the loop backedge. */
         byte(o,0x0f); byte(o,0x85); branch(o,loop);
         if (o->bytes == NULL) batch->batch_finish = o->count;
@@ -290,6 +318,7 @@ enum rc_status rc_integer_prepare_batch(const struct rc_integer_program *p,
     enum rc_status status = rc_integer_prepare(p,plan,error);
     if (status != RC_OK) return status;
     plan->batch_success = plan->batch_failure = plan->batch_finish = plan->batch_exit = 0;
+    plan->batch_record = plan->batch_program = 0;
     plan->batch = (plan->length+15)/16*16;
     struct output query = {.count = plan->batch};
     (void)emit_body(p,&plan->allocation,&query,plan->batch_offsets,0,plan);
