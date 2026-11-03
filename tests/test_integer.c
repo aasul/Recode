@@ -258,6 +258,52 @@ static void test_validation(void)
     CHECK(rc_builder_finalize(NULL,&p,NULL) == RC_ARGUMENT);
     CHECK(rc_integer_interpret(NULL,NULL,0,0,&(uint64_t){0},NULL) == RC_ARGUMENT);
 }
+static void test_definition_boundaries(void)
+{
+    struct rc_error error;
+    struct rc_integer_insn insns[] = {
+        {.op=RC_INT_ADD,.dst=63,.left=63,.right=63},
+        {.op=RC_INT_CONSTANT,.dst=63},
+        {.op=RC_INT_JUMP,.target=0}
+    };
+    struct rc_integer_program raw = {64,0,3,false,insns};
+    /* A definition from the backedge cannot satisfy the external entry. */
+    CHECK(rc_integer_validate(&raw,&error) == RC_UNINITIALIZED && error.offset == 0);
+    insns[0] = (struct rc_integer_insn){.op=RC_INT_JUMP,.target=2};
+    insns[1] = (struct rc_integer_insn){.op=RC_INT_RETURN,.left=63};
+    insns[2] = (struct rc_integer_insn){.op=RC_INT_RETURN,.left=63};
+    CHECK(rc_integer_validate(&raw,&error) == RC_TRAILING && error.offset == 1);
+
+    /* Structural diagnostics precede data-flow errors, even in unreachable IR. */
+    insns[0] = (struct rc_integer_insn){.op=RC_INT_RETURN,.left=63};
+    insns[2].op = (enum rc_integer_op)255;
+    CHECK(rc_integer_validate(&raw,&error) == RC_INVALID_IR && error.offset == 2);
+    insns[2] = (struct rc_integer_insn){.op=RC_INT_CONSTANT};
+    CHECK(rc_integer_validate(&raw,&error) == RC_MISSING_RET && error.offset == 2);
+    insns[2] = (struct rc_integer_insn){.op=RC_INT_RETURN};
+    raw.memory = true;
+    CHECK(rc_integer_validate(&raw,&error) == RC_INVALID_IR && error.offset == 2);
+
+    const struct rc_integer_insn backwards[] = {
+        {.op=RC_INT_JUMP,.target=3},
+        {.op=RC_INT_BRANCH,.left=63,.target=4},
+        {.op=RC_INT_RETURN,.left=63},
+        {.op=RC_INT_CONSTANT,.dst=63},
+        {.op=RC_INT_JUMP,.target=1}
+    };
+    struct rc_integer_program *p = build(backwards,5,64,0);
+    struct rc_code code = {0};
+    rc_integer_function native;
+    bool allocated;
+    size_t length;
+    CHECK(rc_integer_emit(p,NULL,0,&length,NULL) == RC_OK);
+    CHECK(rc_integer_map(p,length,&code,&native,&allocated,NULL) == RC_OK);
+    uint64_t args[2] = {0};
+    verify(p,args,0,native);
+    CHECK(rc_code_free(&code,NULL) == RC_OK);
+    rc_integer_program_destroy(p);
+}
+
 static void test_prepared_mapping(void)
 {
     const struct rc_integer_insn insns[] = {{.op=RC_INT_ARGUMENT},
@@ -496,6 +542,7 @@ static void test_concurrency(void)
 int main(void)
 {
     alarm(60);
+    test_definition_boundaries();
     test_prepared_mapping(); test_emitter_validation(); test_compact_layout(); test_validation(); test_operations(); test_forwarding(); test_aliasing(); test_random(); test_pressure_loop(); test_maximum_fused(); test_loops_and_ownership(); test_capacity_and_identity(); test_concurrency();
     puts("integer builder, operations, independent differential, ABI, policies, ownership and concurrency passed");
     return 0;

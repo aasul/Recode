@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct rc_builder { struct rc_integer_program program; size_t capacity; };
+struct rc_builder {
+    struct rc_integer_program program;
+    size_t capacity;
+};
 
 static enum rc_status check_insn(const struct rc_integer_program *p,
                                   struct rc_integer_insn i)
@@ -60,62 +63,55 @@ enum rc_status rc_builder_append(struct rc_builder *b, struct rc_integer_insn in
     return rc_fail(error, RC_OK, 0, 0);
 }
 
-/* One instruction per node keeps branch validation and must analysis explicit.
- * Each fact drops at most 64 bits. The external entry always has no definitions. */
-enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc_error *error)
+static enum rc_status validate_linear_definitions(const struct rc_integer_program *p,
+                                                   struct rc_error *error)
 {
-    if (p == NULL) return rc_fail(error, RC_ARGUMENT, 0, 0);
-    if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
-        p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
-        return rc_fail(error, RC_INVALID_IR, 0, 0);
-    if (p->count == 0) return rc_fail(error, RC_MISSING_RET, 0, 0);
-    struct facts { uint64_t defined; bool reachable; };
-    struct facts *facts = NULL;
-    enum rc_status status = RC_OK;
-    size_t offset = 0;
-    bool memory = false, control = false;
+    uint64_t defined = 0;
     for (size_t n = 0; n < p->count; ++n) {
-        struct rc_integer_insn i = p->insns[n];
-        offset = n;
-        status = check_insn(p, i);
-        if (status != RC_OK) goto done;
-        if ((i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) && i.target >= p->count) {
-            status = RC_INVALID_IR; goto done;
-        }
-        if (n + 1 == p->count && i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) {
-            status = RC_MISSING_RET; goto done;
-        }
-        memory |= rc_integer_load(i.op);
-        control |= i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH || (i.op == RC_INT_RETURN && n+1 != p->count);
+        struct rc_integer_insn insn = p->insns[n];
+        uint64_t reads = rc_integer_reads(insn);
+        if ((reads & defined) != reads)
+            return rc_fail(error, RC_UNINITIALIZED, n, 0);
+        if (insn.op <= RC_INT_SLE || rc_integer_load(insn.op))
+            defined |= UINT64_C(1) << insn.dst;
     }
-    if (memory != p->memory) { status = RC_INVALID_IR; goto done; }
-    if (!control) {
-        uint64_t defined = 0;
-        for (size_t n = 0; n < p->count; ++n) {
-            struct rc_integer_insn i = p->insns[n];
-            uint64_t used = rc_integer_reads(i);
-            if ((used & defined) != used) { offset = n; status = RC_UNINITIALIZED; goto done; }
-            if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
-        }
-        goto done;
-    }
-    facts = malloc(p->count * sizeof(*facts));
-    if (facts == NULL) { status = RC_MEMORY; offset = 0; goto done; }
-    for (size_t n = 0; n < p->count; ++n) facts[n] = (struct facts){UINT64_MAX,false};
-    facts[0] = (struct facts){0, true};
+    return rc_fail(error, RC_OK, 0, 0);
+}
+
+struct definition_facts {
+    uint64_t defined;
+    bool reachable;
+};
+
+/* One instruction per node keeps branch validation and must analysis explicit.
+ * Facts start at top and only lose bits. The external entry has no definitions,
+ * even if a backedge reaches instruction zero with initialized registers. */
+static enum rc_status validate_control_definitions(const struct rc_integer_program *p,
+                                                    struct rc_error *error)
+{
+    struct definition_facts *facts = malloc(p->count * sizeof(*facts));
+    if (facts == NULL)
+        return rc_fail(error, RC_MEMORY, 0, 0);
+    for (size_t n = 0; n < p->count; ++n)
+        facts[n] = (struct definition_facts){UINT64_MAX, false};
+    facts[0] = (struct definition_facts){0, true};
     bool changed;
     do {
         changed = false;
         for (size_t n = 0; n < p->count; ++n) {
-            if (!facts[n].reachable) continue;
-            struct rc_integer_insn i = p->insns[n];
+            if (!facts[n].reachable)
+                continue;
+            struct rc_integer_insn insn = p->insns[n];
             uint64_t defined = facts[n].defined;
-            if (i.op <= RC_INT_SLE || rc_integer_load(i.op)) defined |= UINT64_C(1) << i.dst;
+            if (insn.op <= RC_INT_SLE || rc_integer_load(insn.op))
+                defined |= UINT64_C(1) << insn.dst;
             size_t edges[2], count = 0;
-            if (i.op == RC_INT_JUMP || i.op == RC_INT_BRANCH) edges[count++] = i.target;
-            if (i.op != RC_INT_JUMP && i.op != RC_INT_RETURN) edges[count++] = n + 1;
+            if (insn.op == RC_INT_JUMP || insn.op == RC_INT_BRANCH)
+                edges[count++] = insn.target;
+            if (insn.op != RC_INT_JUMP && insn.op != RC_INT_RETURN)
+                edges[count++] = n + 1;
             for (size_t e = 0; e < count; ++e) {
-                struct facts *next = &facts[edges[e]];
+                struct definition_facts *next = &facts[edges[e]];
                 uint64_t merged = next->defined & defined;
                 if (!next->reachable || merged != next->defined) {
                     next->reachable = true;
@@ -125,16 +121,55 @@ enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc
             }
         }
     } while (changed);
+
+    enum rc_status status = RC_OK;
+    size_t offset = 0;
     for (size_t n = 0; n < p->count; ++n) {
         offset = n;
-        if (!facts[n].reachable) { status = RC_TRAILING; goto done; }
-        struct rc_integer_insn i = p->insns[n];
-        uint64_t reads = rc_integer_reads(i);
-        if ((reads & facts[n].defined) != reads) { status = RC_UNINITIALIZED; goto done; }
+        if (!facts[n].reachable) {
+            status = RC_TRAILING;
+            break;
+        }
+        uint64_t reads = rc_integer_reads(p->insns[n]);
+        if ((reads & facts[n].defined) != reads) {
+            status = RC_UNINITIALIZED;
+            break;
+        }
     }
-done:
     free(facts);
     return rc_fail(error, status, status == RC_OK ? 0 : offset, 0);
+}
+
+enum rc_status rc_integer_validate(const struct rc_integer_program *p, struct rc_error *error)
+{
+    if (p == NULL)
+        return rc_fail(error, RC_ARGUMENT, 0, 0);
+    if (p->registers == 0 || p->registers > RC_INTEGER_MAX_REGISTERS || p->arguments > 2 ||
+        p->count > RC_INTEGER_MAX_INSTRUCTIONS || (p->count != 0 && p->insns == NULL))
+        return rc_fail(error, RC_INVALID_IR, 0, 0);
+    if (p->count == 0)
+        return rc_fail(error, RC_MISSING_RET, 0, 0);
+
+    bool memory = false, control = false;
+    for (size_t n = 0; n < p->count; ++n) {
+        struct rc_integer_insn insn = p->insns[n];
+        enum rc_status status = check_insn(p, insn);
+        if (status != RC_OK)
+            return rc_fail(error, status, n, 0);
+        bool branch = insn.op == RC_INT_JUMP || insn.op == RC_INT_BRANCH;
+        if (branch && insn.target >= p->count)
+            return rc_fail(error, RC_INVALID_IR, n, 0);
+        if (n + 1 == p->count && insn.op != RC_INT_JUMP && insn.op != RC_INT_RETURN)
+            return rc_fail(error, RC_MISSING_RET, n, 0);
+        memory |= rc_integer_load(insn.op);
+        control |= branch || (insn.op == RC_INT_RETURN && n + 1 != p->count);
+    }
+    if (memory != p->memory)
+        return rc_fail(error, RC_INVALID_IR, p->count - 1, 0);
+    /* Straight-line validation needs no heap facts. Check structure first so
+     * malformed instructions retain precedence over definition errors. */
+    return control ? validate_control_definitions(p, error)
+                   : validate_linear_definitions(p, error);
 }
 
 enum rc_status rc_integer_copy(const struct rc_integer_program *p,
