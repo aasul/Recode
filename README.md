@@ -146,7 +146,9 @@ compilation-cost trade-offs. The additive [record API](docs/contiguous-records.m
 traverses fixed-stride caller records without descriptor arrays. Its independent
 [installed consumer](examples/contiguous-rules) verifies rules against C.
 
-See [v1.7 measurements](docs/performance-1.7.md) for observed gains and regressions,
+See [v1.7 verification](docs/release-verification-1.7.md) for the source archive,
+test matrix and compatibility evidence. See [v1.7 measurements](docs/performance-1.7.md)
+for observed gains and regressions,
 methodology and raw samples. Source consumers rebuild for ABI 1.7; no cross-minor
 binary substitution is promised. The source remains Linux x86-64 C11 with the
 existing instruction baseline. Maintainer review and separate release

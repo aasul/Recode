@@ -1,0 +1,7 @@
+gcc release passed
+gcc sanitize passed
+gcc shared passed
+clang release passed
+clang sanitize passed
+clang shared passed
+gcc thread sanitizer passed

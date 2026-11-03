@@ -10,11 +10,11 @@ baseline is v1.6.0 at 0e4a9cca12a45dd5964ee4e9108455878b3256de.
 - [x] Add the installed contiguous-rules consumer for static/shared packages.
 - [x] Prepare 1.7.0 metadata with API 1 and ABI/SONAME 1.7.
 - [x] Retain milestone raw measurements and their regressions/limitations.
-- [ ] Complete clean-archive GCC/Clang release/static/shared/ASan/UBSan/TSan verification.
-- [ ] Run leak-enabled suites and a bounded fuzz smoke where supported.
-- [ ] Rebuild unchanged v1.0, v1.5 and v1.6 consumers against 1.7 installations.
-- [ ] Check all shared exports and SONAME, retaining every old public symbol.
-- [ ] Finish immutable final comparative measurements, including available LLVM/MIR adapters.
+- [x] Complete clean-archive GCC/Clang release/static/shared/ASan/UBSan/TSan verification.
+- [x] Run leak-enabled suites and a bounded fuzz smoke where supported.
+- [x] Rebuild unchanged v1.0, v1.5 and v1.6 consumers against 1.7 installations.
+- [x] Check all shared exports and SONAME, retaining every old public symbol.
+- [x] Finish immutable final comparative measurements, including available LLVM/MIR adapters.
 - [ ] Complete post-commit quality review and record all five PRs/CI states.
 
 Maintainer actions after development:

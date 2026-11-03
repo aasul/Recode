@@ -1,0 +1,148 @@
+-- The C compiler identification is GNU 16.2.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- The ASM compiler identification is GNU
+-- Found assembler: /usr/bin/gcc
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/recode-v17-verification/gcc-shared
+[  1%] Building C object CMakeFiles/recode.dir/src/ir.c.o
+[  2%] Building C object CMakeFiles/recode_test_static.dir/src/ir.c.o
+[  4%] Building C object CMakeFiles/recode.dir/src/decoder.c.o
+[  5%] Building C object CMakeFiles/recode_test_static.dir/src/decoder.c.o
+[  6%] Building C object CMakeFiles/recode.dir/src/optimizer.c.o
+[  8%] Building C object CMakeFiles/recode_test_static.dir/src/optimizer.c.o
+[  9%] Building C object CMakeFiles/recode.dir/src/codegen.c.o
+[ 10%] Building C object CMakeFiles/recode_test_static.dir/src/codegen.c.o
+[ 12%] Building C object CMakeFiles/recode.dir/src/runtime.c.o
+[ 13%] Building C object CMakeFiles/recode_test_static.dir/src/runtime.c.o
+[ 15%] Building C object CMakeFiles/recode.dir/src/interpreter.c.o
+[ 16%] Building C object CMakeFiles/recode_test_static.dir/src/interpreter.c.o
+[ 17%] Building C object CMakeFiles/recode.dir/src/adaptive.c.o
+[ 19%] Building C object CMakeFiles/recode_test_static.dir/src/adaptive.c.o
+[ 20%] Building C object CMakeFiles/recode.dir/src/trace.c.o
+[ 21%] Building C object CMakeFiles/recode_test_static.dir/src/trace.c.o
+[ 23%] Building C object CMakeFiles/recode.dir/src/integer.c.o
+[ 24%] Building C object CMakeFiles/recode_test_static.dir/src/integer.c.o
+[ 26%] Building C object CMakeFiles/recode.dir/src/integer_codegen.c.o
+[ 27%] Building C object CMakeFiles/recode_test_static.dir/src/integer_codegen.c.o
+[ 28%] Linking C shared library librecode.so
+[ 28%] Built target recode
+[ 30%] Linking C static library librecode_test_static.a
+[ 31%] Building C object CMakeFiles/recode_record_bench.dir/src/record_bench.c.o
+[ 31%] Built target recode_test_static
+[ 32%] Building C object CMakeFiles/recode_storage_bench.dir/src/storage_bench.c.o
+[ 34%] Linking C executable recode_storage_bench
+[ 35%] Building C object CMakeFiles/recode_record_bench.dir/benchmarks/competitors/workloads.c.o
+[ 35%] Built target recode_storage_bench
+[ 36%] Building C object CMakeFiles/recode_cold_bench.dir/src/cold_bench.c.o
+[ 38%] Linking C executable recode_record_bench
+[ 39%] Building C object CMakeFiles/recode_cold_bench.dir/benchmarks/competitors/workloads.c.o
+[ 39%] Built target recode_record_bench
+[ 41%] Building C object CMakeFiles/recode_integer_profile.dir/src/integer_profile.c.o
+[ 42%] Linking C executable recode_cold_bench
+[ 42%] Built target recode_cold_bench
+[ 43%] Building C object CMakeFiles/recode_batch_bench.dir/src/batch_bench.c.o
+[ 45%] Building C object CMakeFiles/recode_integer_profile.dir/benchmarks/competitors/workloads.c.o
+[ 46%] Linking C executable recode_integer_profile
+[ 47%] Linking C executable recode_batch_bench
+[ 47%] Built target recode_integer_profile
+[ 49%] Building C object CMakeFiles/recode_integer_bench.dir/src/integer_bench.c.o
+[ 49%] Built target recode_batch_bench
+[ 50%] Building C object CMakeFiles/recode_demo.dir/src/demo.c.o
+[ 52%] Linking C executable recode_demo
+[ 52%] Built target recode_demo
+[ 53%] Building C object CMakeFiles/recode_trace_bench.dir/src/trace_bench.c.o
+[ 54%] Linking C executable recode_integer_bench
+[ 54%] Built target recode_integer_bench
+[ 56%] Building C object CMakeFiles/recode_runtime_bench.dir/src/runtime_bench.c.o
+[ 57%] Linking C executable recode_trace_bench
+[ 57%] Built target recode_trace_bench
+[ 58%] Building C object CMakeFiles/recode_bench.dir/src/bench.c.o
+[ 60%] Linking C executable recode_runtime_bench
+[ 61%] Linking C executable recode_bench
+[ 61%] Built target recode_runtime_bench
+[ 61%] Built target recode_bench
+[ 63%] Building C object CMakeFiles/recode_record_tests.dir/tests/test_records.c.o
+[ 64%] Building C object CMakeFiles/recode_slab_tests.dir/tests/test_slabs.c.o
+[ 65%] Building C object CMakeFiles/recode_slab_tests.dir/benchmarks/competitors/workloads.c.o
+[ 67%] Building C object CMakeFiles/recode_record_tests.dir/benchmarks/competitors/workloads.c.o
+[ 68%] Linking C executable recode_slab_tests
+[ 69%] Linking C executable recode_record_tests
+[ 69%] Built target recode_slab_tests
+[ 71%] Building C object CMakeFiles/recode_batch_tests.dir/tests/test_batch.c.o
+[ 71%] Built target recode_record_tests
+[ 72%] Building C object CMakeFiles/recode_stability_tests.dir/tests/test_stability.c.o
+[ 73%] Linking C executable recode_stability_tests
+[ 73%] Built target recode_stability_tests
+[ 75%] Building C object CMakeFiles/recode_memory_tests.dir/tests/test_memory.c.o
+[ 76%] Linking C executable recode_batch_tests
+[ 76%] Built target recode_batch_tests
+[ 78%] Building ASM object CMakeFiles/recode_memory_tests.dir/tests/integer_abi.S.o
+[ 80%] Linking C executable recode_memory_tests
+[ 80%] Building C object CMakeFiles/recode_integer_tests.dir/tests/test_integer.c.o
+[ 80%] Built target recode_memory_tests
+[ 82%] Building C object CMakeFiles/recode_trace_tests.dir/tests/test_trace.c.o
+[ 83%] Linking C executable recode_trace_tests
+[ 83%] Built target recode_trace_tests
+[ 84%] Building C object CMakeFiles/recode_adaptive_failure_tests.dir/tests/test_adaptive_failures.c.o
+[ 86%] Building ASM object CMakeFiles/recode_integer_tests.dir/tests/integer_abi.S.o
+[ 87%] Linking C executable recode_integer_tests
+[ 87%] Built target recode_integer_tests
+[ 89%] Building C object CMakeFiles/recode_adaptive_tests.dir/tests/test_adaptive.c.o
+[ 90%] Linking C executable recode_adaptive_tests
+[ 90%] Built target recode_adaptive_tests
+[ 91%] Building C object CMakeFiles/recode_tests.dir/tests/test_recode.c.o
+[ 93%] Linking C executable recode_adaptive_failure_tests
+[ 93%] Built target recode_adaptive_failure_tests
+[ 94%] Building C object CMakeFiles/recode_failure_tests.dir/tests/test_failures.c.o
+[ 95%] Linking C executable recode_failure_tests
+[ 95%] Built target recode_failure_tests
+[ 97%] Building C object CMakeFiles/recode_control_flow_tests.dir/tests/test_control_flow.c.o
+[ 98%] Linking C executable recode_tests
+[ 98%] Built target recode_tests
+[100%] Linking C executable recode_control_flow_tests
+[100%] Built target recode_control_flow_tests
+Test project /tmp/recode-v17-verification/gcc-shared
+      Start  1: shared-abi
+ 1/16 Test  #1: shared-abi .......................   Passed    0.03 sec
+      Start  2: records
+ 2/16 Test  #2: records ..........................   Passed    0.00 sec
+      Start  3: slabs
+ 3/16 Test  #3: slabs ............................   Passed    0.02 sec
+      Start  4: batch
+ 4/16 Test  #4: batch ............................   Passed    0.02 sec
+      Start  5: stability
+ 5/16 Test  #5: stability ........................   Passed    0.07 sec
+      Start  6: memory
+ 6/16 Test  #6: memory ...........................   Passed    0.01 sec
+      Start  7: integer
+ 7/16 Test  #7: integer ..........................   Passed    0.86 sec
+      Start  8: embedding-OFF
+ 8/16 Test  #8: embedding-OFF ....................   Passed    4.61 sec
+      Start  9: embedding-ON
+ 9/16 Test  #9: embedding-ON .....................   Passed    4.44 sec
+      Start 10: trace
+10/16 Test #10: trace ............................   Passed    0.01 sec
+      Start 11: adaptive_failures
+11/16 Test #11: adaptive_failures ................   Passed    0.00 sec
+      Start 12: adaptive
+12/16 Test #12: adaptive .........................   Passed    0.03 sec
+      Start 13: control_flow
+13/16 Test #13: control_flow .....................   Passed    3.11 sec
+      Start 14: failures
+14/16 Test #14: failures .........................   Passed    0.00 sec
+      Start 15: translator
+15/16 Test #15: translator .......................   Passed    0.04 sec
+      Start 16: demo
+16/16 Test #16: demo .............................   Passed    0.00 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =  13.27 sec

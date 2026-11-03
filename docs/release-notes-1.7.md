@@ -23,6 +23,7 @@ remain trade-offs; this is not a total process-memory quota.
 
 See [native entry details](native-batch.md), [cold policy](cold-batch.md),
 [slab invariants](code-slabs.md), [record API](contiguous-records.md),
-[migration](migration.md) and [performance evidence](performance-1.7.md).
+[migration](migration.md), [performance evidence](performance-1.7.md) and
+[final verification](release-verification-1.7.md).
 Native instructions are outside sanitizer instrumentation. No arbitrary-binary,
 new CPU-extension, execution deadline or in-process sandbox support is added.
