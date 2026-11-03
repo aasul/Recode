@@ -707,74 +707,77 @@ static bool pack_integer(struct rc_runtime *r, struct translation *t,
     return true;
 }
 
-static void compile_translation(struct rc_runtime *r, struct function *f, bool cold)
+struct compilation {
+    struct rc_program program;
+    struct rc_integer_plan integer;
+    size_t emitted, mapped;
+};
+
+static enum rc_status prepare_translation(const struct translation *t, bool optimize,
+                                            struct compilation *compilation, struct rc_error *error)
 {
-    struct translation *t = f->translation;
-    struct rc_error error = {0};
-    struct rc_program prepared = {0};
-    uint64_t start = now_ns();
-    add(&f->stats.compilation_attempts, 1);
-    enum rc_status status = RC_OK;
-    if (t->code.mapping != NULL)
-        status = release_mapping(r, t, &error);
-    if (status == RC_OK && t->integer == NULL) {
-        prepared.count = t->program.count;
-        prepared.insns = malloc(prepared.count * sizeof(*prepared.insns));
-        if (prepared.insns == NULL)
-            status = rc_fail(&error, RC_MEMORY, 0, 0);
-        else
-            memcpy(prepared.insns, t->program.insns, prepared.count * sizeof(*prepared.insns));
+    if (t->integer != NULL) {
+        enum rc_status status = rc_integer_prepare_batch(t->integer,&compilation->integer,error);
+        if (status == RC_OK)
+            compilation->emitted = compilation->integer.length;
+        return status;
     }
-    if (status == RC_OK && t->integer == NULL && r->config.optimize)
-        status = rc_optimize(&prepared, &error);
-    size_t emitted = 0, mapped = 0;
-    struct rc_integer_plan integer_plan;
-    if (status == RC_OK) {
-        if (t->integer != NULL) {
-            status = rc_integer_prepare_batch(t->integer,&integer_plan,&error);
-            if (status == RC_OK) emitted = integer_plan.length;
-        } else status = rc_emit(&prepared,NULL,0,&emitted,&error);
+    struct rc_program *program = &compilation->program;
+    program->count = t->program.count;
+    program->insns = malloc(program->count * sizeof(*program->insns));
+    if (program->insns == NULL)
+        return rc_fail(error,RC_MEMORY,0,0);
+    memcpy(program->insns,t->program.insns,program->count * sizeof(*program->insns));
+    if (optimize) {
+        enum rc_status status = rc_optimize(program,error);
+        if (status != RC_OK)
+            return status;
     }
-    bool packed = false;
-    if (status == RC_OK) {
-        if (emitted > SIZE_MAX - (r->page_size - 1))
-            status = rc_fail(&error, RC_MEMORY, 0, 0);
-        else {
-            mapped = (emitted + r->page_size - 1) / r->page_size * r->page_size;
-            status = cold && mapped > r->config.executable_budget-r->stats.executable_bytes
-                ? rc_fail(&error,RC_CAPACITY,0,0) : make_room(r,mapped,&error);
-        }
-    }
-    if (status == RC_OK && t->integer != NULL)
-        packed = pack_integer(r,t,&integer_plan,&status,&error);
-    if (status == RC_OK && !packed) {
-        bool allocated;
-        status = t->integer != NULL
-            ? rc_integer_map_prepared(&integer_plan,mapped,&t->code,&t->integer_function,&allocated,&error)
-            : rc_map_program(&prepared, mapped, &t->code, &allocated, &error);
-        if (status == RC_OK && t->integer != NULL) {
-            void *entry = (uint8_t *)t->code.mapping + integer_plan.batch;
+    return rc_emit(program,NULL,0,&compilation->emitted,error);
+}
+
+static enum rc_status map_translation(struct rc_runtime *r, struct translation *t,
+                                        struct compilation *compilation, struct rc_error *error)
+{
+    enum rc_status status;
+    if (t->integer != NULL && pack_integer(r,t,&compilation->integer,&status,error))
+        return status;
+
+    bool allocated;
+    if (t->integer != NULL) {
+        status = rc_integer_map_prepared(&compilation->integer,compilation->mapped,
+            &t->code,&t->integer_function,&allocated,error);
+        if (status == RC_OK) {
+            void *entry = (uint8_t *)t->code.mapping + compilation->integer.batch;
             memcpy(&t->batch_function,&entry,sizeof(t->batch_function));
         }
-        size_t peak = r->stats.executable_bytes + (allocated ? mapped : 0);
-        if (peak > r->stats.peak_executable_bytes)
-            r->stats.peak_executable_bytes = peak;
-        /* Includes mappings retained when both generation and rollback fail. */
-        if (status != RC_OK && t->code.mapping != NULL) {
-            add(&r->stats.release_failures, 1);
-            r->stats.last_cache_error = error;
-        }
-        r->stats.executable_bytes += t->code.size;
+    } else {
+        status = rc_map_program(&compilation->program,compilation->mapped,&t->code,&allocated,error);
     }
-    rc_program_free(&prepared);
-    uint64_t cost = elapsed(start, now_ns());
+    size_t peak = r->stats.executable_bytes + (allocated ? compilation->mapped : 0);
+    if (peak > r->stats.peak_executable_bytes)
+        r->stats.peak_executable_bytes = peak;
+    /* Includes mappings retained when both generation and rollback fail. */
+    if (status != RC_OK && t->code.mapping != NULL) {
+        add(&r->stats.release_failures,1);
+        r->stats.last_cache_error = *error;
+    }
+    r->stats.executable_bytes += t->code.size;
+    return status;
+}
+
+static void record_compilation(struct rc_runtime *r, struct function *f,
+                                  const struct compilation *compilation, enum rc_status status,
+                                  const struct rc_error *error, uint64_t cost)
+{
+    struct translation *t = f->translation;
     add(&f->stats.compilation_ns, cost);
     if (cost == 0)
         add(&f->stats.timing_failures, 1);
     if (status == RC_OK) {
-        if (t->integer != NULL) t->batch_offset = integer_plan.batch;
-        t->generated = emitted;
-        f->stats.generated_size = emitted;
+        if (t->integer != NULL) t->batch_offset = compilation->integer.batch;
+        t->generated = compilation->emitted;
+        f->stats.generated_size = compilation->emitted;
         f->stats.last_compile_error = (struct rc_error){0};
         add(&f->stats.compilations, 1);
         add(&r->stats.compilations, 1);
@@ -783,7 +786,7 @@ static void compile_translation(struct rc_runtime *r, struct function *f, bool c
             r->compile_cost = r->compile_cost - r->compile_cost / 8 + cost / 8;
         touch(r, t);
     } else {
-        f->stats.last_compile_error = error;
+        f->stats.last_compile_error = *error;
         add(&f->stats.compilation_failures, 1);
         add(&r->stats.compilation_failures, 1);
         if (status == RC_CAPACITY)
@@ -794,6 +797,42 @@ static void compile_translation(struct rc_runtime *r, struct function *f, bool c
             delay = rc_saturating_add(delay, delay);
         t->retry_after = rc_saturating_add(t->invocations, delay);
     }
+}
+
+static void compile_translation(struct rc_runtime *r, struct function *f, bool cold)
+{
+    struct translation *t = f->translation;
+    struct rc_error error = {0};
+    struct compilation compilation;
+    compilation.program = (struct rc_program){0};
+    compilation.emitted = 0;
+    compilation.mapped = 0;
+    uint64_t start = now_ns();
+    add(&f->stats.compilation_attempts,1);
+    enum rc_status status = RC_OK;
+    if (t->code.mapping != NULL) {
+        status = release_mapping(r,t,&error);
+        if (status != RC_OK)
+            goto done;
+    }
+    status = prepare_translation(t,r->config.optimize,&compilation,&error);
+    if (status != RC_OK)
+        goto done;
+    if (compilation.emitted > SIZE_MAX - (r->page_size - 1)) {
+        status = rc_fail(&error,RC_MEMORY,0,0);
+        goto done;
+    }
+    compilation.mapped = (compilation.emitted + r->page_size - 1) / r->page_size * r->page_size;
+    if (cold && compilation.mapped > r->config.executable_budget - r->stats.executable_bytes) {
+        status = rc_fail(&error,RC_CAPACITY,0,0);
+        goto done;
+    }
+    status = make_room(r,compilation.mapped,&error);
+    if (status == RC_OK)
+        status = map_translation(r,t,&compilation,&error);
+done:
+    rc_program_free(&compilation.program);
+    record_compilation(r,f,&compilation,status,&error,elapsed(start,now_ns()));
 }
 
 struct trace_call {
@@ -1050,6 +1089,44 @@ static void retire_unprofitable(struct rc_runtime *r, struct function *f)
     f->slow_native_samples = 0;
 }
 
+static void begin_trace_call(struct trace_call *call, struct rc_runtime *r, struct function *f)
+{
+    struct translation *t = f->translation;
+    *call = (struct trace_call){.runtime = r, .function = f};
+    ++t->pins;
+    for (size_t i = 0; i < t->trace_count; ++i) {
+        call->views[i].header = t->traces[i].trace.header;
+        call->blocked[i] = t->traces[i].disabled;
+        if (t->invocations > t->traces[i].retry_after)
+            call->views[i].function = t->traces[i].function;
+        if (call->views[i].function != NULL) add(&call->stats.trace_hits,1);
+    }
+    if (has_mapping(t)) touch(r,t);
+}
+
+static void finish_trace_call(struct trace_call *call)
+{
+    struct rc_runtime *r = call->runtime;
+    struct function *f = call->function;
+    struct translation *t = f->translation;
+    --t->pins;
+    /* Each candidate exits at most once per call. Merge feedback under the
+     * completion lock, retaining pins until all native snapshots are done. */
+    for (size_t i = 0; i < t->trace_count; ++i) {
+        uint32_t bit = UINT32_C(1) << i;
+        if ((call->exits & bit) == 0) continue;
+        struct trace_slot *slot = &t->traces[i];
+        if ((call->short_exits & bit) != 0) ++slot->short_exits;
+        else slot->short_exits = 0;
+        if (slot->short_exits >= 8) {
+            slot->retry_after = rc_saturating_add(t->invocations,r->config.retry_calls);
+            slot->short_exits = 0;
+            add(&call->stats.trace_retirements,1);
+        }
+    }
+    merge_trace_stats(&f->stats,&call->stats);
+}
+
 static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
                                     const uint64_t *arguments, size_t count, bool integer,
                                     const struct rc_memory_view *view,
@@ -1085,18 +1162,8 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
     add(&t->invocations, 1);
     bool tracing = r->config.policy == RC_POLICY_TRACE;
     struct trace_call trace_call;
-    if (tracing) {
-        trace_call = (struct trace_call){.runtime = r, .function = f};
-        ++t->pins;
-        for (size_t i = 0; i < t->trace_count; ++i) {
-            trace_call.views[i].header = t->traces[i].trace.header;
-            trace_call.blocked[i] = t->traces[i].disabled;
-            if (t->invocations > t->traces[i].retry_after)
-                trace_call.views[i].function = t->traces[i].function;
-            if (trace_call.views[i].function != NULL) add(&trace_call.stats.trace_hits,1);
-        }
-        if (has_mapping(t)) touch(r,t);
-    }
+    if (tracing)
+        begin_trace_call(&trace_call,r,f);
     uint64_t tick = 0;
     /* Every handle starts in the interpreter, even if an alias has cached code. */
     if (f->stats.interpreted != 0 && (t->code.function != NULL || t->integer_function != NULL)) {
@@ -1152,24 +1219,8 @@ static enum rc_status runtime_call(struct rc_runtime *r, rc_handle handle,
     uint64_t duration = sample ? elapsed(start, now_ns()) : 0;
 
     pthread_mutex_lock(&r->mutex);
-    if (tracing) {
-        --t->pins;
-        /* Each candidate exits at most once per call. Merge feedback under the
-         * completion lock, retaining pins until all native snapshots are done. */
-        for (size_t i = 0; i < t->trace_count; ++i) {
-            uint32_t bit = UINT32_C(1) << i;
-            if ((trace_call.exits & bit) == 0) continue;
-            struct trace_slot *slot = &t->traces[i];
-            if ((trace_call.short_exits & bit) != 0) ++slot->short_exits;
-            else slot->short_exits = 0;
-            if (slot->short_exits >= 8) {
-                slot->retry_after = rc_saturating_add(t->invocations,r->config.retry_calls);
-                slot->short_exits = 0;
-                add(&trace_call.stats.trace_retirements,1);
-            }
-        }
-        merge_trace_stats(&f->stats,&trace_call.stats);
-    }
+    if (tracing)
+        finish_trace_call(&trace_call);
     if (compiled)
         --t->pins;
     record_execution(f, compiled, 1, sample ? 1 : 0, duration);
@@ -1274,6 +1325,101 @@ static enum rc_status validate_batch(const struct rc_integer_batch_item *items, 
     return malformed ? rc_fail(error,RC_ARGUMENT,0,0) : RC_OK;
 }
 
+struct batch_execution {
+    const struct rc_integer_program *program;
+    rc_integer_function native;
+    rc_integer_batch_function batch_native;
+    uint64_t first_invocation, prior_samples, sample_period;
+    uint64_t samples, nanoseconds, timing_failures;
+    size_t attempted;
+};
+
+/* Native pins and the active handle keep code and IR alive until feedback is
+ * merged under the completion lock. */
+static enum rc_status execute_integer_batch(struct batch_execution *call,
+                                              const struct rc_integer_batch_item *items,
+                                              const struct rc_integer_record_batch *records,
+                                              size_t count, uint64_t *results,
+                                              size_t *completed, struct rc_error *error)
+{
+    rc_integer_view_function memory_native = NULL;
+    if (call->native != NULL && call->program->memory)
+        memcpy(&memory_native,&call->native,sizeof(memory_native));
+    size_t n = 0;
+    while (n < count) {
+        size_t run = call->native != NULL ? rc_unsampled_run(rc_saturating_add(call->first_invocation,n),
+            rc_saturating_add(call->prior_samples,call->samples),count-n,call->sample_period) : 0;
+        if (run != 0) {
+            const void *first = items != NULL ? (const void *)(items+n) : NULL;
+            size_t stride = sizeof(*items);
+            if (records != NULL) {
+                first = records->records != NULL
+                    ? (const uint8_t *)records->records+n*records->stride : NULL;
+                stride = records->stride;
+            }
+            struct rc_integer_batch_context context = {first,results+n,run,0,0,records,stride};
+            enum rc_status status = call->batch_native(&context);
+            call->attempted += context.completed + (status != RC_OK ? 1u : 0u);
+            n += context.completed;
+            *completed = n;
+            if (status != RC_OK)
+                return rc_fail(error,status,context.offset,0);
+            if (n == count)
+                break;
+        }
+        uint64_t record_arguments[2];
+        const uint64_t *arguments;
+        size_t arity = call->program->arguments;
+        struct rc_memory_view memory;
+        if (records != NULL) {
+            const uint8_t *record = records->records != NULL
+                ? (const uint8_t *)records->records+n*records->stride : NULL;
+            for (size_t arg = 0; arg < arity; ++arg)
+                memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
+            arguments = record_arguments;
+            memory = (struct rc_memory_view){record != NULL ? record+records->view_offset : NULL,records->view_length};
+        } else {
+            arguments = items[n].arguments;
+            memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
+        }
+        /* A native run stops exactly at a required sample. */
+        bool sample = call->native != NULL || rc_saturating_add(call->prior_samples,call->samples) < 8 ||
+            rc_saturating_add(call->first_invocation,n) % call->sample_period == 0;
+        uint64_t start = sample ? now_ns() : 0;
+        uint64_t value;
+        enum rc_status status = RC_OK;
+        ++call->attempted;
+        if (memory_native != NULL) {
+            uint64_t a = arity > 0 ? arguments[0] : 0;
+            uint64_t b = arity > 1 ? arguments[1] : 0;
+            struct rc_integer_result output;
+            status = memory_native(a,b,memory.data,memory.length,&output);
+            if (status == RC_OK)
+                value = output.value;
+            else
+                *error = (struct rc_error){status,output.offset,0};
+        } else if (call->native != NULL) {
+            uint64_t a = arity > 0 ? arguments[0] : 0;
+            uint64_t b = arity > 1 ? arguments[1] : 0;
+            value = call->native(a,b);
+        } else {
+            status = rc_integer_interpret_validated(call->program,arguments,memory,0,&value,error);
+        }
+        if (sample) {
+            uint64_t duration = elapsed(start,now_ns());
+            add(&call->samples,1);
+            add(&call->nanoseconds,duration);
+            if (duration == 0)
+                add(&call->timing_failures,1);
+        }
+        if (status != RC_OK)
+            return status;
+        results[n++] = value;
+        *completed = n;
+    }
+    return RC_OK;
+}
+
 static enum rc_status runtime_integer_batch(struct rc_runtime *r, rc_handle handle,
                                               const struct rc_integer_batch_item *items,
                                               const struct rc_integer_record_batch *records,
@@ -1314,90 +1460,41 @@ static enum rc_status runtime_integer_batch(struct rc_runtime *r, rc_handle hand
         if (t->integer_function == NULL && (should_compile_cold_batch(r,f,count) || should_compile(r,f,tick)))
             compile_translation(r,f,f->stats.interpreted == 0);
     }
-    rc_integer_function native = allow_native ? t->integer_function : NULL;
-    rc_integer_batch_function batch_native = native != NULL ? t->batch_function : NULL;
-    rc_integer_view_function memory_native = NULL;
-    if (native != NULL) {
-        ++t->pins; touch(r,t); f->stats.generated_size = t->generated;
-        if (t->integer->memory) memcpy(&memory_native,&native,sizeof(memory_native));
+    struct batch_execution call = {
+        .program = t->integer,
+        .native = allow_native ? t->integer_function : NULL,
+        .first_invocation = f->stats.invocations,
+        .sample_period = r->config.sample_period
+    };
+    bool compiled = call.native != NULL;
+    if (compiled) {
+        call.batch_native = t->batch_function;
+        ++t->pins;
+        touch(r,t);
+        f->stats.generated_size = t->generated;
     }
-    update_window(r, f, tick);
-    uint64_t base = f->stats.invocations;
-    uint64_t prior_samples = native != NULL ? f->stats.compiled_samples : f->stats.interpreted_samples;
+    call.prior_samples = compiled ? f->stats.compiled_samples : f->stats.interpreted_samples;
+    update_window(r,f,tick);
     pthread_mutex_unlock(&r->mutex);
 
-    uint64_t samples = 0, nanoseconds = 0, timing_failures = 0;
-    size_t attempted = 0;
     struct rc_error execution = {0};
-    for (size_t n = 0; n < count; ++n) {
-        size_t run = native != NULL ? rc_unsampled_run(rc_saturating_add(base,n),
-            rc_saturating_add(prior_samples,samples),count-n,r->config.sample_period) : 0;
-        if (run != 0) {
-            const void *first = records != NULL ? (records->records != NULL
-                ? (const uint8_t *)records->records+n*records->stride : NULL) : (const void *)(items+n);
-            struct rc_integer_batch_context context = {first,results+n,run,0,0,records,
-                records != NULL ? records->stride : sizeof(*items)};
-            status = batch_native(&context);
-            attempted += context.completed + (status != RC_OK ? 1u : 0u);
-            n += context.completed;
-            if (status != RC_OK) execution = (struct rc_error){status,context.offset,0};
-            *completed = n;
-            if (status != RC_OK || n == count) break;
-        }
-        uint64_t record_arguments[2];
-        const uint64_t *arguments;
-        size_t arity = t->integer->arguments;
-        struct rc_memory_view memory;
-        if (records != NULL) {
-            const uint8_t *record = records->records != NULL
-                ? (const uint8_t *)records->records+n*records->stride : NULL;
-            for (size_t arg = 0; arg < arity; ++arg)
-                memcpy(record_arguments+arg,record+records->argument_offsets[arg],sizeof(uint64_t));
-            arguments = record_arguments;
-            memory = (struct rc_memory_view){record != NULL ? record+records->view_offset : NULL,records->view_length};
-        } else {
-            arguments = items[n].arguments;
-            memory = items[n].view != NULL ? *items[n].view : (struct rc_memory_view){0};
-        }
-        /* A native run stops exactly at a required sample. */
-        bool sample = native != NULL || rc_saturating_add(prior_samples,samples) < 8 ||
-            rc_saturating_add(base,n) % r->config.sample_period == 0;
-        uint64_t start = sample ? now_ns() : 0, value;
-        ++attempted;
-        if (memory_native != NULL) {
-            uint64_t a = arity > 0 ? arguments[0] : 0;
-            uint64_t b = arity > 1 ? arguments[1] : 0;
-            struct rc_integer_result output;
-            status = memory_native(a,b,memory.data,memory.length,&output);
-            if (status == RC_OK) value = output.value;
-            else execution = (struct rc_error){status,output.offset,0};
-        } else if (native != NULL) {
-            uint64_t a = arity > 0 ? arguments[0] : 0;
-            uint64_t b = arity > 1 ? arguments[1] : 0;
-            value = native(a,b);
-        } else status = rc_integer_interpret_validated(t->integer,arguments,memory,0,&value,&execution);
-        if (sample) {
-            uint64_t duration = elapsed(start,now_ns());
-            add(&samples,1); add(&nanoseconds,duration);
-            if (duration == 0) add(&timing_failures,1);
-        }
-        if (status != RC_OK) break;
-        results[n] = value;
-        ++*completed;
-    }
+    status = execute_integer_batch(&call,items,records,count,results,completed,&execution);
 
     pthread_mutex_lock(&r->mutex);
     /* The first invocation was reserved before tier selection; account only
      * attempted records, including a fault, when the batch completes. */
-    add(&f->stats.invocations,attempted-1); add(&r->stats.invocations,attempted-1);
-    add(&t->invocations,attempted-1); add(&f->window_calls,attempted);
-    add(&f->stats.timing_failures,timing_failures);
-    if (native != NULL)
+    add(&f->stats.invocations,call.attempted-1);
+    add(&r->stats.invocations,call.attempted-1);
+    add(&t->invocations,call.attempted-1);
+    add(&f->window_calls,call.attempted);
+    add(&f->stats.timing_failures,call.timing_failures);
+    if (compiled)
         --t->pins;
-    record_execution(f, native != NULL, attempted, samples, nanoseconds);
-    if (native != NULL && f->stats.interpreted_samples != 0)
+    record_execution(f, compiled, call.attempted, call.samples, call.nanoseconds);
+    if (compiled && f->stats.interpreted_samples != 0)
         retire_unprofitable(r, f);
-    --f->active; --r->stats.active_calls;
+    --f->active;
+    --r->stats.active_calls;
     pthread_mutex_unlock(&r->mutex);
     if (error != NULL) *error = execution;
     return status;
