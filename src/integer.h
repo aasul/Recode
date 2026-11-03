@@ -50,6 +50,7 @@ enum rc_status rc_integer_prepare(const struct rc_integer_program *program,
                                    struct rc_integer_plan *plan, struct rc_error *error);
 enum rc_status rc_integer_prepare_batch(const struct rc_integer_program *program,
                                          struct rc_integer_plan *plan, struct rc_error *error);
+void rc_integer_write_prepared(struct rc_integer_plan *plan, uint8_t *bytes);
 enum rc_status rc_integer_map_prepared(struct rc_integer_plan *plan, size_t mapped,
                                         struct rc_code *code, rc_integer_function *function,
                                         bool *allocated, struct rc_error *error);

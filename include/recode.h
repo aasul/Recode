@@ -110,6 +110,8 @@ struct rc_runtime_stats {
     size_t metadata_bytes, program_bytes; /* Persistent requested bytes, excludes allocator overhead. */
     size_t functions, translations, active_calls;
     struct rc_error last_cache_error; /* Last failed mapping release, including deferred cleanup. */
+    size_t generated_bytes, occupied_bytes, slab_free_bytes;
+    size_t executable_mappings, retired_executable_bytes;
 };
 
 struct rc_runtime_config rc_runtime_default_config(void);

@@ -313,6 +313,16 @@ enum rc_status rc_integer_emit(const struct rc_integer_program *p, uint8_t *byte
     return rc_fail(error,RC_OK,0,0);
 }
 
+void rc_integer_write_prepared(struct rc_integer_plan *plan, uint8_t *bytes)
+{
+    struct output output = {bytes,0};
+    (void)emit_body(plan->program,&plan->allocation,&output,plan->offsets,plan->failure,NULL);
+    if (plan->batch != 0) {
+        while (output.count < plan->batch) byte(&output,0x90);
+        (void)emit_body(plan->program,&plan->allocation,&output,plan->batch_offsets,plan->batch_failure,plan);
+    }
+}
+
 enum rc_status rc_integer_map_prepared(struct rc_integer_plan *plan, size_t mapped,
                                struct rc_code *code, rc_integer_function *function,
                                bool *allocated, struct rc_error *error)
@@ -324,12 +334,7 @@ enum rc_status rc_integer_map_prepared(struct rc_integer_plan *plan, size_t mapp
     if (mapping == MAP_FAILED) return rc_fail(error, RC_SYSTEM, 0, errno);
     *allocated = true;
     *code = (struct rc_code){mapping, mapped, NULL};
-    struct output output = {mapping,0};
-    (void)emit_body(plan->program,&plan->allocation,&output,plan->offsets,plan->failure,NULL);
-    if (plan->batch != 0) {
-        while (output.count < plan->batch) byte(&output,0x90);
-        (void)emit_body(plan->program,&plan->allocation,&output,plan->batch_offsets,plan->batch_failure,plan);
-    }
+    rc_integer_write_prepared(plan,mapping);
     if (mprotect(mapping, mapped, PROT_READ | PROT_EXEC) != 0) {
         enum rc_status status = rc_fail(error,RC_SYSTEM,0,errno);
         struct rc_error cleanup;
