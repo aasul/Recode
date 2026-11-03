@@ -728,6 +728,123 @@ static void test_slab_failures(void)
     }
 }
 
+static void test_shared_slab_failures(void)
+{
+    for (unsigned mode = 0; mode < 5; ++mode) {
+        struct rc_runtime_config config = rc_runtime_default_config();
+        config.policy = RC_POLICY_FIXED;
+        config.hot_threshold = 2;
+        config.executable_budget = 3 * (size_t)sysconf(_SC_PAGESIZE);
+        struct rc_runtime *r = NULL;
+        CHECK(rc_runtime_create(&config,&r,NULL) == RC_OK);
+        rc_handle handles[] = {constant_handle(r,11),constant_handle(r,22),constant_handle(r,33)};
+        uint64_t value;
+        for (size_t i = 0; i < 2; ++i)
+            for (unsigned n = 0; n < 2; ++n)
+                CHECK(rc_runtime_call_integer(r,handles[i],NULL,0,&value,NULL) == RC_OK && value == 11*(i+1));
+        struct rc_runtime_stats stats;
+        CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK && stats.executable_mappings == 1);
+        CHECK(rc_runtime_call_integer(r,handles[2],NULL,0,&value,NULL) == RC_OK && value == 33);
+        malloc_calls = 0;
+        fail_at = mode == 0 ? 1 : 0;
+        fail_map = mode == 1;
+        fail_protect = mode == 2 || mode == 3;
+        fail_release = mode >= 3;
+        CHECK(rc_runtime_call_integer(r,handles[2],NULL,0,&value,NULL) == RC_OK && value == 33);
+        CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK && stats.executable_bytes == live_bytes);
+        CHECK(stats.retired_executable_bytes == (mode >= 3 ? (size_t)sysconf(_SC_PAGESIZE) : 0));
+        CHECK(function_stats(r,handles[2]).compilations == (mode == 4 ? 1u : 0u));
+        CHECK(function_stats(r,handles[2]).compilation_failures == (mode == 4 ? 0u : 1u));
+        /* Neither failed replacement nor failed retirement invalidates members
+         * of the previously published snapshot. Check both relocated entries. */
+        for (size_t i = 0; i < 2; ++i) {
+            uint64_t jitted = function_stats(r,handles[i]).jitted;
+            CHECK(rc_runtime_call_integer(r,handles[i],NULL,0,&value,NULL) == RC_OK && value == 11*(i+1));
+            CHECK(function_stats(r,handles[i]).jitted == jitted+1);
+        }
+        if (mode >= 3)
+            CHECK(rc_runtime_destroy(&r,NULL) == RC_SYSTEM && r != NULL);
+        fail_at = 0;
+        fail_map = fail_protect = fail_release = false;
+        CHECK(rc_runtime_clear(r,NULL) == RC_OK);
+        CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK && stats.executable_bytes == 0);
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+        CHECK(live_maps == 0 && live_allocations == 0);
+    }
+}
+
+static void test_profile_accounting(void)
+{
+    const uint64_t periods[] = {1,3,16,UINT64_MAX};
+    fake_clock = true;
+    clock_step = 1000;
+    for (size_t period = 0; period < sizeof(periods)/sizeof(*periods); ++period) {
+        struct rc_runtime_config config = rc_runtime_default_config();
+        config.policy = RC_POLICY_FIXED;
+        config.hot_threshold = 2;
+        config.sample_period = periods[period];
+        struct rc_runtime *r = NULL;
+        CHECK(rc_runtime_create(&config,&r,NULL) == RC_OK);
+        rc_handle handle = constant_handle(r,77);
+        struct rc_integer_batch_item items[33] = {{0}};
+        uint64_t results[33], value;
+        size_t completed;
+        CHECK(rc_runtime_call_integer(r,handle,NULL,0,&value,NULL) == RC_OK && value == 77);
+        CHECK(rc_runtime_call_integer_batch(r,handle,items,33,results,33,&completed,NULL) == RC_OK && completed == 33);
+        for (size_t n = 0; n < 33; ++n)
+            CHECK(results[n] == 77);
+        uint64_t samples = 0;
+        for (uint64_t invocation = 2; invocation <= 34; ++invocation)
+            if (samples < 8 || invocation % periods[period] == 0)
+                ++samples;
+        struct rc_function_stats stats = function_stats(r,handle);
+        CHECK(stats.invocations == 34 && stats.interpreted == 1 && stats.jitted == 33);
+        CHECK(stats.interpreted_samples == 1 && stats.interpreted_ns == clock_step);
+        CHECK(stats.compiled_samples == samples && stats.compiled_ns == samples*clock_step);
+        CHECK(stats.compilations == 1 && stats.cache_hits == 0 && stats.cache_misses == 2);
+        CHECK(stats.timing_failures == 0);
+        CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    }
+    fake_clock = false;
+}
+
+static void test_batch_policy(void)
+{
+    struct rc_runtime_config config = rc_runtime_default_config();
+    config.policy = RC_POLICY_ADAPTIVE;
+    config.hot_threshold = 2;
+    config.sample_period = 1;
+    config.initial_compile_ns = 1000;
+    config.initial_native_ns = 10;
+    config.executable_budget = (size_t)sysconf(_SC_PAGESIZE);
+    fake_clock = true;
+    clock_step = 1000;
+    struct rc_runtime *r = NULL;
+    CHECK(rc_runtime_create(&config,&r,NULL) == RC_OK);
+    rc_handle handle = constant_handle(r,77);
+    struct rc_integer_batch_item items[8] = {{0}};
+    uint64_t results[8];
+    size_t completed;
+    CHECK(rc_runtime_call_integer_batch(r,handle,items,8,results,8,&completed,NULL) == RC_OK);
+    CHECK(function_stats(r,handle).interpreted_samples == 8);
+    clock_step = 10;
+    CHECK(rc_runtime_call_integer_batch(r,handle,items,8,results,8,&completed,NULL) == RC_OK);
+    CHECK(function_stats(r,handle).compilations == 1 && function_stats(r,handle).jitted == 8);
+    clock_step = 100000;
+    for (unsigned batch = 0; batch < 8; ++batch) {
+        CHECK(rc_runtime_call_integer_batch(r,handle,items,8,results,8,&completed,NULL) == RC_OK && completed == 8);
+        for (size_t n = 0; n < 8; ++n)
+            CHECK(results[n] == 77);
+        struct rc_runtime_stats stats;
+        CHECK(rc_runtime_get_stats(r,&stats,NULL) == RC_OK);
+        /* Retirement counts batch means, not each sample within the batch. */
+        CHECK(stats.executable_bytes == (batch == 7 ? 0 : config.executable_budget));
+    }
+    CHECK(function_stats(r,handle).jitted == 72);
+    CHECK(rc_runtime_destroy(&r,NULL) == RC_OK);
+    fake_clock = false;
+}
+
 static void test_cold_failures(void)
 {
     struct rc_integer_program *p = NULL; CHECK(integer_build(&p) == RC_OK);
@@ -860,6 +977,9 @@ static void test_batch_failures(void)
 
 int main(void)
 {
+    test_batch_policy();
+    test_profile_accounting();
+    test_shared_slab_failures();
     test_slab_pins(); test_slab_failures(); test_cold_failures(); test_batch_failures(); test_memory_failures(); test_integer_failures(); test_trace_registration(); test_trace_failures(); test_trace_pins(); test_allocations(); test_system_failures(); test_retry_isolation(); test_policy(); test_pins();
     CHECK(live_maps == 0 && live_bytes == 0 && live_allocations == 0);
     puts("runtime allocation, mapping, protection, release, policy timing and execution pin failures passed");
